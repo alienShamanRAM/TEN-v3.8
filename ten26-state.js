@@ -6,6 +6,10 @@ const viewport = document.getElementById('canvas-viewport');
             const minimizeBtn = document.getElementById('minimize-btn');
             const motionMatrixPanel = document.getElementById('motion-matrix-panel');
             const toastRegion = document.getElementById('ui-toast-region');
+            const helpControls = {
+                tooltipsEnabled: document.getElementById('help-tooltips-enabled')
+            };
+            let tooltipsEnabled = helpControls.tooltipsEnabled?.checked !== false;
             let uiToastTimer = null;
             let overlayStatusText = '';
             const TEN26_DOT_RANDOM_COLORS = [
@@ -95,7 +99,7 @@ const viewport = document.getElementById('canvas-viewport');
                 toggle.className = 'motion-layer-icon-btn layer-visibility-btn';
                 toggle.id = `motion-toggle-layer-${layerKey}`;
                 toggle.type = 'button';
-                toggle.title = 'Show or hide this layer.';
+                setNativeTooltip(toggle, 'Show or hide this layer.');
                 toggle.textContent = 'Eye';
                 const trigger = document.createElement('button');
                 trigger.className = 'motion-layer-trigger';
@@ -112,7 +116,7 @@ const viewport = document.getElementById('canvas-viewport');
 
                 const targetSelect = document.createElement('select');
                 targetSelect.id = `dot-${layerKey}-target-type`;
-                targetSelect.title = 'Choose the SVG target points for this layer.';
+                setNativeTooltip(targetSelect, 'Choose the SVG target points for this layer.');
                 [
                     ['fill', 'Fill'],
                     ['path', 'Path'],
@@ -357,7 +361,7 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!button) return;
                 button.innerHTML = UI_ICONS[iconName] || '';
                 button.setAttribute('aria-label', label);
-                button.title = label;
+                setNativeTooltip(button, label);
             }
 
             function createMotionCategoryColumn(label) {
@@ -394,7 +398,7 @@ const viewport = document.getElementById('canvas-viewport');
                         button.id = `motion-move-${direction}-${layerKey}`;
                         button.className = 'motion-layer-icon-btn motion-layer-reorder-btn';
                         button.textContent = direction === 'up' ? '▲' : '▼';
-                        button.title = `${direction === 'up' ? 'Move layer up' : 'Move layer down'}.`;
+                        setNativeTooltip(button, `${direction === 'up' ? 'Move layer up' : 'Move layer down'}.`);
                         actions.appendChild(button);
                     });
                     ['randomize-text', 'unlock', 'reset'].forEach(actionKey => {
@@ -417,7 +421,7 @@ const viewport = document.getElementById('canvas-viewport');
                     deleteButton.id = `motion-delete-${layerKey}`;
                     deleteButton.className = 'motion-layer-icon-btn motion-layer-delete-btn';
                     deleteButton.textContent = 'X';
-                    deleteButton.title = 'Delete layer.';
+                    setNativeTooltip(deleteButton, 'Delete layer.');
                     actions.appendChild(deleteButton);
                     if (actions.children.length) header.appendChild(actions);
 
@@ -869,12 +873,13 @@ const viewport = document.getElementById('canvas-viewport');
                 })[character]);
             }
 
-            function overlayMetric(label, value) {
-                return `<span>${escapeOverlayText(label)}</span> <span class="overlay-value">${escapeOverlayText(value)}</span>`;
+            function overlayMetric(label, value, options = {}) {
+                const emphasisClass = options.important ? ' overlay-value-important' : '';
+                return `<span>${escapeOverlayText(label)}</span> <span class="overlay-value${emphasisClass}">${escapeOverlayText(value)}</span>`;
             }
 
-            function renderOverlayLine(label, value) {
-                return `<div class="overlay-line">${overlayMetric(label, value)}</div>`;
+            function renderOverlayLine(label, value, options = {}) {
+                return `<div class="overlay-line">${overlayMetric(label, value, options)}</div>`;
             }
 
             function renderOverlayMarkup(realtimeParts, staticParts) {
@@ -891,7 +896,7 @@ const viewport = document.getElementById('canvas-viewport');
 
             function updateViewStatus() {
                 const scale = Math.round((parseFloat(viewControls.scale?.value) || 100));
-                const frameCap = clamp(parseInt(viewControls.frameRate?.value, 10) || 60, 30, 120);
+                const frameCap = clamp(parseInt(viewControls.frameRate?.value, 10) || 120, 30, 120);
                 const dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100;
                 const text = `Canvas ${STUDIO_WIDTH} x ${STUDIO_HEIGHT} · Window ${window.innerWidth} x ${window.innerHeight} · View ${scale}% · Browser ${browserZoomPercent}% · Frame cap ${frameCap} fps · Device pixel ratio ${dpr}`;
                 if (viewControls.status) viewControls.status.textContent = text;
@@ -910,7 +915,7 @@ const viewport = document.getElementById('canvas-viewport');
                             realtimeParts.push(renderOverlayLine('Transition', info.transitionState || 'Idle'));
                             realtimeParts.push(renderOverlayLine('Active Layer', info.activeLayer || '-'));
                             realtimeParts.push(renderOverlayLine('Dots', info.dotCount));
-                            realtimeParts.push(renderOverlayLine('FPS', `${overlayFrameStats.fps} / worst ${overlayFrameStats.worst}`));
+                            realtimeParts.push(renderOverlayLine('FPS', `${overlayFrameStats.fps} / worst ${overlayFrameStats.worst}`, { important: true }));
                             realtimeParts.push(renderOverlayLine('Cache', info.cache || 'Ready'));
                             realtimeParts.push(renderOverlayLine('Action', info.action || '-'));
                             realtimeParts.push(renderOverlayLine('Mask', info.mask || 'clear'));
@@ -1190,7 +1195,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'preset-import-file': 'Import a saved TEN26 preset JSON file.',
                 'view-fit-btn': 'Fit the full canvas inside the current browser window.',
                 'fullscreen-enter-btn': 'Enter browser fullscreen mode.',
-                'fullscreen-exit-btn': 'Exit browser fullscreen mode.'
+                'fullscreen-exit-btn': 'Exit browser fullscreen mode.',
+                'help-tooltips-enabled': 'Show native browser tooltips.'
             };
 
             ALL_DOT_LAYER_KEYS.forEach(layerKey => {
@@ -1234,6 +1240,32 @@ const viewport = document.getElementById('canvas-viewport');
                 CONTROL_TOOLTIPS[`motion-delete-${layerKey}`] = `${label}: delete this layer.`;
             });
 
+            function setNativeTooltip(node, tip) {
+                if (!node || !tip) return;
+                node.dataset.tooltipText = tip;
+                if (tooltipsEnabled) node.title = tip;
+                else node.removeAttribute('title');
+            }
+
+            function clearNativeTooltips() {
+                document.querySelectorAll('[title], [data-tooltip-text]').forEach(node => {
+                    const existing = node.getAttribute('title');
+                    if (existing && !node.dataset.tooltipText) node.dataset.tooltipText = existing;
+                    node.removeAttribute('title');
+                });
+            }
+
+            function syncTooltipPreference() {
+                tooltipsEnabled = helpControls.tooltipsEnabled?.checked !== false;
+                document.body?.classList.toggle('tooltips-disabled', !tooltipsEnabled);
+                if (!tooltipsEnabled) {
+                    clearNativeTooltips();
+                    return;
+                }
+                applySliderTooltips();
+                applyNativeTooltips();
+            }
+
             function applySliderTooltips() {
                 document.querySelectorAll('input[type="range"]').forEach(slider => {
                     const label = slider.closest('.slider-group')?.querySelector('span')?.textContent?.trim() || slider.id;
@@ -1241,16 +1273,17 @@ const viewport = document.getElementById('canvas-viewport');
                     const group = slider.closest('.slider-group');
                     if (!group) return;
                     delete group.dataset.tooltip;
-                    group.title = tip;
-                    slider.title = tip;
+                    setNativeTooltip(group, tip);
+                    setNativeTooltip(slider, tip);
                     const labelNode = group.querySelector('span');
-                    if (labelNode) labelNode.title = tip;
+                    if (labelNode) setNativeTooltip(labelNode, tip);
                 });
             }
 
             function readableControlName(node) {
                 if (!node) return 'control';
                 const text = node.getAttribute('aria-label')
+                    || node.dataset.tooltipText
                     || node.title
                     || node.textContent?.trim()
                     || node.closest('.compact-color')?.querySelector('.compact-color-label')?.textContent?.trim()
@@ -1265,52 +1298,56 @@ const viewport = document.getElementById('canvas-viewport');
                 document.querySelectorAll('button, select, input, .file-upload-btn, .checkbox-switch, .color-picker-wrapper, .section-title').forEach(node => {
                     const directTip = MODULE_TOOLTIPS[node.id] || CONTROL_TOOLTIPS[node.id];
                     if (directTip) {
-                        node.title = directTip;
+                        setNativeTooltip(node, directTip);
                         return;
                     }
                     if (node.matches?.('[data-view-scale]')) {
-                        node.title = `Set preview scale to ${node.dataset.viewScale}%.`;
+                        setNativeTooltip(node, `Set preview scale to ${node.dataset.viewScale}%.`);
                         return;
                     }
                     if (node.classList?.contains('layer-tab')) {
-                        node.title = `Edit the ${readableControlName(node)} grid layout controls.`;
+                        setNativeTooltip(node, `Edit the ${readableControlName(node)} grid layout controls.`);
                         return;
                     }
                     if (node.classList?.contains('section-title')) {
-                        node.title = SECTION_TOOLTIPS[readableControlName(node)] || readableControlName(node);
+                        setNativeTooltip(node, SECTION_TOOLTIPS[readableControlName(node)] || readableControlName(node));
                         return;
                     }
                     if (node.classList?.contains('drawer-trigger')) {
-                        node.title = readableControlName(node);
+                        setNativeTooltip(node, readableControlName(node));
                         return;
                     }
                     if (node.classList?.contains('motion-layer-trigger')) {
-                        node.title = readableControlName(node);
+                        setNativeTooltip(node, readableControlName(node));
                         return;
                     }
-                    if (node.title) return;
+                    const existingTip = node.dataset.tooltipText || node.getAttribute('title');
+                    if (existingTip) {
+                        setNativeTooltip(node, existingTip);
+                        return;
+                    }
                     if (node.matches?.('select')) {
-                        node.title = 'Select how this visual system behaves.';
+                        setNativeTooltip(node, 'Select how this visual system behaves.');
                         return;
                     }
                     if (node.matches?.('input[type="file"]')) {
-                        node.title = CONTROL_TOOLTIPS[node.closest('.file-upload-wrapper')?.querySelector('.file-upload-btn')?.id] || 'Load source artwork.';
+                        setNativeTooltip(node, CONTROL_TOOLTIPS[node.closest('.file-upload-wrapper')?.querySelector('.file-upload-btn')?.id] || 'Load source artwork.');
                         return;
                     }
                     if (node.classList?.contains('checkbox-switch')) {
                         const linkedInput = node.previousElementSibling;
-                        node.title = CONTROL_TOOLTIPS[linkedInput?.id] || 'Enable or disable this visual effect.';
+                        setNativeTooltip(node, CONTROL_TOOLTIPS[linkedInput?.id] || 'Enable or disable this visual effect.');
                         return;
                     }
                     if (node.matches?.('input[type="color"], input[type="text"]')) {
-                        node.title = 'Color value used by the visual.';
+                        setNativeTooltip(node, 'Color value used by the visual.');
                         return;
                     }
                     if (node.matches?.('input[type="checkbox"]')) {
-                        node.title = 'Enable or disable this visual effect.';
+                        setNativeTooltip(node, 'Enable or disable this visual effect.');
                         return;
                     }
-                    node.title = readableControlName(node);
+                    setNativeTooltip(node, readableControlName(node));
                 });
             }
 
@@ -1374,8 +1411,9 @@ const viewport = document.getElementById('canvas-viewport');
                         button.className = 'dot-color-swatch';
                         button.dataset.color = color;
                         button.style.backgroundColor = color;
-                        button.title = `Set dot color ${color}`;
-                        button.setAttribute('aria-label', `Set dot color ${color}`);
+                        const colorTitle = `Set dot color ${color}`;
+                        setNativeTooltip(button, colorTitle);
+                        button.setAttribute('aria-label', colorTitle);
                         button.addEventListener('click', event => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -1531,7 +1569,7 @@ const viewport = document.getElementById('canvas-viewport');
                     }
                     const triggerLabel = motionControls?.trigger?.querySelector('.motion-layer-name, span');
                     if (triggerLabel) triggerLabel.textContent = label;
-                    if (motionControls?.trigger) motionControls.trigger.title = `${label} layer motion physics.`;
+                    if (motionControls?.trigger) setNativeTooltip(motionControls.trigger, `${label} layer motion physics.`);
                     if (gridControls.selectButtons[layerKey]) {
                         gridControls.selectButtons[layerKey].hidden = !active;
                         gridControls.selectButtons[layerKey].style.order = String(order);
@@ -1546,19 +1584,19 @@ const viewport = document.getElementById('canvas-viewport');
                 if (motionLayerControls.rename) setButtonActionable(motionLayerControls.rename, DOT_LAYER_KEYS.length > 0);
                 if (motionLayerControls.addAbove) {
                     motionLayerControls.addAbove.textContent = 'Copy Above';
-                    motionLayerControls.addAbove.title = `Create a copy ABOVE ${activeLabel}`;
+                    setNativeTooltip(motionLayerControls.addAbove, `Create a copy ABOVE ${activeLabel}`);
                 }
                 if (motionLayerControls.addBelow) {
                     motionLayerControls.addBelow.textContent = 'Copy Below';
-                    motionLayerControls.addBelow.title = `Create a copy BELOW ${activeLabel}`;
+                    setNativeTooltip(motionLayerControls.addBelow, `Create a copy BELOW ${activeLabel}`);
                 }
                 if (motionLayerControls.rename) {
                     motionLayerControls.rename.textContent = 'Rename';
-                    motionLayerControls.rename.title = `Rename ${activeLabel}`;
+                    setNativeTooltip(motionLayerControls.rename, `Rename ${activeLabel}`);
                 }
                 if (motionLayerControls.delete) {
                     motionLayerControls.delete.textContent = 'Delete';
-                    motionLayerControls.delete.title = `Delete ${activeLabel}`;
+                    setNativeTooltip(motionLayerControls.delete, `Delete ${activeLabel}`);
                 }
                 DOT_LAYER_KEYS.forEach((layerKey, index) => {
                     const controls = motionLayerControls.layers[layerKey];
@@ -1913,6 +1951,7 @@ const viewport = document.getElementById('canvas-viewport');
                     } catch (error) {
                     }
                     syncRandomRangeVisual(control);
+                    updateActionAvailability();
                 };
                 try {
                     wrap.setPointerCapture?.(pointerId);
@@ -1930,6 +1969,7 @@ const viewport = document.getElementById('canvas-viewport');
                 randomRangeControlState[getRandomRangeId(control)] = { randomMin: min, randomMax: max };
                 normalizeRandomRangeControl(control, { clampValue: true });
                 syncRandomRangeVisual(control);
+                updateActionAvailability();
             }
 
             function resetRandomRangeControls(controls = []) {
@@ -1956,8 +1996,9 @@ const viewport = document.getElementById('canvas-viewport');
                     const thumb = document.createElement('button');
                     thumb.type = 'button';
                     thumb.className = `random-limit-thumb random-limit-thumb-${side}`;
-                    thumb.title = side === 'min' ? 'Minimum randomization value' : 'Maximum randomization value';
-                    thumb.setAttribute('aria-label', thumb.title);
+                    const thumbTitle = side === 'min' ? 'Minimum randomization value' : 'Maximum randomization value';
+                    setNativeTooltip(thumb, thumbTitle);
+                    thumb.setAttribute('aria-label', thumbTitle);
                     thumb.addEventListener('pointerdown', event => beginRandomLimitDrag(event, control, side));
                     wrap.appendChild(thumb);
                 });
@@ -2003,6 +2044,7 @@ const viewport = document.getElementById('canvas-viewport');
                     normalizeRandomRangeControl(control, { clampValue: true });
                     syncRandomRangeVisual(control);
                 });
+                updateActionAvailability();
             }
 
             function copyRandomRangeStateForLayer(sourceLayerKey, targetLayerKey) {
@@ -2015,6 +2057,7 @@ const viewport = document.getElementById('canvas-viewport');
                     const targetControl = document.getElementById(targetId);
                     if (targetControl) syncRandomRangeVisual(targetControl);
                 });
+                updateActionAvailability();
             }
 
             function getControlLockId(control) {
@@ -2099,15 +2142,15 @@ const viewport = document.getElementById('canvas-viewport');
                     if (controls.randomize) setIconButton(controls.randomize, 'dice', 'Randomize motion layer');
                     if (controls.randomizeText) {
                         controls.randomizeText.textContent = 'Random';
-                        controls.randomizeText.title = `Randomize ${label}`;
+                        setNativeTooltip(controls.randomizeText, `Randomize ${label}`);
                     }
                     if (controls.unlock) {
                         controls.unlock.textContent = 'Unlock';
-                        controls.unlock.title = `Unlock ${label}`;
+                        setNativeTooltip(controls.unlock, `Unlock ${label}`);
                     }
                     if (controls.reset) {
                         controls.reset.textContent = 'Reset';
-                        controls.reset.title = `Reset ${label} randomization limits`;
+                        setNativeTooltip(controls.reset, `Reset ${label} randomization limits`);
                     }
                 });
                 updateActionAvailability();
@@ -2162,6 +2205,19 @@ const viewport = document.getElementById('canvas-viewport');
                 return controls.some(control => isControlRandomLocked(control));
             }
 
+            function hasCustomRandomRange(control) {
+                if (!isRandomizableRangeControl(control)) return false;
+                const range = normalizeRandomRangeControl(control);
+                if (!range) return false;
+                const epsilon = 0.000001;
+                return Math.abs(range.randomMin - range.min) > epsilon
+                    || Math.abs(range.randomMax - range.max) > epsilon;
+            }
+
+            function hasCustomRandomRangeControls(controls = []) {
+                return controls.some(hasCustomRandomRange);
+            }
+
             function updateActionAvailability() {
                 const layerDrawers = DOT_LAYER_KEYS
                     .map(layerKey => motionLayerControls.layers[layerKey]?.drawer)
@@ -2173,11 +2229,18 @@ const viewport = document.getElementById('canvas-viewport');
 
                 const hasAnyMotionLock = DOT_LAYER_KEYS.some(layerKey => hasLockedControls(getMotionRandomControls(layerKey)));
                 setButtonActionable(motionLayerControls.unlockAll, hasAnyMotionLock);
+                const hasAnyMotionCustomRange = DOT_LAYER_KEYS.some(layerKey => hasCustomRandomRangeControls(getMotionRandomControls(layerKey)));
+                setButtonActionable(motionLayerControls.resetAll, hasAnyMotionCustomRange);
                 DOT_LAYER_KEYS.forEach(layerKey => {
-                    setButtonActionable(getMotionLayerControls(layerKey).unlock, hasLockedControls(getMotionRandomControls(layerKey)));
+                    const randomControls = getMotionRandomControls(layerKey);
+                    const controls = getMotionLayerControls(layerKey);
+                    setButtonActionable(controls.unlock, hasLockedControls(randomControls));
+                    setButtonActionable(controls.reset, hasCustomRandomRangeControls(randomControls));
                 });
                 setButtonActionable(blinkControls.unlock, hasLockedControls(getBlinkRandomControls()));
+                setButtonActionable(blinkControls.reset, hasCustomRandomRangeControls(getBlinkRandomControls()));
                 setButtonActionable(autoControls.unlock, hasLockedControls(getFlickerRandomControls()));
+                setButtonActionable(autoControls.reset, hasCustomRandomRangeControls(getFlickerRandomControls()));
 
                 const activeLayout = dotLayerStates[activeLayerKey] || {};
                 const needsGridCopy = DOT_LAYER_KEYS.some(layerKey => layerKey !== activeLayerKey && !sameGridLayout(activeLayout, dotLayerStates[layerKey]));

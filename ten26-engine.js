@@ -1428,7 +1428,9 @@
                         button.setAttribute('aria-current', 'true');
                     }
                     button.textContent = String(index + 1);
-                    button.title = `${index + 1}. ${getSlideTypeLabel(slide.type)} · ${slide.name || slide.fileName || 'Untitled slide'}`;
+                    const buttonTitle = `${index + 1}. ${getSlideTypeLabel(slide.type)} · ${slide.name || slide.fileName || 'Untitled slide'}`;
+                    if (typeof setNativeTooltip === 'function') setNativeTooltip(button, buttonTitle);
+                    else button.title = buttonTitle;
                     button.addEventListener('click', () => {
                         jumpToSlide(index, { autoplayVideo: true });
                     });

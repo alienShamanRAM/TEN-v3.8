@@ -954,9 +954,11 @@ function getActiveLayerStateFromControls() {
                 if (presetDeleteBtn) {
                     presetDeleteBtn.disabled = !canDelete;
                     presetDeleteBtn.classList.toggle('is-muted-action', !canDelete);
-                    presetDeleteBtn.title = canDelete
+                    const deleteTitle = canDelete
                         ? `Delete "${preset.name}"`
                         : 'Keep at least one preset.';
+                    if (typeof setNativeTooltip === 'function') setNativeTooltip(presetDeleteBtn, deleteTitle);
+                    else presetDeleteBtn.title = deleteTitle;
                 }
             }
 

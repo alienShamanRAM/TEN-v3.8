@@ -40,6 +40,7 @@ function bindEvents() {
                 viewControls.overlayOpacity?.addEventListener('input', () => {
                     updateViewStatus();
                 });
+                helpControls.tooltipsEnabled?.addEventListener('change', syncTooltipPreference);
                 mediaControls.transitionMode?.addEventListener('change', updateMediaModeUi);
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
                 window.addEventListener('resize', () => {
@@ -64,7 +65,9 @@ function bindEvents() {
                     performanceControlGroups.forEach(controls => {
                         controls.auto?.classList.toggle('active', active);
                         controls.auto?.setAttribute('aria-pressed', String(active));
-                        controls.auto?.setAttribute('title', active ? 'Stop automatic slide advance' : `Automatically advance to the next slide every ${formatHeaderAutoSeconds()}`);
+                        const autoTitle = active ? 'Stop automatic slide advance' : `Automatically advance to the next slide every ${formatHeaderAutoSeconds()}`;
+                        if (typeof setNativeTooltip === 'function') setNativeTooltip(controls.auto, autoTitle);
+                        else controls.auto?.setAttribute('title', autoTitle);
                     });
                 };
                 const stopHeaderAuto = () => {
@@ -509,11 +512,12 @@ function bindEvents() {
             }
 
             let lastFrameTime = null;
-            let cachedFrameIntervalMs = 1000 / 60;
+            let cachedFrameIntervalMs = 1000 / 120;
 
             function syncFrameInterval() {
-                const cap = clamp(parseInt(viewControls.frameRate?.value, 10) || 60, 30, 120);
+                const cap = clamp(parseInt(viewControls.frameRate?.value, 10) || 120, 30, 120);
                 cachedFrameIntervalMs = 1000 / cap;
+                lastFrameTime = null;
             }
 
             function getFrameIntervalMs() {
