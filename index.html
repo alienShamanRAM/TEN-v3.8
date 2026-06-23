@@ -222,23 +222,23 @@
             </div>
         </div>
 
-        <!-- Slides Drawer -->
+        <!-- SVG Slides Drawer -->
         <div class="drawer" id="drawer-slides">
-            <button class="drawer-trigger" id="drawer-trigger-slides">Slides</button>
+            <button class="drawer-trigger" id="drawer-trigger-slides">SVG Slides</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
                         <div class="file-upload-btn" id="label-slides">Upload SVGs</div>
                         <input type="file" class="file-input" id="file-slides" accept=".svg,image/svg+xml" multiple>
                     </div>
-                    <button class="action-btn delete-btn" id="clear-slides" title="Remove Slides">✕</button>
+                    <button class="action-btn delete-btn" id="clear-slides" title="Remove SVG Slides">✕</button>
                 </div>
                 <div class="geometry-status" id="slide-status">No slides loaded.</div>
                 <div class="slider-group"><span>Scale</span><input type="range" id="slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-slide-scale">100%</span></div>
                 <div class="slider-group"><span>Offset X</span><input type="range" id="slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-slide-offset-x">0</span></div>
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-slide-offset-y">0</span></div>
                 <div class="slider-group auto-duration-row"><span>Auto Duration</span><input type="range" id="slide-auto-duration" min="1" max="8" value="4" step="0.5"><span class="val-indicator" id="val-slide-auto-duration">4</span></div>
-                <span class="section-title">Slide Mask</span>
+                <span class="section-title">SVG Mask</span>
                 <div class="sub-toggle-container">
                     <span>Binary Mask</span>
                     <label>
@@ -252,6 +252,41 @@
                 <div class="slider-group hidden-ui-node"><span>Edge Samples</span><input type="range" id="mask-samples" min="4" max="36" value="18" step="1"><span class="val-indicator" id="val-mask-samples">18</span></div>
                 <div class="slider-group hidden-ui-node"><span>Act Speed</span><input type="range" id="mask-speed-threshold" min="0" max="2" value="0.18" step="0.01"><span class="val-indicator" id="val-mask-speed-threshold">0.18</span></div>
                 <div class="slider-group hidden-ui-node"><span>Act Grid Dist</span><input type="range" id="mask-grid-threshold" min="0" max="80" value="4" step="0.1"><span class="val-indicator" id="val-mask-grid-threshold">4</span></div>
+            </div>
+        </div>
+
+        <!-- Media Slides Drawer -->
+        <div class="drawer collapsed" id="drawer-image-slides">
+            <button class="drawer-trigger" id="drawer-trigger-image-slides">Media Slides</button>
+            <div class="drawer-content">
+                <div class="layer-control-row">
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-btn" id="label-image-slides">Upload Images / Videos</div>
+                        <input type="file" class="file-input" id="file-image-slides" accept=".png,.jpg,.jpeg,image/png,image/jpeg,.mp4,.webm,.mov,video/*" multiple>
+                    </div>
+                    <button class="action-btn delete-btn" id="clear-image-slides" title="Remove Media Slides">✕</button>
+                </div>
+                <div class="geometry-status" id="image-slides-status">No media slides loaded.</div>
+                <div class="geometry-status" id="media-mode-status">Mode: Image Sequence</div>
+                <div class="slider-group" id="media-duration-row">
+                    <span>Slide Duration (s)</span>
+                    <input type="range" id="media-slide-duration" min="1" max="30" value="4" step="0.5">
+                    <span class="val-indicator" id="val-media-slide-duration">4</span>
+                </div>
+                <div class="slider-group"><span>Scale</span><input type="range" id="image-slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-image-slide-scale">100%</span></div>
+                <div class="slider-group"><span>Offset X</span><input type="range" id="image-slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-image-slide-offset-x">0</span></div>
+                <div class="slider-group"><span>Offset Y</span><input type="range" id="image-slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-image-slide-offset-y">0</span></div>
+                <span class="section-title">Media Mask</span>
+                <div class="sub-toggle-container">
+                    <span>Binary Mask</span>
+                    <label>
+                        <input type="checkbox" id="image-mask-enabled" class="hidden-ui-node" checked>
+                        <span class="checkbox-switch"></span>
+                    </label>
+                </div>
+                <div class="geometry-status" id="image-mask-status">Mask hides dots whose grid homes sit inside the media rectangle.</div>
+                <div class="slider-group"><span>Mask Expand</span><input type="range" id="image-mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-image-mask-expansion">32</span></div>
+                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="image-mask-scale-time" min="0" max="7" value="2" step="0.05"><span class="val-indicator" id="val-image-mask-scale-time">2</span></div>
             </div>
         </div>
 
@@ -375,11 +410,11 @@
                 </section>
                 <section>
                     <h3>Overview</h3>
-                    <p>SLIDES displays slide artwork on a fixed canvas and animates active dot-grid layers between grid positions and slide target positions. The canvas, image layer, slides, masks, and grid coordinates share the same center-based stage coordinate system.</p>
+                    <p>SLIDES displays SVG and Image slides on a fixed canvas and animates active dot-grid layers between grid positions and slide target positions. The canvas, background image layer, slides, masks, and grid coordinates share the same center-based stage coordinate system.</p>
                 </section>
                 <section>
                     <h3>Header Controls</h3>
-                    <p>Left arrow button or keyboard Left loads the previous slide. Right arrow button or keyboard Right loads the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes every four seconds.</p>
+                    <p>Left arrow or keyboard Left goes to the previous slide (SVG or Image). Right arrow or keyboard Right goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes every four seconds.</p>
                 </section>
                 <section>
                     <h3>Layers</h3>
@@ -394,12 +429,16 @@
                     <p>Blink applies shared visibility timing to the dot layers. On Period is visible time, Off Period is hidden time, Randomness varies the timing, and Probability selects how many dots participate.</p>
                 </section>
                 <section>
-                    <h3>Slides</h3>
-                    <p>Slides loads and manages SVG artwork. The slide scale and offset controls apply to all slides. Slide Mask hides dots whose grid homes sit inside or near painted artwork. Mask Scale Time controls how masked dots scale down or back up during slide changes.</p>
+                    <h3>SVG Slides</h3>
+                    <p>SVG Slides loads SVG artwork as dot targets. Scale and offset position the SVG on the canvas. SVG Mask hides dots whose grid homes sit inside or near painted SVG artwork. Mask Scale Time controls how masked dots scale down or back up during slide changes.</p>
+                </section>
+                <section>
+                    <h3>Media Slides</h3>
+                    <p>Media Slides loads PNG or JPG images, or a video sequence, as rectangular dot targets. Each media file becomes a rectangle with corner anchors, edge paths, and a filled interior. Scale and offset position the media on the canvas. Media Mask hides dots inside the media rectangle. Media slides and SVG slides share the same transition sequence and flicker timing.</p>
                 </section>
                 <section>
                     <h3>Flicker</h3>
-                    <p>Flicker controls transition timing. Hold Current pulls dots into the current slide, Move To Next sends dots toward the next slide, Return To Grid settles dots back into the grid, Duration controls flicker length, Old/New biases the swap, Speed controls flicker rate, On/Off controls visible ratio, and Wildness adds timing variation.</p>
+                    <p>Flicker controls transition timing for both SVG and Image slides. Hold Current pulls dots into the current slide, Move To Next sends dots toward the next slide, Return To Grid settles dots back into the grid, Duration controls flicker length, Old/New biases the swap, Speed controls flicker rate, On/Off controls visible ratio, and Wildness adds timing variation.</p>
                 </section>
                 <section>
                     <h3>Background</h3>

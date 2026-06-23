@@ -163,14 +163,50 @@ function bindEvents() {
                             showUiToast('No slides loaded. Choose one or more SVG files.', 'warning');
                             return;
                         }
-                        showUiToast(`${slides.length} slide${slides.length === 1 ? '' : 's'} loaded.`, slides.length ? 'info' : 'warning');
+                        const svgSlides = slides.filter(slide => isSvgSlideType(slide.type)).length;
+                        showUiToast(`${svgSlides} SVG slide${svgSlides === 1 ? '' : 's'} loaded.`, svgSlides ? 'info' : 'warning');
                     }).catch(() => {
                         if (typeof showUiToast === 'function') showUiToast('Slides could not be loaded.', 'warning');
                     });
                 });
                 slideControls.clear.addEventListener('click', () => {
                     clearSlides();
-                    if (typeof showUiToast === 'function') showUiToast('Slides cleared.');
+                    if (typeof showUiToast === 'function') showUiToast('SVG slides cleared.');
+                });
+                imageSlideControls.file?.addEventListener('change', event => {
+                    const selectedFiles = Array.from(event.target.files || []);
+                    const imageCount = selectedFiles.filter(isSupportedImageFile).length;
+                    const videoCount = selectedFiles.filter(isSupportedVideoFile).length;
+                    loadMediaSlideFiles(event.target.files).then(() => {
+                        if (!selectedFiles.length || typeof showUiToast !== 'function') return;
+                        if (!imageCount && !videoCount) {
+                            showUiToast('No supported media. Choose PNG, JPG, MP4, WebM, or MOV files.', 'warning');
+                            return;
+                        }
+                        const mediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
+                        showUiToast(`${mediaSlides.length} media slide${mediaSlides.length === 1 ? '' : 's'} loaded.`, mediaSlides.length ? 'info' : 'warning');
+                    }).catch(() => {
+                        if (typeof showUiToast === 'function') showUiToast('Media slides could not be loaded.', 'warning');
+                    });
+                });
+                imageSlideControls.clear?.addEventListener('click', () => {
+                    clearMediaSlides();
+                    if (typeof showUiToast === 'function') showUiToast('Media slides cleared.');
+                });
+                [imageSlideControls.scale, imageSlideControls.offsetX, imageSlideControls.offsetY].forEach(control => {
+                    control?.addEventListener('input', () => {
+                        slides.forEach(slide => {
+                            if (isMediaSlideType(slide.type)) slide.screenTargetCache?.clear();
+                        });
+                        targetWarmupToken++;
+                        if (isMediaSlideType(slides[currentSlideIndex]?.type)) {
+                            applySlideTransform();
+                            refreshAttractorTargetsIfNeeded();
+                        }
+                        clearMaskCache();
+                        scheduleMaskWarmup();
+                        scheduleTargetWarmup();
+                    });
                 });
                 [slideControls.scale, slideControls.offsetX, slideControls.offsetY].forEach(control => {
                     control.addEventListener('input', () => {
@@ -343,16 +379,33 @@ function bindEvents() {
                     clearMaskCache();
                     updateMaskStatus();
                     scheduleMaskWarmup();
+                    if (isSvgSlideType(slides[currentSlideIndex]?.type)) activateSlideMask(currentSlideIndex, { sync: true });
                 });
                 [maskControls.expansion].forEach(control => {
                     control.addEventListener('input', () => {
                         clearMaskCache();
                         updateMaskStatus();
                         scheduleMaskWarmup();
+                        if (isSvgSlideType(slides[currentSlideIndex]?.type)) activateSlideMask(currentSlideIndex, { sync: true });
                     });
                 });
                 maskControls.scaleTime?.addEventListener('input', () => {
                     updateMaskStatus();
+                });
+                imageMaskControls.enabled?.addEventListener('change', () => {
+                    clearMaskCache();
+                    updateImageMaskStatus();
+                    scheduleMaskWarmup();
+                    if (isMediaSlideType(slides[currentSlideIndex]?.type)) activateSlideMask(currentSlideIndex, { sync: true });
+                });
+                imageMaskControls.expansion?.addEventListener('input', () => {
+                    clearMaskCache();
+                    updateImageMaskStatus();
+                    scheduleMaskWarmup();
+                    if (isMediaSlideType(slides[currentSlideIndex]?.type)) activateSlideMask(currentSlideIndex, { sync: true });
+                });
+                imageMaskControls.scaleTime?.addEventListener('input', () => {
+                    updateImageMaskStatus();
                 });
 
                 imageControls.file.addEventListener('change', event => {

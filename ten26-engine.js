@@ -1,25 +1,30 @@
 // TEN26 rendering engine: masks, images, SVG geometry, dots, forces, and transitions.
-            function getMaskState() {
+            function getMaskState(slideType = 'svg') {
+                const controls = getMaskControlsForType(slideType);
                 return {
-                    enabled: maskControls.enabled.checked,
-                    expansion: read(maskControls.expansion)
+                    enabled: controls.enabled?.checked !== false,
+                    expansion: read(controls.expansion)
                 };
             }
 
-            function getMaskScaleDuration() {
-                const value = parseFloat(maskControls.scaleTime?.value);
+            function getMaskScaleDuration(slideType = 'svg') {
+                const controls = getMaskControlsForType(slideType);
+                const value = parseFloat(controls.scaleTime?.value);
                 return clamp(Number.isFinite(value) ? value : 2, 0, 7);
             }
 
             function getMaskCacheKey(slide, mask, slideIndex = currentSlideIndex) {
+                const controls = getSlideControlsForType(slide?.type);
                 return [
                     slide?.id || 'slide',
+                    slide?.type || 'svg',
                     slideIndex,
                     STUDIO_WIDTH,
                     STUDIO_HEIGHT,
-                    slideControls.scale.value,
-                    slideControls.offsetX.value,
-                    slideControls.offsetY.value,
+                    controls.scale?.value,
+                    controls.offsetX?.value,
+                    controls.offsetY?.value,
+                    mask.enabled ? 1 : 0,
                     mask.expansion
                 ].join('|');
             }
@@ -107,9 +112,18 @@
                     maskControls.status.textContent = 'Mask disabled.';
                     return;
                 }
+                const svgSlides = slides.filter(slide => isSvgSlideType(slide.type));
+                if (!svgSlides.length) {
+                    maskControls.status.textContent = 'Load an SVG slide to build an SVG mask.';
+                    return;
+                }
                 const slide = slides[currentSlideIndex];
                 if (!slide) {
                     maskControls.status.textContent = 'Load a slide to build a mask.';
+                    return;
+                }
+                if (!isSvgSlideType(slide.type)) {
+                    maskControls.status.textContent = `SVG mask ready for ${svgSlides.length} SVG slide${svgSlides.length === 1 ? '' : 's'}.`;
                     return;
                 }
                 if (!slide.geometry.maskOffsetItems.length) {
@@ -162,10 +176,11 @@
                 return slides.map((_, index) => index);
             }
 
-            function getReadySlideMaskCache(slideIndex, mask = getMaskState()) {
+            function getReadySlideMaskCache(slideIndex, mask = null) {
                 const slide = slides[slideIndex];
                 if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') return null;
-                const key = getMaskCacheKey(slide, mask, slideIndex);
+                const effectiveMask = mask || getMaskState(slide.type);
+                const key = getMaskCacheKey(slide, effectiveMask, slideIndex);
                 const signature = getGridMaskSignature();
                 const cache = slide.gridMaskCache;
                 if (
@@ -180,8 +195,9 @@
             }
 
             function isSlideMaskReadyForTransition(slideIndex) {
-                if (!maskControls.enabled.checked) return true;
                 const slide = slides[slideIndex];
+                if (!slide) return true;
+                if (!getMaskState(slide.type).enabled) return true;
                 if (!slide || !slide.geometry.maskOffsetItems.length) return true;
                 return !!getReadySlideMaskCache(slideIndex);
             }
@@ -219,7 +235,7 @@
             function buildSlideMaskCacheSync(slideIndex) {
                 const slide = slides[slideIndex];
                 if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') return null;
-                const mask = getMaskState();
+                const mask = getMaskState(slide.type);
                 if (!mask.enabled) return null;
                 const key = getMaskCacheKey(slide, mask, slideIndex);
                 const cache = {
@@ -271,7 +287,7 @@
                 resetDotMaskAlphas(1);
             }
 
-            function startSlideMaskScaleTransition(fromCache, toCache, duration = getMaskScaleDuration()) {
+            function startSlideMaskScaleTransition(fromCache, toCache, duration = getMaskScaleDuration(slides[toCache?.slideIndex]?.type || 'svg')) {
                 if (!toCache || typeof dotGroups === 'undefined') return false;
                 if (duration <= 0.001) return applySlideMaskCache(toCache);
                 DOT_LAYER_KEYS.forEach(layerKey => {
@@ -297,17 +313,24 @@
                 return true;
             }
 
-            function transitionSlideMask(fromSlideIndex, toSlideIndex) {
-                if (!maskControls.enabled.checked) {
+            function transitionSlideMask(fromSlideIndex, toSlideIndex, options = {}) {
+                const { fromVisible = false } = options;
+                const targetSlide = slides[toSlideIndex];
+                const sourceSlide = slides[fromSlideIndex];
+                const targetMask = getMaskState(targetSlide?.type || 'svg');
+                const sourceMask = getMaskState(sourceSlide?.type || 'svg');
+                if (!targetMask.enabled) {
                     clearAppliedSlideMask();
                     return false;
                 }
-                const targetSlide = slides[toSlideIndex];
-                const sourceSlide = slides[fromSlideIndex];
-                const targetCache = getReadySlideMaskCache(toSlideIndex) ||
+                const targetCache = getReadySlideMaskCache(toSlideIndex, targetMask) ||
                     (!targetSlide || !targetSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(toSlideIndex) : null);
-                const fromCache = getReadySlideMaskCache(fromSlideIndex) ||
-                    (!sourceSlide || !sourceSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(fromSlideIndex) : null);
+                const fromCache = fromVisible
+                    ? createEmptySlideMaskCache(fromSlideIndex)
+                    : sourceMask.enabled
+                    ? (getReadySlideMaskCache(fromSlideIndex, sourceMask) ||
+                        (!sourceSlide || !sourceSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(fromSlideIndex) : null))
+                    : createEmptySlideMaskCache(fromSlideIndex);
                 if (!targetCache) return activateSlideMask(toSlideIndex, { sync: false });
                 if (!fromCache && fromSlideIndex !== toSlideIndex && !isSlideMaskReadyForTransition(fromSlideIndex)) {
                     return false;
@@ -349,12 +372,8 @@
             function activateSlideMask(slideIndex = currentSlideIndex, options = {}) {
                 const { sync = false } = options;
                 const slide = slides[slideIndex];
-                if (!maskControls.enabled.checked || !slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') {
-                    clearAppliedSlideMask();
-                    return false;
-                }
-                const mask = getMaskState();
-                if (!mask.enabled) {
+                const mask = getMaskState(slide?.type || 'svg');
+                if (!mask.enabled || !slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') {
                     clearAppliedSlideMask();
                     return false;
                 }
@@ -369,6 +388,7 @@
 
             function createMaskWarmupJob(slideIndex, mask, signature) {
                 const slide = slides[slideIndex];
+                if (!mask?.enabled) return null;
                 if (!slide || !slide.geometry.maskOffsetItems.length || getReadySlideMaskCache(slideIndex, mask)) return null;
                 const cache = {
                     slideIndex,
@@ -379,6 +399,7 @@
                 };
                 return {
                     slide,
+                    mask,
                     cache,
                     layerPosition: 0,
                     dotPosition: 0
@@ -396,7 +417,7 @@
                             job.slide,
                             dot.gridX,
                             dot.gridY,
-                            getMaskState(),
+                            job.mask,
                             job.cache.key
                         );
                         job.dotPosition++;
@@ -432,10 +453,6 @@
             }
 
             function scheduleMaskWarmup() {
-                if (!maskControls.enabled.checked) {
-                    clearAppliedSlideMask();
-                    return;
-                }
                 if (isPerformanceCriticalMotionActive()) {
                     requestDeferredWarmups({ mask: true });
                     return;
@@ -444,21 +461,23 @@
                 pendingMaskWarmup = false;
                 maskWarmupActive = false;
                 if (!slides.length || typeof dotGroups === 'undefined') return;
-                const mask = getMaskState();
-                if (!mask.enabled) {
-                    clearAppliedSlideMask();
-                    return;
-                }
                 if (activeMaskSlideIndex === null && slides[currentSlideIndex]) {
                     activeMaskSlideIndex = currentSlideIndex;
                 }
                 const signature = getGridMaskSignature();
                 const jobs = getMaskWarmupSlideIndexes()
-                    .map(slideIndex => createMaskWarmupJob(slideIndex, mask, signature))
+                    .map(slideIndex => {
+                        const slide = slides[slideIndex];
+                        if (!slide) return null;
+                        return createMaskWarmupJob(slideIndex, getMaskState(slide.type), signature);
+                    })
                     .filter(Boolean);
-                const readyActiveCache = getReadySlideMaskCache(activeMaskSlideIndex, mask);
+                const activeSlide = slides[activeMaskSlideIndex];
+                const activeMask = activeSlide ? getMaskState(activeSlide.type) : null;
+                const readyActiveCache = activeMask?.enabled ? getReadySlideMaskCache(activeMaskSlideIndex, activeMask) : null;
                 if (!jobs.length) {
                     if (readyActiveCache) applySlideMaskCache(readyActiveCache);
+                    else if (!activeMask?.enabled) clearAppliedSlideMask();
                     updateViewStatus();
                     return;
                 }
@@ -499,13 +518,15 @@
             let targetWarmupToken = 0;
 
             function getSlideScreenTargetCacheKey(slide, targetType, totalDots, scaleMultiplier = 1) {
+                const controls = getSlideControlsForType(slide?.type);
                 return [
                     slide?.id || 'slide',
+                    slide?.type || 'svg',
                     STUDIO_WIDTH,
                     STUDIO_HEIGHT,
-                    slideControls.scale.value,
-                    slideControls.offsetX.value,
-                    slideControls.offsetY.value,
+                    controls.scale?.value,
+                    controls.offsetX?.value,
+                    controls.offsetY?.value,
                     normalizeTargetTypes(targetType).join('+'),
                     totalDots,
                     scaleMultiplier
@@ -534,6 +555,35 @@
             function ensureSlideDomNode(slide) {
                 if (!slide) return null;
                 if (!slide.domNode) {
+                    if (slide.type === 'image') {
+                        const img = document.createElement('img');
+                        img.src = slide.imageSrc;
+                        img.alt = slide.name || slide.fileName || 'Image slide';
+                        img.className = 'image-slide-node';
+                        img.dataset.slideId = String(slide.id);
+                        img.decoding = 'async';
+                        img.draggable = false;
+                        img.style.display = 'block';
+                        slide.domNode = img;
+                        return slide.domNode;
+                    }
+                    if (slide.type === 'video') {
+                        const video = slide.videoElement || document.createElement('video');
+                        if (!slide.videoElement) {
+                            video.src = slide.videoSrc;
+                            video.muted = true;
+                            video.preload = 'auto';
+                            video.playsInline = true;
+                            video.controls = false;
+                            slide.videoElement = video;
+                        }
+                        video.className = 'image-slide-node video-slide-node';
+                        video.dataset.slideId = String(slide.id);
+                        video.style.display = 'block';
+                        video.draggable = false;
+                        slide.domNode = video;
+                        return slide.domNode;
+                    }
                     const fragment = ensureSlideTemplate(slide).content.cloneNode(true);
                     const svg = fragment.querySelector('svg');
                     if (!svg) return null;
@@ -617,6 +667,10 @@
             }
 
             function ensureSlideTemplate(slide) {
+                if (slide?.type === 'image') {
+                    if (!slide.domTemplate) slide.domTemplate = document.createElement('template');
+                    return slide.domTemplate;
+                }
                 if (!slide.domTemplate) {
                     const template = document.createElement('template');
                     template.innerHTML = slide.svg;
@@ -790,8 +844,11 @@
             }
 
             function updateDrawerTitleStates() {
-                document.getElementById('drawer-trigger-slides').classList.toggle('inactive-title', !slides.length);
-                document.getElementById('drawer-trigger-blink-mode').classList.toggle('inactive-title', !blinkControls.enabled?.checked);
+                const hasSvgSlides = slides.some(slide => isSvgSlideType(slide.type));
+                const hasMediaSlides = slides.some(slide => isMediaSlideType(slide.type));
+                document.getElementById('drawer-trigger-slides')?.classList.toggle('inactive-title', !hasSvgSlides);
+                document.getElementById('drawer-trigger-image-slides')?.classList.toggle('inactive-title', !hasMediaSlides);
+                document.getElementById('drawer-trigger-blink-mode')?.classList.toggle('inactive-title', !blinkControls.enabled?.checked);
             }
 
             function parseSvgDimension(value) {
@@ -1026,21 +1083,131 @@
                 return cyclePoints(selectEvenly(combined, totalDots), totalDots);
             }
 
+            function downscaleImageToDataUrl(img, maxWidth, maxHeight, mimeType = 'image/jpeg') {
+                const scale = Math.min(maxWidth / img.naturalWidth, maxHeight / img.naturalHeight, 1);
+                const width = Math.max(1, Math.round(img.naturalWidth * scale));
+                const height = Math.max(1, Math.round(img.naturalHeight * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d', { alpha: mimeType === 'image/png' });
+                ctx.drawImage(img, 0, 0, width, height);
+                const src = mimeType === 'image/png'
+                    ? canvas.toDataURL('image/png')
+                    : canvas.toDataURL('image/jpeg', 0.86);
+                return { src, width, height };
+            }
+
+            function createImageRectSvg(width, height) {
+                const safeWidth = Math.max(1, Math.round(width));
+                const safeHeight = Math.max(1, Math.round(height));
+                return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${safeWidth} ${safeHeight}" width="${safeWidth}" height="${safeHeight}"><rect x="0" y="0" width="${safeWidth}" height="${safeHeight}" fill="white" stroke="white" stroke-width="1"/></svg>`;
+            }
+
+            function isSupportedImageFile(file) {
+                return file && (/^image\/(png|jpeg)$/.test(file.type) || /\.(png|jpe?g)$/i.test(file.name));
+            }
+
+            function isSupportedVideoFile(file) {
+                return file && (/^video\//.test(file.type) || /\.(mp4|webm|mov)$/i.test(file.name));
+            }
+
             let slideIdCounter = 0;
 
-            function createSlide(name, svg) {
+            function createSlide(name, svg, options = {}) {
+                const {
+                    type = 'svg',
+                    imageSrc = '',
+                    videoSrc = '',
+                    videoElement = null,
+                    duration = 0,
+                    naturalWidth = 0,
+                    naturalHeight = 0
+                } = options;
                 const slide = {
                     id: ++slideIdCounter,
+                    type,
                     name,
                     fileName: name,
                     svg,
+                    imageSrc,
+                    videoSrc,
+                    videoElement,
+                    duration: Number.isFinite(duration) ? duration : 0,
+                    naturalWidth: naturalWidth || 0,
+                    naturalHeight: naturalHeight || 0,
                     frame: readSvgFrameFromText(svg),
                     geometry: createGeometryState(),
                     screenTargetCache: new Map(),
-                    domNode: null
+                    domNode: null,
+                    domTemplate: null,
+                    gridMaskCache: null,
+                    maskBehavior: isMediaSlideType(type) ? 'deferred' : 'immediate'
                 };
                 rebuildSlideGeometry(slide);
                 return slide;
+            }
+
+            async function createImageSlideFromFile(file) {
+                return new Promise((resolve, reject) => {
+                    if (!isSupportedImageFile(file)) {
+                        reject(new Error('Unsupported image type'));
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const mimeType = /^image\/png$/i.test(file.type) || /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg';
+                            const downscaled = downscaleImageToDataUrl(img, STUDIO_WIDTH, STUDIO_HEIGHT, mimeType);
+                            const svg = createImageRectSvg(downscaled.width, downscaled.height);
+                            resolve(createSlide(file.name, svg, {
+                                type: 'image',
+                                imageSrc: downscaled.src,
+                                naturalWidth: downscaled.width,
+                                naturalHeight: downscaled.height
+                            }));
+                        };
+                        img.onerror = () => reject(new Error('Failed to load image'));
+                        img.src = reader.result;
+                    };
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            async function createVideoSlideFromFile(file) {
+                return new Promise((resolve, reject) => {
+                    if (!isSupportedVideoFile(file)) {
+                        reject(new Error('Unsupported video type'));
+                        return;
+                    }
+                    const objectURL = URL.createObjectURL(file);
+                    const video = document.createElement('video');
+                    video.src = objectURL;
+                    video.muted = true;
+                    video.preload = 'auto';
+                    video.playsInline = true;
+                    video.controls = false;
+                    video.addEventListener('loadedmetadata', () => {
+                        const width = video.videoWidth || STUDIO_WIDTH;
+                        const height = video.videoHeight || STUDIO_HEIGHT;
+                        const svg = createImageRectSvg(width, height);
+                        const slide = createSlide(file.name, svg, {
+                            type: 'video',
+                            videoSrc: objectURL,
+                            videoElement: video,
+                            duration: Number.isFinite(video.duration) ? video.duration : 4,
+                            naturalWidth: width,
+                            naturalHeight: height
+                        });
+                        resolve(slide);
+                    }, { once: true });
+                    video.addEventListener('error', () => {
+                        URL.revokeObjectURL(objectURL);
+                        reject(new Error('Failed to load video'));
+                    }, { once: true });
+                });
             }
 
             let slides = [];
@@ -1084,7 +1251,8 @@
 
             function getSlidePlacement(slide) {
                 const frame = slide.frame || { minX: 0, minY: 0, width: 300, height: 150, displayWidth: 300, displayHeight: 150 };
-                const scale = read(slideControls.scale) / 100;
+                const controls = getSlideControlsForType(slide?.type);
+                const scale = read(controls.scale) / 100;
                 const widthPx = frame.displayWidth * scale;
                 const heightPx = frame.displayHeight * scale;
                 return {
@@ -1092,8 +1260,8 @@
                     scale,
                     widthPx,
                     heightPx,
-                    left: STUDIO_CENTER_X + read(slideControls.offsetX) - widthPx / 2,
-                    top: STUDIO_CENTER_Y + read(slideControls.offsetY) - heightPx / 2
+                    left: STUDIO_CENTER_X + read(controls.offsetX) - widthPx / 2,
+                    top: STUDIO_CENTER_Y + read(controls.offsetY) - heightPx / 2
                 };
             }
 
@@ -1122,30 +1290,64 @@
             function applySlideTransform() {
                 slideLayer.style.opacity = slideOpacity;
                 const slide = slides[currentSlideIndex];
-                const svg = slide ? ensureSlideDomNode(slide) : null;
-                if (!svg || !slide) return;
+                const node = slide ? ensureSlideDomNode(slide) : null;
+                if (!node || !slide) return;
                 const placement = getSlidePlacement(slide);
-                svg.style.position = 'absolute';
-                svg.style.left = `${placement.left}px`;
-                svg.style.top = `${placement.top}px`;
-                svg.style.width = `${placement.frame.displayWidth}px`;
-                svg.style.height = `${placement.frame.displayHeight}px`;
-                svg.style.maxWidth = 'none';
-                svg.style.maxHeight = 'none';
-                svg.style.transformOrigin = '0 0';
-                svg.style.transform = `scale(${placement.scale})`;
-                svg.style.opacity = '1';
-                svg.style.visibility = 'visible';
+                node.style.position = 'absolute';
+                node.style.left = `${placement.left}px`;
+                node.style.top = `${placement.top}px`;
+                node.style.width = `${placement.frame.displayWidth}px`;
+                node.style.height = `${placement.frame.displayHeight}px`;
+                node.style.maxWidth = 'none';
+                node.style.maxHeight = 'none';
+                node.style.transformOrigin = '0 0';
+                node.style.transform = `scale(${placement.scale})`;
+                node.style.opacity = '1';
+                node.style.visibility = 'visible';
+            }
+
+            function pauseVideoSlide(slide, reset = false) {
+                if (slide?.type !== 'video') return;
+                const video = slide.videoElement || slide.domNode;
+                if (!video) return;
+                try {
+                    video.pause();
+                    if (reset) video.currentTime = 0;
+                } catch (error) {
+                }
+            }
+
+            function playVideoSlide(slide, reset = false) {
+                if (slide?.type !== 'video') return;
+                const video = ensureSlideDomNode(slide);
+                if (!video) return;
+                try {
+                    if (reset) video.currentTime = 0;
+                    video.muted = true;
+                    video.playsInline = true;
+                    const playPromise = video.play();
+                    if (playPromise && typeof playPromise.catch === 'function') {
+                        playPromise.catch(() => {});
+                    }
+                } catch (error) {
+                }
+            }
+
+            function pauseAllVideos(reset = false) {
+                slides.forEach(slide => pauseVideoSlide(slide, reset));
             }
 
             function renderCurrentSlide() {
+                pauseAllVideos(false);
                 if (!slides.length) {
                     slideLayer.replaceChildren();
                     slideOpacity = 0;
                     slideLayer.style.opacity = 0;
                     clearAppliedSlideMask();
                     updateSlideStatus();
+                    updateMediaSlideStatus();
                     updateMaskStatus();
+                    updateImageMaskStatus();
                     updateDrawerTitleStates();
                     return;
                 }
@@ -1155,10 +1357,19 @@
                     slideLayer.replaceChildren(node);
                 }
                 applySlideTransform();
+                if (!autoTransition && slide?.type === 'video') {
+                    playVideoSlide(slide, false);
+                }
                 updateSlideStatus();
+                updateMediaSlideStatus();
                 updateMaskStatus();
+                updateImageMaskStatus();
                 updateDrawerTitleStates();
-                if (!maskAlphaTransition) activateSlideMask(currentSlideIndex, { sync: !isPerformanceCriticalMotionActive() });
+                const deferMaskActivation = autoTransition &&
+                    autoTransition.deferredMaskTo !== null &&
+                    autoTransition.targetIndex === currentSlideIndex &&
+                    !autoTransition.deferredMaskApplied;
+                if (!maskAlphaTransition && !deferMaskActivation) activateSlideMask(currentSlideIndex, { sync: !isPerformanceCriticalMotionActive() });
                 scheduleMaskWarmup();
                 scheduleTargetWarmup();
                 updateViewStatus();
@@ -1166,22 +1377,81 @@
 
             function updateSlideStatus() {
                 clearUploadWarning(slideControls.label, slideControls.status);
-                if (!slides.length) {
+                const svgSlides = slides.filter(slide => isSvgSlideType(slide.type));
+                const mediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
+                if (!svgSlides.length) {
                     if (missingSlideNames.length) {
                         setUploadWarning(slideControls.label, slideControls.status, 'SVG', missingSlideNames.join(', '));
                     } else {
                         slideControls.label.textContent = 'Upload SVGs';
-                        slideControls.status.textContent = 'No slides loaded.';
+                        slideControls.status.textContent = slides.length
+                            ? `No SVG slides loaded. ${mediaSlides.length} media slide${mediaSlides.length === 1 ? '' : 's'} in sequence.`
+                            : 'No SVG slides loaded.';
                     }
                     return;
                 }
-                slideControls.label.textContent = `${slides.length} slide${slides.length === 1 ? '' : 's'}`;
+                slideControls.label.textContent = `${svgSlides.length} SVG slide${svgSlides.length === 1 ? '' : 's'}`;
                 const slide = slides[currentSlideIndex];
-                slideControls.status.textContent = `Slide ${currentSlideIndex + 1}/${slides.length}: ${slide.name || slide.fileName || 'Untitled slide'}`;
+                const typeLabel =
+                    slide?.type === 'image' ? '[IMG] ' :
+                    slide?.type === 'video' ? '[VID] ' :
+                    '[SVG] ';
+                slideControls.status.textContent = `Sequence ${currentSlideIndex + 1}/${slides.length}: ${typeLabel}${slide.name || slide.fileName || 'Untitled slide'}`;
                 if (missingSlideNames.length) {
                     slideControls.status.textContent += ` · Missing: ${missingSlideNames.join(', ')}`;
                     slideControls.status.classList.add('upload-missing');
                 }
+            }
+
+            function updateImageMaskStatus() {
+                if (!imageMaskControls.status) return;
+                if (!imageMaskControls.enabled?.checked) {
+                    imageMaskControls.status.textContent = 'Media mask disabled.';
+                    return;
+                }
+                const mediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
+                if (!mediaSlides.length) {
+                    imageMaskControls.status.textContent = 'Load a media slide to build a media mask.';
+                    return;
+                }
+                const slide = slides[currentSlideIndex];
+                if (isMediaSlideType(slide?.type)) {
+                    imageMaskControls.status.textContent = `Media mask hides grid homes for slide ${currentSlideIndex + 1}.`;
+                    return;
+                }
+                imageMaskControls.status.textContent = `Media mask ready for ${mediaSlides.length} media slide${mediaSlides.length === 1 ? '' : 's'}.`;
+            }
+
+            function updateMediaSlideStatus() {
+                if (!mediaControls.label || !mediaControls.status) return;
+                clearUploadWarning(mediaControls.label, mediaControls.status);
+                const mediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
+                updateMediaModeUi();
+                if (!mediaSlides.length) {
+                    mediaControls.label.textContent = 'Upload Images / Videos';
+                    mediaControls.status.textContent = 'No media slides loaded.';
+                    updateImageMaskStatus();
+                    return;
+                }
+                const imageCount = mediaSlides.filter(slide => slide.type === 'image').length;
+                const videoCount = mediaSlides.filter(slide => slide.type === 'video').length;
+                mediaControls.label.textContent =
+                    mediaMode === 'videos'
+                        ? `${videoCount} video slide${videoCount === 1 ? '' : 's'}`
+                        : `${imageCount} image slide${imageCount === 1 ? '' : 's'}`;
+                const slide = slides[currentSlideIndex];
+                if (isMediaSlideType(slide?.type)) {
+                    const label = slide.type === 'video' ? 'video' : 'image';
+                    mediaControls.status.textContent =
+                        `Sequence ${currentSlideIndex + 1}/${slides.length}: ${slide.name || slide.fileName || `Untitled ${label}`}`;
+                } else {
+                    mediaControls.status.textContent =
+                        `${mediaSlides.length} media slide${mediaSlides.length === 1 ? '' : 's'} in the shared sequence.`;
+                }
+                updateImageMaskStatus();
+            }
+            function updateImageSlideStatus() {
+                return updateMediaSlideStatus();
             }
 
             async function loadSlideFiles(fileList) {
@@ -1190,9 +1460,11 @@
                 if (!files.length) {
                     missingSlideNames = selectedFiles.map(file => file.name).filter(Boolean);
                     updateSlideStatus();
+                    updateMediaSlideStatus();
                     updateDrawerTitleStates();
                     return;
                 }
+                const existingMediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
                 const nextSlides = [];
                 const nextMissing = selectedFiles
                     .filter(file => !files.includes(file))
@@ -1202,19 +1474,19 @@
                     try {
                         const svg = await file.text();
                         if (!svg.trim()) throw new Error('Empty SVG');
-                        nextSlides.push(createSlide(file.name, svg));
+                        nextSlides.push(createSlide(file.name, svg, { type: 'svg' }));
                     } catch (error) {
                         nextMissing.push(file.name);
                     }
                 }
                 missingSlideNames = nextMissing;
                 if (!nextSlides.length) {
-                    slides = [];
-                    currentSlideIndex = 0;
+                    slides = existingMediaSlides;
+                    currentSlideIndex = clamp(currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
                     renderCurrentSlide();
                     return;
                 }
-                slides = nextSlides;
+                slides = nextSlides.concat(existingMediaSlides);
                 currentSlideIndex = 0;
                 pendingSlideIndex = null;
                 slideOpacity = 1;
@@ -1232,16 +1504,89 @@
                 setMorphStatus(`Loaded ${slides.length} slide${slides.length === 1 ? '' : 's'}. Flicker is ready.`);
             }
 
+            async function loadMediaSlideFiles(fileList) {
+                const selectedFiles = Array.from(fileList || []);
+                const supportedFiles = selectedFiles.filter(file =>
+                    isSupportedImageFile(file) || isSupportedVideoFile(file)
+                );
+                if (!supportedFiles.length) {
+                    updateMediaSlideStatus();
+                    updateDrawerTitleStates();
+                    return;
+                }
+                const first = supportedFiles[0];
+                const nextMode = isSupportedVideoFile(first) ? 'videos' : 'images';
+                const files = supportedFiles.filter(file =>
+                    nextMode === 'videos' ? isSupportedVideoFile(file) : isSupportedImageFile(file)
+                );
+                const ignoredCount = supportedFiles.length - files.length;
+                if (ignoredCount && typeof showUiToast === 'function') {
+                    showUiToast(`Mixed media selected. Loaded only ${nextMode}; ignored ${ignoredCount} file${ignoredCount === 1 ? '' : 's'}.`, 'warning');
+                }
+                const newSlides = [];
+                for (const file of files) {
+                    try {
+                        if (nextMode === 'videos') {
+                            newSlides.push(await createVideoSlideFromFile(file));
+                        } else {
+                            newSlides.push(await createImageSlideFromFile(file));
+                        }
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                }
+                if (!newSlides.length) {
+                    updateMediaSlideStatus();
+                    updateDrawerTitleStates();
+                    return;
+                }
+                mediaMode = nextMode;
+                updateMediaModeUi();
+                if (nextMode === 'images') {
+                    slides
+                        .filter(slide => slide.type === 'video')
+                        .forEach(slide => disposeVideoSlide(slide));
+                }
+                slides = slides.filter(slide => {
+                    if (nextMode === 'images') return slide.type !== 'video';
+                    if (nextMode === 'videos') return slide.type !== 'image';
+                    return true;
+                });
+                const hadSlides = slides.length > 0;
+                slides = slides.concat(newSlides);
+                if (!hadSlides) currentSlideIndex = 0;
+                else currentSlideIndex = clamp(currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
+                pendingSlideIndex = null;
+                slideOpacity = 1;
+                slideFade = null;
+                holdState = 'idle';
+                activeHoldMode = null;
+                activeHoldCode = null;
+                if (autoTransition) stopAutoTransition();
+                pauseAllVideos(true);
+                resetForcesToGrid();
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                clearMaskCache();
+                renderCurrentSlide();
+                precomputeAllTransitionAssetsSync();
+                setAutoStatus(INTERACTION_HELP_TEXT);
+                setMorphStatus(`Loaded ${newSlides.length} ${nextMode === 'videos' ? 'video' : 'image'} slide${newSlides.length === 1 ? '' : 's'}. Flicker is ready.`);
+            }
+            function loadImageSlideFiles(fileList) {
+                return loadMediaSlideFiles(fileList);
+            }
+
             function clearSlides() {
                 maskWarmupToken++;
                 targetWarmupToken++;
-                slides = [];
-                currentSlideIndex = 0;
+                pauseAllVideos(true);
+                slides = slides.filter(slide => isMediaSlideType(slide.type));
+                currentSlideIndex = clamp(currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
                 pendingSlideIndex = null;
-                slideOpacity = 0;
+                missingSlideNames = [];
+                slideOpacity = slides.length ? 1 : 0;
                 slideFade = null;
                 slideControls.file.value = '';
-                slideLayer.replaceChildren();
                 activeHoldMode = null;
                 activeHoldCode = null;
                 autoTransition = null;
@@ -1249,11 +1594,54 @@
                 DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
                 clearAppliedSlideMask();
                 clearMaskCache();
-                updateSlideStatus();
-                updateMaskStatus();
-                updateDrawerTitleStates();
+                renderCurrentSlide();
                 setAutoStatus(INTERACTION_HELP_TEXT);
                 setMorphStatus('Load slides, then perform with Left, Right, Space, or Up.');
+            }
+
+            function disposeVideoSlide(slide) {
+                if (slide?.type !== 'video') return;
+                try {
+                    slide.videoElement?.pause();
+                    slide.videoElement?.removeAttribute('src');
+                    slide.videoElement?.load?.();
+                } catch (error) {
+                }
+                if (slide.videoSrc && slide.videoSrc.startsWith('blob:')) {
+                    URL.revokeObjectURL(slide.videoSrc);
+                }
+                slide.videoElement = null;
+                slide.domNode = null;
+            }
+
+            function clearMediaSlides() {
+                maskWarmupToken++;
+                targetWarmupToken++;
+                pauseAllVideos(true);
+                slides.forEach(slide => {
+                    if (slide.type === 'video') disposeVideoSlide(slide);
+                });
+                slides = slides.filter(slide => !isMediaSlideType(slide.type));
+                mediaMode = 'images';
+                updateMediaModeUi();
+                currentSlideIndex = clamp(currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
+                pendingSlideIndex = null;
+                slideOpacity = slides.length ? 1 : 0;
+                slideFade = null;
+                if (mediaControls.file) mediaControls.file.value = '';
+                activeHoldMode = null;
+                activeHoldCode = null;
+                autoTransition = null;
+                resetForcesToGrid();
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                clearAppliedSlideMask();
+                clearMaskCache();
+                renderCurrentSlide();
+                setAutoStatus(INTERACTION_HELP_TEXT);
+                setMorphStatus('Media slides cleared.');
+            }
+            function clearImageSlides() {
+                return clearMediaSlides();
             }
 
             class DotGroup {
@@ -1637,6 +2025,17 @@
                 setControlValue(slideControls.autoDuration, pickAutoStateValue(state.autoDuration, state.slideAutoDuration, '4'));
             }
 
+            function getMediaHoldDuration(slide) {
+                if (!slide) return read(autoControls.currentTime);
+                if (slide.type === 'video') {
+                    return Math.max(0.1, Number.isFinite(slide.duration) && slide.duration > 0 ? slide.duration : 4);
+                }
+                if (slide.type === 'image') {
+                    return read(mediaControls.duration);
+                }
+                return read(autoControls.currentTime);
+            }
+
             function getAutoSettings() {
                 const flickerTime = read(autoControls.flickerTime);
                 const flickerBias = read(autoControls.flickerBias) / 100;
@@ -1644,8 +2043,11 @@
                 const flickerBalance = read(autoControls.flickerBalance) / 100;
                 const flickerWildness = read(autoControls.flickerWildness);
                 const cycleMs = clamp(1000 / Math.max(0.01, flickerSpeed), 30, 1800);
+                const slide = slides[currentSlideIndex];
+                const baseCurrentTime = read(autoControls.currentTime);
+                const mediaTime = getMediaHoldDuration(slide);
                 return {
-                    currentTime: read(autoControls.currentTime),
+                    currentTime: isMediaSlideType(slide?.type) ? mediaTime : baseCurrentTime,
                     travelTime: read(autoControls.travelTime),
                     gridTime: read(autoControls.gridTime),
                     outFlicker: Math.max(0.05, flickerTime * (1 - flickerBias * 0.65)),
@@ -1708,6 +2110,7 @@
             }
 
             function stopAutoTransition(resetDots = true) {
+                pauseAllVideos(false);
                 autoTransition = null;
                 activeHoldMode = null;
                 activeHoldCode = null;
@@ -1722,6 +2125,7 @@
                 if (slides.length) {
                     slideOpacity = 1;
                     renderCurrentSlide();
+                    pauseAllVideos(false);
                 }
                 setAutoStatus(INTERACTION_HELP_TEXT);
             }
@@ -1748,7 +2152,17 @@
                     setMorphStatus('Preparing the next slide mask and targets before animation starts.');
                     return;
                 }
-                transitionSlideMask(fromIndex, targetIndex);
+                const sourceSlide = slides[fromIndex];
+                const targetSlide = slides[targetIndex];
+                const needsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
+                let deferredMaskFrom = null;
+                let deferredMaskTo = null;
+                if (needsDeferredMask) {
+                    deferredMaskFrom = fromIndex;
+                    deferredMaskTo = targetIndex;
+                } else {
+                    transitionSlideMask(fromIndex, targetIndex);
+                }
                 const settings = getAutoSettings();
                 const flickerSeed = Math.random() * 10000;
                 autoTransition = {
@@ -1762,7 +2176,11 @@
                     flickerSeed,
                     outTimeline: buildFlickerTimeline(settings.outFlicker, 'out', settings, flickerSeed),
                     inTimeline: buildFlickerTimeline(settings.inFlicker, 'in', settings, flickerSeed + 193.7),
-                    phaseStarted: false
+                    phaseStarted: false,
+                    deferredMaskFrom,
+                    deferredMaskTo,
+                    travelMaskCleared: false,
+                    deferredMaskApplied: false
                 };
                 activeHoldMode = 'auto';
                 activeHoldCode = direction > 0 ? 'next' : 'previous';
@@ -1775,6 +2193,9 @@
                 beginAutoDotTarget(currentSlideIndex, `Flicker: dots locking to current slide ${currentSlideIndex + 1}.`);
                 setMorphStatus(`Flicker started: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
                 setAutoStatus(`Flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
+                if (sourceSlide?.type === 'video') {
+                    playVideoSlide(sourceSlide, true);
+                }
                 updateViewStatus();
             }
 
@@ -1813,6 +2234,10 @@
                 resetForcesToGrid();
                 slideOpacity = slides.length ? 1 : 0;
                 applySlideTransform();
+                pauseAllVideos(false);
+                if (slides[currentSlideIndex]?.type === 'video') {
+                    playVideoSlide(slides[currentSlideIndex], false);
+                }
                 setAutoStatus(`Flicker complete. Slide ${currentSlideIndex + 1}/${slides.length}.`);
                 requestDeferredWarmups({ mask: true, target: true });
                 updateViewStatus();
@@ -1837,6 +2262,7 @@
                     setSlideOpacity(1);
                     setForceState({ svgAlpha: eased, gridAlpha: 1 - eased, svgRadiusPhase: progress, gridRadiusPhase: 1 - progress });
                     if (autoTransition.timer >= settings.currentTime) {
+                        pauseVideoSlide(slides[autoTransition.fromIndex], false);
                         setAutoPhase('oldFlicker');
                         setAutoStatus('Current slide flickering out.');
                     }
@@ -1858,7 +2284,15 @@
                 if (autoTransition.phase === 'travel') {
                     setSlideOpacity(0);
                     setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: phaseProgress(autoTransition.timer, settings.travelTime), gridRadiusPhase: 0 });
+                    if (autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
+                        resetDotMaskAlphas(1);
+                        autoTransition.travelMaskCleared = true;
+                    }
                     if (autoTransition.timer >= settings.travelTime) {
+                        if (autoTransition.deferredMaskTo !== null && !autoTransition.deferredMaskApplied) {
+                            transitionSlideMask(autoTransition.deferredMaskFrom, autoTransition.deferredMaskTo, { fromVisible: true });
+                            autoTransition.deferredMaskApplied = true;
+                        }
                         setAutoPhase('newFlicker');
                         setAutoStatus('New slide flickering in.');
                     }
@@ -1904,13 +2338,21 @@
             function getOverlayRuntimeInfo() {
                 const slide = slides[currentSlideIndex];
                 const rawName = slide ? (slide.name || slide.fileName || `Slide ${currentSlideIndex + 1}`) : 'No slide';
-                const slideName = rawName.length > 24 ? `${rawName.slice(0, 21)}...` : rawName;
+                const typePrefix = slide?.type === 'image'
+                    ? 'IMG '
+                    : slide?.type === 'video'
+                        ? 'VID '
+                        : (slide ? 'SVG ' : '');
+                const slideNameRaw = `${typePrefix}${rawName}`;
+                const slideName = slideNameRaw.length > 24 ? `${slideNameRaw.slice(0, 21)}...` : slideNameRaw;
                 const imageNameRaw = imageState.name || imageState.fileName || '';
                 const imageName = imageNameRaw ? `${imageNameRaw.length > 22 ? `${imageNameRaw.slice(0, 19)}...` : imageNameRaw}${imageState.hidden ? ' hidden' : ''}` : '';
                 const statusSources = [
                     autoControls.status?.textContent,
                     maskControls.status?.textContent,
+                    imageMaskControls.status?.textContent,
                     slideControls.status?.textContent,
+                    imageSlideControls.status?.textContent,
                     imageControls.status?.textContent,
                     gridControls.status?.textContent,
                     blinkControls.status?.textContent,
@@ -1925,7 +2367,7 @@
                     const targetSlide = slides[slideIndex];
                     if (!targetSlide) return null;
                     if (!targetSlide.geometry.maskOffsetItems.length) return 0;
-                    return getMaskDotCountFromCache(getReadySlideMaskCache(slideIndex));
+                    return getMaskDotCountFromCache(getReadySlideMaskCache(slideIndex, getMaskState(targetSlide.type)));
                 };
                 const oldMaskDots = readMaskCount(oldIndex);
                 const newMaskDots = readMaskCount(newIndex);
@@ -1940,6 +2382,7 @@
             }
 
             function beginHoldAdvance(direction = 1, code = 'button-next') {
+                pauseAllVideos(true);
                 startAutoTransition(direction);
             }
 

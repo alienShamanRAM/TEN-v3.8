@@ -53,6 +53,14 @@ body, html {
 }
 #image-layer { z-index: 1; overflow: hidden; }
 #image-layer img { transform-origin: 0 0; }
+#image-layer video,
+#svg-slide-layer video {
+    position: absolute;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+    transform-origin: 0 0;
+}
 #grid-canvas-primary { z-index: 2; }
 #svg-slide-layer { z-index: 4; }
 .grid-canvas-instance {
@@ -288,9 +296,10 @@ input:focus-visible {
 #drawer-blink-mode { order: 3; }
 #drawer-view-options { order: 1; }
 #drawer-slides { order: 2; }
-#drawer-auto-transition { order: 3; }
-#drawer-bg { order: 4; }
-#drawer-help { order: 5; }
+#drawer-image-slides { order: 3; }
+#drawer-auto-transition { order: 4; }
+#drawer-bg { order: 5; }
+#drawer-help { order: 6; }
 #drawer-presets { order: 4; }
 .drawer-trigger::after {
     content: '▼'; font-size: 8px; opacity: 0.5; transition: transform 0.2s ease;

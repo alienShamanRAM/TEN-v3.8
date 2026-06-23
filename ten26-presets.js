@@ -86,6 +86,74 @@ function getActiveLayerStateFromControls() {
                 updateMaskStatus();
             }
 
+            function getImageSlideControlState() {
+                return {
+                    scale: imageSlideControls.scale?.value || '100',
+                    offsetX: imageSlideControls.offsetX?.value || '0',
+                    offsetY: imageSlideControls.offsetY?.value || '0',
+                    duration: mediaControls.duration?.value || '4'
+                };
+            }
+
+            function applyImageSlideControlState(state = {}) {
+                setControlValue(imageSlideControls.scale, state.scale || '100');
+                setControlValue(imageSlideControls.offsetX, state.offsetX || '0');
+                setControlValue(imageSlideControls.offsetY, state.offsetY || '0');
+                setControlValue(mediaControls.duration, state.duration || '4');
+            }
+
+            function getImageMaskControlState() {
+                return {
+                    enabled: imageMaskControls.enabled?.checked !== false,
+                    expansion: imageMaskControls.expansion?.value || '32',
+                    scaleTime: imageMaskControls.scaleTime?.value || '2'
+                };
+            }
+
+            function applyImageMaskControlState(state = {}) {
+                if (imageMaskControls.enabled) imageMaskControls.enabled.checked = state.enabled !== false;
+                setControlValue(imageMaskControls.expansion, state.expansion || '32');
+                setControlValue(imageMaskControls.scaleTime, state.scaleTime || '2');
+                clearMaskCache();
+                if (typeof updateImageMaskStatus === 'function') updateImageMaskStatus();
+            }
+
+            function serializeSlideEntry(slide) {
+                const type = slide?.type === 'video'
+                    ? 'video'
+                    : slide?.type === 'image'
+                        ? 'image'
+                        : 'svg';
+                const entry = {
+                    type,
+                    name: slide.name || slide.fileName,
+                    fileName: slide.fileName || slide.name,
+                    svg: slide.svg
+                };
+                if (type === 'image') entry.imageSrc = slide.imageSrc || '';
+                if (type === 'video') {
+                    entry.videoMissing = true;
+                    entry.duration = slide.duration || 0;
+                    entry.videoFileName = slide.fileName || slide.name || '';
+                }
+                return entry;
+            }
+
+            function isLoadablePresetSlideEntry(slide) {
+                if (!slide) return false;
+                if (slide.type === 'image') return !!slide.svg && !!slide.imageSrc;
+                if (slide.type === 'video') return false;
+                return !!slide.svg;
+            }
+
+            function createSlideFromPresetEntry(slide) {
+                const name = slide.name || slide.fileName || (slide.type === 'image' ? 'Imported Image' : 'Imported SVG');
+                if (slide.type === 'image') {
+                    return createSlide(name, slide.svg || '', { type: 'image', imageSrc: slide.imageSrc || '' });
+                }
+                return createSlide(name, slide.svg || '', { type: 'svg' });
+            }
+
             function cloneDotLayerStates() {
                 return DOT_LAYER_KEYS.reduce((acc, layerKey) => {
                     acc[layerKey] = { ...dotLayerStates[layerKey] };
@@ -310,18 +378,17 @@ function getActiveLayerStateFromControls() {
                         cycleSpeed: bgControls.cycleSpeed?.value || '0.18'
                     },
                     appBackdrop: getAppBackdropState(),
-                    slides: slides.map(slide => ({
-                        name: slide.name || slide.fileName,
-                        fileName: slide.fileName || slide.name,
-                        svg: slide.svg
-                    })),
+                    slides: slides.map(serializeSlideEntry),
+                    mediaMode,
                     currentSlideIndex,
                     slide: {
                         scale: slideControls.scale.value,
                         offsetX: slideControls.offsetX.value,
                         offsetY: slideControls.offsetY.value
                     },
-                    mask: getMaskControlState()
+                    mask: getMaskControlState(),
+                    imageSlide: getImageSlideControlState(),
+                    imageMask: getImageMaskControlState()
                 };
             }
 
@@ -336,12 +403,16 @@ function getActiveLayerStateFromControls() {
                     slideControls.offsetX.value = slideState.offsetX || '0';
                     slideControls.offsetY.value = slideState.offsetY || '0';
                 }
+                applyImageSlideControlState(state.imageSlide || {});
                 applyTimingState(state.timing || {
                     fadeOut: state.motion?.['morph-fade-out'] || '0.7',
                     fadeIn: state.motion?.['morph-fade-in'] || '0.8'
                 });
                 if (state.mask) applyMaskControlState(state.mask || {});
+                applyImageMaskControlState(state.imageMask || {});
                 applyAutoTransitionControlState(state.autoTransition || {});
+                mediaMode = state.mediaMode === 'videos' ? 'videos' : 'images';
+                updateMediaModeUi();
 
                 const image = state.imageLayer || {};
                 const imageName = image.name || image.fileName || '';
@@ -370,6 +441,12 @@ function getActiveLayerStateFromControls() {
                 setControlValue(bgControls.cycleSpeed, bg.cycleSpeed || '0.18');
                 updateBackgroundControls();
                 updateBackground();
+                if (typeof pauseAllVideos === 'function') pauseAllVideos(true);
+                if (typeof disposeVideoSlide === 'function') {
+                    slides.forEach(slide => {
+                        if (slide?.type === 'video') disposeVideoSlide(slide);
+                    });
+                }
 
                 const incomingLayers = state.dotLayers || buildLegacyLayerState(state);
                 const normalizedLayers = normalizeLayerCollection(incomingLayers, state.layerOrder);
@@ -388,14 +465,20 @@ function getActiveLayerStateFromControls() {
                 activeLayerKey = DOT_LAYER_KEYS.includes(mappedActiveLayerKey) ? mappedActiveLayerKey : DOT_LAYER_KEYS[0];
                 const slideEntries = Array.isArray(state.slides) ? state.slides : null;
                 const incomingSlides = slideEntries
-                    ? slideEntries.filter(slide => slide && slide.svg)
+                    ? slideEntries.filter(isLoadablePresetSlideEntry)
                     : [];
                 if (slideEntries) {
                     missingSlideNames = slideEntries
-                        .filter(slide => slide && !slide.svg && (slide.name || slide.fileName))
+                        .filter(slide => slide && slide.type === 'svg' && !slide.svg && (slide.name || slide.fileName))
                         .map(slide => slide.name || slide.fileName);
+                    const missingVideoNames = slideEntries
+                        .filter(slide => slide && slide.type === 'video' && (slide.name || slide.fileName || slide.videoFileName))
+                        .map(slide => slide.videoFileName || slide.name || slide.fileName);
+                    if (missingVideoNames.length && typeof showUiToast === 'function') {
+                        showUiToast(`Preset references video slides that must be re-uploaded: ${missingVideoNames.join(', ')}.`, 'warning');
+                    }
                     if (incomingSlides.length) {
-                        slides = incomingSlides.map(slide => createSlide(slide.name || slide.fileName || 'Imported SVG', slide.svg || ''));
+                        slides = incomingSlides.map(createSlideFromPresetEntry);
                         currentSlideIndex = clamp(state.currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
                     } else {
                         slides = [];
@@ -427,18 +510,17 @@ function getActiveLayerStateFromControls() {
 
             function getSvgState() {
                 return {
-                    slides: slides.map(slide => ({
-                        name: slide.name || slide.fileName,
-                        fileName: slide.fileName || slide.name,
-                        svg: slide.svg
-                    })),
+                    slides: slides.map(serializeSlideEntry),
+                    mediaMode,
                     currentSlideIndex,
                     slide: {
                         scale: slideControls.scale.value,
                         offsetX: slideControls.offsetX.value,
                         offsetY: slideControls.offsetY.value
                     },
-                    mask: getMaskControlState()
+                    mask: getMaskControlState(),
+                    imageSlide: getImageSlideControlState(),
+                    imageMask: getImageMaskControlState()
                 };
             }
 
@@ -448,13 +530,29 @@ function getActiveLayerStateFromControls() {
                 slideControls.offsetX.value = slideState.offsetX || '0';
                 slideControls.offsetY.value = slideState.offsetY || '0';
                 applyMaskControlState(state.mask || {});
+                applyImageSlideControlState(state.imageSlide || {});
+                applyImageMaskControlState(state.imageMask || {});
+                mediaMode = state.mediaMode === 'videos' ? 'videos' : 'images';
+                updateMediaModeUi();
+                if (typeof pauseAllVideos === 'function') pauseAllVideos(true);
+                if (typeof disposeVideoSlide === 'function') {
+                    slides.forEach(slide => {
+                        if (slide?.type === 'video') disposeVideoSlide(slide);
+                    });
+                }
                 const slideEntries = Array.isArray(state.slides) ? state.slides : [];
-                const incomingSlides = slideEntries.filter(slide => slide && slide.svg);
+                const incomingSlides = slideEntries.filter(isLoadablePresetSlideEntry);
                 missingSlideNames = slideEntries
-                    .filter(slide => slide && !slide.svg && (slide.name || slide.fileName))
+                    .filter(slide => slide && slide.type === 'svg' && !slide.svg && (slide.name || slide.fileName))
                     .map(slide => slide.name || slide.fileName);
+                const missingVideoNames = slideEntries
+                    .filter(slide => slide && slide.type === 'video' && (slide.name || slide.fileName || slide.videoFileName))
+                    .map(slide => slide.videoFileName || slide.name || slide.fileName);
+                if (missingVideoNames.length && typeof showUiToast === 'function') {
+                    showUiToast(`Preset references video slides that must be re-uploaded: ${missingVideoNames.join(', ')}.`, 'warning');
+                }
                 if (incomingSlides.length) {
-                    slides = incomingSlides.map(slide => createSlide(slide.name || slide.fileName || 'Imported SVG', slide.svg || ''));
+                    slides = incomingSlides.map(createSlideFromPresetEntry);
                     currentSlideIndex = clamp(state.currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
                 } else if (Array.isArray(state.slides)) {
                     slides = [];
@@ -524,12 +622,27 @@ function getActiveLayerStateFromControls() {
 
             function cloneSlidesState(slideEntries = []) {
                 return slideEntries
-                    .filter(slide => slide && slide.svg)
-                    .map(slide => ({
-                        name: slide.name || slide.fileName || 'Preloaded SVG',
-                        fileName: slide.fileName || slide.name || 'Preloaded SVG',
-                        svg: slide.svg
-                    }));
+                    .filter(slide => slide && (slide.svg || slide.type === 'video'))
+                    .map(slide => {
+                        const type = slide?.type === 'video'
+                            ? 'video'
+                            : slide?.type === 'image'
+                                ? 'image'
+                                : 'svg';
+                        const name = slide.name || slide.fileName || (type === 'video' ? 'Preloaded Video' : 'Preloaded SVG');
+                        return {
+                            type,
+                            name,
+                            fileName: slide.fileName || slide.name || name,
+                            svg: slide.svg || '',
+                            ...(type === 'image' ? { imageSrc: slide.imageSrc || '' } : {}),
+                            ...(type === 'video' ? {
+                                videoMissing: true,
+                                duration: slide.duration || 0,
+                                videoFileName: slide.videoFileName || slide.fileName || slide.name || name
+                            } : {})
+                        };
+                    });
             }
 
             function cloneDefaultSlidesState() {
@@ -554,6 +667,25 @@ function getActiveLayerStateFromControls() {
                     samples: mask.samples || '18',
                     speedThreshold: mask.speedThreshold || '0.18',
                     gridThreshold: mask.gridThreshold || '4'
+                };
+            }
+
+            function getDefaultImageSlideState() {
+                const imageSlide = getDefaultAssetBundle().imageSlide || {};
+                return {
+                    scale: imageSlide.scale || '100',
+                    offsetX: imageSlide.offsetX || '0',
+                    offsetY: imageSlide.offsetY || '0',
+                    duration: imageSlide.duration || '4'
+                };
+            }
+
+            function getDefaultImageMaskState() {
+                const imageMask = getDefaultAssetBundle().imageMask || {};
+                return {
+                    enabled: imageMask.enabled !== false,
+                    expansion: imageMask.expansion || '32',
+                    scaleTime: imageMask.scaleTime || '2'
                 };
             }
 
@@ -606,9 +738,12 @@ function getActiveLayerStateFromControls() {
                         color: '#02006c'
                     },
                     slides: defaultSlides,
+                    mediaMode: getDefaultAssetBundle().mediaMode === 'videos' ? 'videos' : 'images',
                     currentSlideIndex: clamp(getDefaultAssetBundle().currentSlideIndex || 0, 0, Math.max(0, defaultSlides.length - 1)),
                     slide: getDefaultSlideState(),
-                    mask: getDefaultMaskState()
+                    mask: getDefaultMaskState(),
+                    imageSlide: getDefaultImageSlideState(),
+                    imageMask: getDefaultImageMaskState()
                 };
             }
 
@@ -719,9 +854,17 @@ function getActiveLayerStateFromControls() {
                 if (state.slide === undefined && state.slides !== undefined) warnings.push('SVG placement');
                 if (state.mask === undefined && state.slides !== undefined) warnings.push('mask values');
                 const missingSlides = (state.slides || [])
-                    .filter(slide => (slide?.name || slide?.fileName) && !slide.svg)
+                    .filter(slide => slide?.type === 'svg' && (slide?.name || slide?.fileName) && !slide.svg)
                     .map(slide => slide.fileName || slide.name);
                 if (missingSlides.length) warnings.push(`missing SVG: ${missingSlides.join(', ')}`);
+                const missingImageSlides = (state.slides || [])
+                    .filter(slide => slide?.type === 'image' && (slide.name || slide.fileName) && !slide.imageSrc)
+                    .map(slide => slide.fileName || slide.name);
+                if (missingImageSlides.length) warnings.push(`missing image slide: ${missingImageSlides.join(', ')}`);
+                const missingVideoSlides = (state.slides || [])
+                    .filter(slide => slide?.type === 'video' && (slide.name || slide.fileName || slide.videoFileName))
+                    .map(slide => slide.videoFileName || slide.fileName || slide.name);
+                if (missingVideoSlides.length) warnings.push(`missing media: ${missingVideoSlides.join(', ')}`);
                 const imageName = state.imageLayer?.fileName || state.imageLayer?.name || '';
                 if (imageName && !state.imageLayer?.src) warnings.push(`missing image: ${imageName}`);
                 return warnings;

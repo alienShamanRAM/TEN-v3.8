@@ -104,14 +104,18 @@ window.installTen26Hardening = function installTen26Hardening() {
 
     if (typeof createSlide === 'function') {
         const originalCreateSlide = createSlide;
-        createSlide = function createSanitizedSlide(name, svg) {
-            return originalCreateSlide(name, sanitizeSvgText(svg));
+        createSlide = function createSanitizedSlide(name, svg, options) {
+            return originalCreateSlide(name, sanitizeSvgText(svg), options);
         };
     }
 
     if (typeof ensureSlideTemplate === 'function') {
         ensureSlideTemplate = function ensureSanitizedSlideTemplate(slide) {
             if (!slide) return null;
+            if (slide.type === 'image') {
+                if (!slide.domTemplate) slide.domTemplate = document.createElement('template');
+                return slide.domTemplate;
+            }
             if (!slide.domTemplate) {
                 const template = document.createElement('template');
                 template.innerHTML = sanitizeSvgText(slide.svg);

@@ -608,6 +608,7 @@ const viewport = document.getElementById('canvas-viewport');
             let currentBackgroundColor = bgControls.staticPicker?.value || '#02006c';
             let appliedBackgroundColor = '';
             let backgroundRuntime = null;
+            let mediaMode = 'images';
 
             const maskControls = {
                 enabled: document.getElementById('mask-enabled'),
@@ -618,6 +619,54 @@ const viewport = document.getElementById('canvas-viewport');
                 speedThreshold: document.getElementById('mask-speed-threshold'),
                 gridThreshold: document.getElementById('mask-grid-threshold')
             };
+
+            const mediaControls = {
+                file: document.getElementById('file-image-slides'),
+                label: document.getElementById('label-image-slides'),
+                clear: document.getElementById('clear-image-slides'),
+                status: document.getElementById('image-slides-status'),
+                scale: document.getElementById('image-slide-scale'),
+                offsetX: document.getElementById('image-slide-offset-x'),
+                offsetY: document.getElementById('image-slide-offset-y'),
+                duration: document.getElementById('media-slide-duration'),
+                durationRow: document.getElementById('media-duration-row'),
+                modeStatus: document.getElementById('media-mode-status')
+            };
+            const imageSlideControls = mediaControls;
+
+            const imageMaskControls = {
+                enabled: document.getElementById('image-mask-enabled'),
+                status: document.getElementById('image-mask-status'),
+                expansion: document.getElementById('image-mask-expansion'),
+                scaleTime: document.getElementById('image-mask-scale-time')
+            };
+
+            function isSvgSlideType(type) {
+                return type === 'svg';
+            }
+
+            function isMediaSlideType(type) {
+                return type === 'image' || type === 'video';
+            }
+
+            function getSlideControlsForType(slideType) {
+                return isMediaSlideType(slideType) ? mediaControls : slideControls;
+            }
+
+            function getMaskControlsForType(slideType) {
+                return isMediaSlideType(slideType) ? imageMaskControls : maskControls;
+            }
+
+            function updateMediaModeUi() {
+                if (mediaControls.modeStatus) {
+                    mediaControls.modeStatus.textContent =
+                        `Mode: ${mediaMode === 'videos' ? 'Video Sequence' : 'Image Sequence'}`;
+                }
+                if (mediaControls.durationRow) {
+                    mediaControls.durationRow.classList.toggle('hidden-ui-node', mediaMode === 'videos');
+                }
+            }
+            updateMediaModeUi();
 
             const autoControls = {
                 status: document.getElementById('auto-transition-status'),
@@ -853,7 +902,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const valueIdAliases = {};
                 const indicator = document.getElementById(valueIdAliases[slider.id] || `val-${slider.id}`);
                 if (!indicator) return;
-                const suffix = slider.id.includes('opacity') || slider.id === 'slide-scale' || slider.id === 'view-scale' ? '%' : '';
+                const suffix = slider.id.includes('opacity') || slider.id === 'slide-scale' || slider.id === 'image-slide-scale' || slider.id === 'view-scale' ? '%' : '';
                 indicator.textContent = slider.value + suffix;
                 indicator.dataset.prevValue = indicator.textContent;
             }
@@ -869,6 +918,9 @@ const viewport = document.getElementById('canvas-viewport');
                 'slide-scale': 'SVG target size on the canvas.',
                 'slide-offset-x': 'Move SVG targets left or right.',
                 'slide-offset-y': 'Move SVG targets up or down.',
+                'image-slide-scale': 'Image slide target size on the canvas.',
+                'image-slide-offset-x': 'Move image slide targets left or right.',
+                'image-slide-offset-y': 'Move image slide targets up or down.',
                 'dot-pull': 'Strength pulling dots into SVG targets.',
                 'dot-svg-radius': 'Distance where SVG targets affect dots.',
                 'dot-return-pull': 'Strength pulling dots back to grid.',
@@ -894,6 +946,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'stage-height': 'Canvas height in shared stage coordinates.',
                 'mask-expansion': 'Expand the painted SVG mask outward.',
                 'mask-scale-time': 'Seconds used for masked dots to shrink out or grow back during slide changes.',
+                'image-mask-expansion': 'Expand the image slide mask outward from the rectangle edges.',
+                'image-mask-scale-time': 'Seconds used for image-slide masked dots to shrink out or grow back.',
                 'mask-samples': 'Legacy mask setting kept for older presets.',
                 'mask-speed-threshold': 'Legacy mask setting kept for older presets.',
                 'mask-grid-threshold': 'Legacy mask setting kept for older presets.',
@@ -921,7 +975,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-dot-matrix': 'Layered dot motion, size, and color.',
                 'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',
                 'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
-                'drawer-trigger-slides': 'Slide artwork used as dot targets.',
+                'drawer-trigger-slides': 'SVG artwork used as dot targets.',
+                'drawer-trigger-image-slides': 'Media slides used as rectangular dot targets.',
                 'drawer-trigger-flicker': 'Glitch timing between slides.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
@@ -930,7 +985,9 @@ const viewport = document.getElementById('canvas-viewport');
             };
 
             const SECTION_TOOLTIPS = {
-                'Slide Mask': 'Hide grid homes inside or near painted slide artwork.',
+                'SVG Mask': 'Hide grid homes inside or near painted SVG artwork.',
+                'Image Mask': 'Hide grid homes inside the active media rectangle.',
+                'Media Mask': 'Hide grid homes inside the active media rectangle.',
                 'Transition Path': 'Dot movement phases: hold current, move to next, then return to grid.',
                 'Flicker Shape': 'Binary on/off behavior during slide swaps.',
                 'Canvas Color': 'Static or cycling canvas palette.',
@@ -941,17 +998,22 @@ const viewport = document.getElementById('canvas-viewport');
             const CONTROL_TOOLTIPS = {
                 'file-slides': 'Load SVG files as slide artwork.',
                 'label-slides': 'Load SVG files as slide artwork.',
+                'file-image-slides': 'Load PNG, JPG, or supported video files as media slide targets.',
+                'label-image-slides': 'Load PNG, JPG, or supported video files as media slide targets.',
                 'file-image': 'Load an image behind the dots.',
                 'label-image': 'Load an image behind the dots.',
                 'image-visibility-toggle': 'Show or hide the background image without removing it.',
-                'clear-slides': 'Remove all loaded slides from the current scene.',
+                'clear-slides': 'Remove all loaded SVG slides from the current scene.',
+                'clear-image-slides': 'Remove all loaded media slides from the current scene.',
                 'clear-image': 'Remove the current background image from the scene.',
+                'media-slide-duration': 'Set hold time for image sequences. Video sequences use each video duration.',
                 'bg-mode': 'Static, 2-color, or 3-color canvas color.',
                 'app-bg-mode': 'Backdrop style outside the canvas.',
                 'app-bg-picker': 'Backdrop color outside the canvas.',
                 'app-bg-hex': 'Backdrop color outside the canvas.',
                 'blink-enabled': 'Turn shared grid blink on or off.',
-                'mask-enabled': 'Hide grid-home dots inside the SVG.',
+                'mask-enabled': 'Hide grid-home dots inside the active SVG.',
+                'image-mask-enabled': 'Hide grid-home dots inside the active media rectangle.',
                 'view-resolution-overlay-toggle': 'Show canvas size, preview scale, frame cap, slide name, anchor count, mask-dot counts, and current status.',
                 'panel-toggle': 'Open both control panels.',
                 'minimize-btn': 'Hide both control panels.',
