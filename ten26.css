@@ -1010,23 +1010,33 @@ input:disabled {
 .view-resolution-overlay {
     position: fixed;
     left: 24px;
+    right: 24px;
     bottom: 18px;
     transform: none;
     z-index: 12;
-    padding: 7px 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,212,245,0.18);
-    background: rgba(0,0,18,0.78);
-    color: rgba(224,221,234,0.88);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(255,255,255,1);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px;
     line-height: 1.38;
     letter-spacing: 0;
     pointer-events: none;
-    white-space: pre-line;
-    width: var(--drawer-width);
-    max-width: calc(100vw - 48px);
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: auto;
+    max-width: none;
+    text-shadow: 0 1px 4px rgba(0,0,18,0.35);
+    box-shadow: none;
+}
+.view-resolution-overlay .overlay-value {
+    color: var(--ui-pink);
+}
+.view-resolution-overlay .overlay-divider {
+    color: rgba(255,255,255,0.42);
 }
 .ui-toast-region {
     position: fixed;

@@ -91,7 +91,8 @@ function getActiveLayerStateFromControls() {
                     scale: imageSlideControls.scale?.value || '100',
                     offsetX: imageSlideControls.offsetX?.value || '0',
                     offsetY: imageSlideControls.offsetY?.value || '0',
-                    duration: mediaControls.duration?.value || '4'
+                    duration: mediaControls.duration?.value || '4',
+                    transitionMode: getMediaTransitionMode()
                 };
             }
 
@@ -100,6 +101,11 @@ function getActiveLayerStateFromControls() {
                 setControlValue(imageSlideControls.offsetX, state.offsetX || '0');
                 setControlValue(imageSlideControls.offsetY, state.offsetY || '0');
                 setControlValue(mediaControls.duration, state.duration || '4');
+                if (mediaControls.transitionMode) {
+                    mediaControls.transitionMode.value = ['full', 'flicker', 'cut'].includes(state.transitionMode)
+                        ? state.transitionMode
+                        : 'full';
+                }
             }
 
             function getImageMaskControlState() {
@@ -1124,4 +1130,9 @@ function getActiveLayerStateFromControls() {
                     : (merged.customCount
                         ? `Space Mod loaded with ${merged.customCount} custom preset${merged.customCount === 1 ? '' : 's'}.`
                         : 'Space Mod loaded. Add, export, or import presets here.'));
+            }
+
+            function getStartupPresetState() {
+                const preset = presets.find(entry => entry?.name === 'Space Mod') || buildDefaultPresets()[0] || presets[0];
+                return cloneSerializable(preset?.state || defaultState());
             }

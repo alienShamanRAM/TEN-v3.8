@@ -2293,6 +2293,7 @@
                 }
                 const sourceSlide = slides[fromIndex];
                 const targetSlide = slides[targetIndex];
+                const mediaTransitionMode = isMediaSlideType(sourceSlide?.type) ? getMediaTransitionMode() : 'full';
                 const needsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
                 let deferredMaskFrom = null;
                 let deferredMaskTo = null;
@@ -2319,7 +2320,8 @@
                     deferredMaskFrom,
                     deferredMaskTo,
                     travelMaskCleared: false,
-                    deferredMaskApplied: false
+                    deferredMaskApplied: false,
+                    mediaTransitionMode
                 };
                 activeHoldMode = 'auto';
                 activeHoldCode = direction > 0 ? 'next' : 'previous';
@@ -2336,6 +2338,13 @@
                     playVideoSlide(sourceSlide, true);
                 }
                 updateViewStatus();
+            }
+
+            function applyDeferredAutoMask(fromVisible = true) {
+                if (!autoTransition || autoTransition.deferredMaskTo === null || autoTransition.deferredMaskApplied) return false;
+                const applied = transitionSlideMask(autoTransition.deferredMaskFrom, autoTransition.deferredMaskTo, { fromVisible });
+                autoTransition.deferredMaskApplied = true;
+                return applied;
             }
 
             function beginAutoDotTarget(slideIndex, statusText, scaleMultiplier = 1) {
@@ -2360,6 +2369,21 @@
                 autoTransition.revealedNew = true;
                 if (statusText) setAutoStatus(statusText);
                 updateViewStatus();
+            }
+
+            function finishMediaFrameCutTransition() {
+                if (!autoTransition) return;
+                const transition = autoTransition;
+                pauseVideoSlide(slides[transition.fromIndex], false);
+                currentSlideIndex = transition.targetIndex;
+                pendingSlideIndex = null;
+                slideFade = null;
+                slideOpacity = 1;
+                if (transition.deferredMaskTo !== null && !transition.deferredMaskApplied) {
+                    applyDeferredAutoMask(true);
+                }
+                renderCurrentSlide({ autoplayVideo: false });
+                finishAutoTransition();
             }
 
             function finishAutoTransition() {
@@ -2403,6 +2427,10 @@
                     setForceState({ svgAlpha: eased, gridAlpha: 1 - eased, svgRadiusPhase: progress, gridRadiusPhase: 1 - progress });
                     if (autoTransition.timer >= settings.currentTime) {
                         pauseVideoSlide(slides[autoTransition.fromIndex], false);
+                        if (autoTransition.mediaTransitionMode === 'cut') {
+                            finishMediaFrameCutTransition();
+                            return;
+                        }
                         setAutoPhase('oldFlicker');
                         setAutoStatus('Current slide flickering out.');
                     }
@@ -2413,6 +2441,14 @@
                     setSlideOpacity(sampleFlickerTimeline(autoTransition.timer, settings.outFlicker, autoTransition.outTimeline, 'out'));
                     setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
                     if (autoTransition.timer >= settings.outFlicker) {
+                        if (autoTransition.mediaTransitionMode === 'flicker') {
+                            revealAutoTargetSlide();
+                            setSlideOpacity(0);
+                            applyDeferredAutoMask(true);
+                            setAutoPhase('newFlicker');
+                            setAutoStatus('Media flicker to next slide.');
+                            return;
+                        }
                         beginAutoDotTarget(autoTransition.targetIndex, `Dots traveling to slide ${autoTransition.targetIndex + 1}.`);
                         revealAutoTargetSlide();
                         setSlideOpacity(0);
@@ -2429,10 +2465,7 @@
                         autoTransition.travelMaskCleared = true;
                     }
                     if (autoTransition.timer >= settings.travelTime) {
-                        if (autoTransition.deferredMaskTo !== null && !autoTransition.deferredMaskApplied) {
-                            transitionSlideMask(autoTransition.deferredMaskFrom, autoTransition.deferredMaskTo, { fromVisible: true });
-                            autoTransition.deferredMaskApplied = true;
-                        }
+                        applyDeferredAutoMask(true);
                         setAutoPhase('newFlicker');
                         setAutoStatus('New slide flickering in.');
                     }
@@ -2487,6 +2520,39 @@
                 const slideName = slideNameRaw.length > 24 ? `${slideNameRaw.slice(0, 21)}...` : slideNameRaw;
                 const imageNameRaw = imageState.name || imageState.fileName || '';
                 const imageName = imageNameRaw ? `${imageNameRaw.length > 22 ? `${imageNameRaw.slice(0, 19)}...` : imageNameRaw}${imageState.hidden ? ' hidden' : ''}` : '';
+                const action = autoTransition
+                    ? `auto ${autoTransition.phase}${autoTransition.mediaTransitionMode && autoTransition.mediaTransitionMode !== 'full' ? `:${autoTransition.mediaTransitionMode}` : ''}`
+                    : activeHoldMode
+                    ? `hold ${activeHoldMode}`
+                    : holdState;
+                const phaseDuration = autoTransition?.settings
+                    ? autoTransition.phase === 'currentLock'
+                        ? autoTransition.settings.currentTime
+                        : autoTransition.phase === 'oldFlicker'
+                        ? autoTransition.settings.outFlicker
+                        : autoTransition.phase === 'travel'
+                        ? autoTransition.settings.travelTime
+                        : autoTransition.phase === 'newFlicker'
+                        ? autoTransition.settings.inFlicker
+                        : autoTransition.phase === 'gridReturn'
+                        ? autoTransition.settings.gridTime
+                        : 0
+                    : 0;
+                const timer = autoTransition
+                    ? `${autoTransition.timer.toFixed(1)}/${Math.max(0, phaseDuration).toFixed(1)}s`
+                    : '-';
+                const maskProgress = maskAlphaTransition
+                    ? `${Math.round(clamp(maskAlphaTransition.elapsed / Math.max(0.001, maskAlphaTransition.duration), 0, 1) * 100)}%`
+                    : '';
+                const mask = maskAlphaTransition
+                    ? `scaling ${maskProgress}`
+                    : activeMaskSlideIndex !== null
+                    ? `slide ${activeMaskSlideIndex + 1}`
+                    : 'clear';
+                const visibleLayerCount = DOT_LAYER_KEYS.filter(layerKey => !dotLayerStates[layerKey]?.hidden).length;
+                const dotCount = typeof dotGroups === 'undefined'
+                    ? '-'
+                    : DOT_LAYER_KEYS.reduce((sum, layerKey) => sum + (dotGroups[layerKey]?.dots?.length || 0), 0);
                 const statusSources = [
                     autoControls.status?.textContent,
                     maskControls.status?.textContent,
@@ -2500,7 +2566,7 @@
                     presetStatus?.textContent
                 ].filter(Boolean);
                 const rawStatus = overlayStatusText || statusSources.find(text => text && !/^No image loaded\.$/.test(text)) || '';
-                const status = rawStatus.length > 96 ? `${rawStatus.slice(0, 93)}...` : rawStatus;
+                const status = rawStatus.length > 52 ? `${rawStatus.slice(0, 49)}...` : rawStatus;
                 const oldIndex = autoTransition?.fromIndex ?? currentSlideIndex;
                 const newIndex = autoTransition?.targetIndex ?? (slides.length > 1 ? getWrappedSlideIndex(1) : currentSlideIndex);
                 const readMaskCount = slideIndex => {
@@ -2512,7 +2578,15 @@
                 const oldMaskDots = readMaskCount(oldIndex);
                 const newMaskDots = readMaskCount(newIndex);
                 return {
+                    slideIndex: slides.length ? currentSlideIndex + 1 : 0,
+                    slideTotal: slides.length,
                     slideName,
+                    action,
+                    timer,
+                    mask,
+                    dotCount,
+                    layers: `${visibleLayerCount}/${DOT_LAYER_KEYS.length}`,
+                    mediaMode: `${mediaMode === 'videos' ? 'video' : 'image'}:${getMediaTransitionModeLabel()}`,
                     anchorCount: slide?.geometry?.anchorPoints?.length || 0,
                     oldMaskDots: formatOverlayCount(oldMaskDots),
                     newMaskDots: formatOverlayCount(newMaskDots),

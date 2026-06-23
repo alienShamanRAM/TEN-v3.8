@@ -35,9 +35,10 @@ function bindEvents() {
                 viewControls.fit?.addEventListener('click', () => {
                     setViewScale(getFitViewScale(), 'fit');
                 });
-                viewControls.overlayToggle?.addEventListener('change', () => {
+                viewControls.overlayOpacity?.addEventListener('input', () => {
                     updateViewStatus();
                 });
+                mediaControls.transitionMode?.addEventListener('change', updateMediaModeUi);
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
                 window.addEventListener('resize', () => {
                     if (viewScaleMode === 'fit') setViewScale(getFitViewScale(), 'fit');
@@ -511,15 +512,17 @@ function bindEvents() {
                 updateAutoTransition(deltaTime);
                 updateMaskAlphaTransitions(deltaTime);
                 DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp));
+                updateOverlayRuntimeTick(deltaTime);
                 drawMorphDots();
             }
 
             bindEvents();
             createDefaultPresets();
-            applyState(defaultState());
+            applyState(getStartupPresetState());
             syncFrameInterval();
             updateDrawerTitleStates();
             updateFullscreenUi();
+            setBrowserZoom(80);
             setViewScale(100, 'manual');
             staticGridCanvas.classList.add('hidden-ui-node');
             geometryCanvas.classList.add('hidden-ui-node');

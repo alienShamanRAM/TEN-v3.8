@@ -630,7 +630,8 @@ const viewport = document.getElementById('canvas-viewport');
                 offsetY: document.getElementById('image-slide-offset-y'),
                 duration: document.getElementById('media-slide-duration'),
                 durationRow: document.getElementById('media-duration-row'),
-                modeStatus: document.getElementById('media-mode-status')
+                modeStatus: document.getElementById('media-mode-status'),
+                transitionMode: document.getElementById('media-transition-mode')
             };
             const imageSlideControls = mediaControls;
 
@@ -670,10 +671,21 @@ const viewport = document.getElementById('canvas-viewport');
                 return isMediaSlideType(slideType) ? imageMaskControls : maskControls;
             }
 
+            function getMediaTransitionMode() {
+                const value = mediaControls.transitionMode?.value || 'full';
+                return ['full', 'flicker', 'cut'].includes(value) ? value : 'full';
+            }
+
+            function getMediaTransitionModeLabel(value = getMediaTransitionMode()) {
+                if (value === 'flicker') return 'Media Flicker';
+                if (value === 'cut') return 'Frame To Frame';
+                return 'Full Dot';
+            }
+
             function updateMediaModeUi() {
                 if (mediaControls.modeStatus) {
                     mediaControls.modeStatus.textContent =
-                        `Mode: ${mediaMode === 'videos' ? 'Video Sequence' : 'Image Sequence'}`;
+                        `Mode: ${mediaMode === 'videos' ? 'Video Sequence' : 'Image Sequence'} · ${getMediaTransitionModeLabel()}`;
                 }
                 if (mediaControls.durationRow) {
                     mediaControls.durationRow.classList.toggle('hidden-ui-node', mediaMode === 'videos');
@@ -710,7 +722,7 @@ const viewport = document.getElementById('canvas-viewport');
                 frameRate: document.getElementById('view-frame-rate'),
                 fit: document.getElementById('view-fit-btn'),
                 status: document.getElementById('view-status'),
-                overlayToggle: document.getElementById('view-resolution-overlay-toggle'),
+                overlayOpacity: document.getElementById('view-overlay-opacity'),
                 overlay: document.getElementById('view-resolution-overlay'),
                 scaleButtons: Array.from(document.querySelectorAll('[data-view-scale]'))
             };
@@ -748,6 +760,12 @@ const viewport = document.getElementById('canvas-viewport');
             let viewScaleMode = 'manual';
             const VIEW_SCALE_MIN = 25;
             const VIEW_SCALE_MAX = 200;
+            let browserZoomPercent = 100;
+
+            function setBrowserZoom(percent) {
+                browserZoomPercent = clamp(Math.round(percent), 50, 150);
+                document.documentElement.style.zoom = `${browserZoomPercent}%`;
+            }
 
             function getFitViewScale() {
                 const xScale = window.innerWidth / STUDIO_WIDTH;
@@ -810,34 +828,77 @@ const viewport = document.getElementById('canvas-viewport');
                 updateViewStatus();
             }
 
+            function readOverlayOpacity() {
+                return clamp(parseInt(viewControls.overlayOpacity?.value, 10) || 0, 0, 100);
+            }
+
+            function escapeOverlayText(value) {
+                return String(value ?? '').replace(/[&<>"']/g, character => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[character]);
+            }
+
+            function overlayMetric(label, value) {
+                return `<span>${escapeOverlayText(label)}</span> <span class="overlay-value">${escapeOverlayText(value)}</span>`;
+            }
+
+            function renderOverlayMarkup(parts) {
+                return parts.filter(Boolean).join(' <span class="overlay-divider">|</span> ');
+            }
+
             function updateViewStatus() {
                 const scale = Math.round((parseFloat(viewControls.scale?.value) || 100));
                 const frameCap = clamp(parseInt(viewControls.frameRate?.value, 10) || 60, 30, 120);
                 const dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100;
-                const text = `Canvas ${STUDIO_WIDTH} x ${STUDIO_HEIGHT} · Window ${window.innerWidth} x ${window.innerHeight} · View ${scale}% · Frame cap ${frameCap} fps · Device pixel ratio ${dpr}`;
+                const text = `Canvas ${STUDIO_WIDTH} x ${STUDIO_HEIGHT} · Window ${window.innerWidth} x ${window.innerHeight} · View ${scale}% · Browser ${browserZoomPercent}% · Frame cap ${frameCap} fps · Device pixel ratio ${dpr}`;
                 if (viewControls.status) viewControls.status.textContent = text;
                 if (viewControls.overlay) {
-                    const info = typeof getOverlayRuntimeInfo === 'function' ? getOverlayRuntimeInfo() : null;
-                    const overlayParts = [
-                        `Canvas ${STUDIO_WIDTH} x ${STUDIO_HEIGHT}`,
-                        `View ${scale}%`,
-                        `Frame Cap ${frameCap} fps`,
-                        `Device Pixel Ratio ${dpr}`
-                    ];
-                    if (info) {
-                        overlayParts.push(`Slide: ${info.slideName || 'Untitled SVG'}`);
-                        overlayParts.push(`Anchors: ${info.anchorCount || 0}`);
-                        overlayParts.push(`Mask Dots: previous ${info.oldMaskDots || 0} / next ${info.newMaskDots || 0}`);
-                        if (info.imageName) overlayParts.push(`Image: ${info.imageName}`);
-                        if (info.status) overlayParts.push(`Status: ${info.status}`);
+                    const overlayOpacity = readOverlayOpacity();
+                    if (overlayOpacity <= 0) {
+                        viewControls.overlay.classList.add('hidden-ui-node');
+                        viewControls.overlay.textContent = '';
+                    } else {
+                        const info = typeof getOverlayRuntimeInfo === 'function' ? getOverlayRuntimeInfo() : null;
+                        const overlayParts = [
+                            overlayMetric('stage', `${STUDIO_WIDTH}x${STUDIO_HEIGHT}`),
+                            overlayMetric('view', `${scale}%`),
+                            overlayMetric('browser', `${browserZoomPercent}%`),
+                            overlayMetric('cap', `${frameCap}`),
+                            overlayMetric('dpr', dpr)
+                        ];
+                        if (info) {
+                            overlayParts.push(overlayMetric('slide', `${info.slideIndex}/${info.slideTotal} ${info.slideName || 'Untitled'}`));
+                            overlayParts.push(overlayMetric('action', info.action));
+                            overlayParts.push(overlayMetric('timer', info.timer));
+                            overlayParts.push(overlayMetric('mask', info.mask));
+                            overlayParts.push(overlayMetric('dots', info.dotCount));
+                            overlayParts.push(overlayMetric('layers', info.layers));
+                            overlayParts.push(overlayMetric('media', info.mediaMode));
+                            if (info.status) overlayParts.push(overlayMetric('status', info.status));
+                        }
+                        overlayParts.push(overlayMetric('keys', 'L/R flicker  Space hold  Up/Down UI  Esc stop'));
+                        viewControls.overlay.innerHTML = renderOverlayMarkup(overlayParts);
+                        viewControls.overlay.style.opacity = String(overlayOpacity / 100);
+                        viewControls.overlay.classList.remove('hidden-ui-node');
                     }
-                    viewControls.overlay.textContent = overlayParts.join('\n');
-                    viewControls.overlay.classList.toggle('hidden-ui-node', !viewControls.overlayToggle?.checked);
                 }
                 viewControls.scaleButtons.forEach(button => {
                     button.classList.toggle('active', parseInt(button.dataset.viewScale, 10) === scale && viewScaleMode !== 'fit');
                 });
                 viewControls.fit?.classList.toggle('active', viewScaleMode === 'fit');
+            }
+
+            let overlayRuntimeRefreshElapsed = 0;
+            function updateOverlayRuntimeTick(deltaTime) {
+                if (!viewControls.overlay || readOverlayOpacity() <= 0) return;
+                overlayRuntimeRefreshElapsed += deltaTime;
+                if (overlayRuntimeRefreshElapsed < 0.25) return;
+                overlayRuntimeRefreshElapsed = 0;
+                updateViewStatus();
             }
 
             function normalizeHexColor(value, fallback = '#ffffff') {
@@ -1028,7 +1089,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'blink-enabled': 'Turn shared grid blink on or off.',
                 'mask-enabled': 'Hide grid-home dots inside the active SVG.',
                 'image-mask-enabled': 'Hide grid-home dots inside the active media rectangle.',
-                'view-resolution-overlay-toggle': 'Show canvas size, preview scale, frame cap, slide name, anchor count, mask-dot counts, and current status.',
+                'view-overlay-opacity': 'Set info overlay opacity. 0% hides it and stops overlay runtime refresh.',
+                'media-transition-mode': 'Choose how transitions behave when the current slide is media.',
                 'panel-toggle': 'Open both control panels.',
                 'minimize-btn': 'Hide both control panels.',
                 'header-prev-btn': 'Previous slide.',

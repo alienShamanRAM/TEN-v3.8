@@ -267,6 +267,11 @@
                 </div>
                 <div class="geometry-status" id="image-slides-status">No media slides loaded.</div>
                 <div class="geometry-status" id="media-mode-status">Mode: Image Sequence</div>
+                <select id="media-transition-mode" aria-label="Media source transition mode">
+                    <option value="full" selected>Full Dot Transition</option>
+                    <option value="flicker">Media Flicker Only</option>
+                    <option value="cut">Frame To Frame</option>
+                </select>
                 <div class="slider-group" id="media-duration-row">
                     <span>Slide Duration (s)</span>
                     <input type="range" id="media-slide-duration" min="1" max="30" value="4" step="0.5">
@@ -493,13 +498,7 @@
                     <button class="preset-action-btn view-scale-btn" data-view-scale="200" type="button">200%</button>
                     <button class="preset-action-btn" id="view-fit-btn" type="button">Fit</button>
                 </div>
-                <div class="sub-toggle-container compact-toggle">
-                    <span>Info Overlay</span>
-                    <label title="Show canvas, slide, mask, and frame info at the bottom of the screen.">
-                        <input type="checkbox" id="view-resolution-overlay-toggle" class="hidden-ui-node" checked>
-                        <span class="checkbox-switch"></span>
-                    </label>
-                </div>
+                <div class="slider-group"><span>Info Overlay</span><input type="range" id="view-overlay-opacity" min="0" max="100" value="55" step="1"><span class="val-indicator" id="val-view-overlay-opacity">55%</span></div>
                 <div class="view-actions">
                     <button id="fullscreen-enter-btn" class="preset-action-btn">Full Screen</button>
                     <button id="fullscreen-exit-btn" class="preset-action-btn">Exit Full Screen</button>
