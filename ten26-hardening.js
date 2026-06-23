@@ -182,6 +182,7 @@ window.installTen26Hardening = function installTen26Hardening() {
     .motion-layer-drawer { width: 100%; min-width: 0; max-height: none; border-radius: 10px; }
     .motion-layer-drawer.collapsed { width: 100%; min-width: 0; }
     .slider-group, .slider-group.has-lock { grid-template-columns: 84px minmax(54px, 1fr) 40px 22px; }
+    .slider-group.has-random-range.has-lock { grid-template-columns: 84px minmax(44px, 1fr) 40px 22px 22px; }
     .slider-group:not(.has-lock) { grid-template-columns: 84px minmax(64px, 1fr) 40px; }
     .view-resolution-overlay { bottom: 8px; max-width: calc(100vw - 24px); }
     .ui-toast-region { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
@@ -192,6 +193,7 @@ window.installTen26Hardening = function installTen26Hardening() {
     .view-scale-grid { grid-template-columns: repeat(3, 1fr); }
     .matrix-action-grid, .drawer-bottom-actions, .view-actions { grid-template-columns: 1fr; }
     .compact-color { grid-template-columns: 44px 28px minmax(0, 1fr) 22px; }
+    .compact-color.dot-palette-control { grid-template-columns: 40px minmax(54px, 1fr) 58px 20px; }
 }
 `;
     document.head.appendChild(style);

@@ -366,6 +366,7 @@ function getActiveLayerStateFromControls() {
                     timing: getTimingState(),
                     autoTransition: getAutoTransitionControlState(),
                     blink: forceBlinkRespawnState(getBlinkStateFromControls()),
+                    randomRanges: getRandomRangeState(),
                     stage: getStageState(),
                     dotLayers: cloneDotLayerStates(),
                     imageLayer: {
@@ -508,6 +509,7 @@ function getActiveLayerStateFromControls() {
                 });
                 resetDotMaskAlphas(1);
                 loadActiveLayerIntoUi();
+                applyRandomRangeState(state.randomRanges || {});
                 syncLayerRegistryUi();
                 renderCurrentSlide();
                 if (typeof precomputeAllTransitionAssetsSync === 'function') precomputeAllTransitionAssetsSync();

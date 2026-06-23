@@ -3,6 +3,8 @@ window.installTen26Hardening?.();
 function bindEvents() {
                 bindAllRangeDisplays();
                 setupRandomLockUi();
+                setupRandomRangeUi();
+                installDotColorPaletteUi();
                 applySliderTooltips();
                 applyNativeTooltips();
                 enableSliderValueEditing();
@@ -58,6 +60,7 @@ function bindEvents() {
                     headerAutoTimer = window.setInterval(runHeaderAutoStep, getHeaderAutoSeconds() * 1000);
                 };
                 const setHeaderAutoState = active => {
+                    if (typeof setHeaderAutoplayStatus === 'function') setHeaderAutoplayStatus(active);
                     performanceControlGroups.forEach(controls => {
                         controls.auto?.classList.toggle('active', active);
                         controls.auto?.setAttribute('aria-pressed', String(active));

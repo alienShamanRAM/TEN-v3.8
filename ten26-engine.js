@@ -2516,6 +2516,11 @@
                     : slide?.type === 'video'
                         ? 'VID '
                         : (slide ? 'SVG ' : '');
+                const typeLabel = slide?.type === 'video'
+                    ? 'Video'
+                    : slide?.type === 'image'
+                    ? 'Image'
+                    : (slide ? 'SVG' : 'None');
                 const slideNameRaw = `${typePrefix}${rawName}`;
                 const slideName = slideNameRaw.length > 24 ? `${slideNameRaw.slice(0, 21)}...` : slideNameRaw;
                 const imageNameRaw = imageState.name || imageState.fileName || '';
@@ -2525,6 +2530,13 @@
                     : activeHoldMode
                     ? `hold ${activeHoldMode}`
                     : holdState;
+                const transitionState = autoTransition
+                    ? 'Moving'
+                    : holdState === 'attract' || activeHoldMode
+                    ? 'Holding'
+                    : holdState === 'return'
+                    ? 'Returning'
+                    : 'Idle';
                 const phaseDuration = autoTransition?.settings
                     ? autoTransition.phase === 'currentLock'
                         ? autoTransition.settings.currentTime
@@ -2569,6 +2581,12 @@
                 const status = rawStatus.length > 52 ? `${rawStatus.slice(0, 49)}...` : rawStatus;
                 const oldIndex = autoTransition?.fromIndex ?? currentSlideIndex;
                 const newIndex = autoTransition?.targetIndex ?? (slides.length > 1 ? getWrappedSlideIndex(1) : currentSlideIndex);
+                const cacheTargetIndex = autoTransition?.targetIndex ?? currentSlideIndex;
+                const cache = !slides.length
+                    ? 'Missing'
+                    : areTransitionAssetsReady(cacheTargetIndex)
+                    ? 'Ready'
+                    : (maskWarmupActive || pendingMaskWarmup || pendingTargetWarmup ? 'Warming' : 'Missing');
                 const readMaskCount = slideIndex => {
                     const targetSlide = slides[slideIndex];
                     if (!targetSlide) return null;
@@ -2577,16 +2595,27 @@
                 };
                 const oldMaskDots = readMaskCount(oldIndex);
                 const newMaskDots = readMaskCount(newIndex);
+                const svgCount = slides.filter(item => isSvgSlideType(item.type)).length;
+                const imageCount = slides.filter(item => item.type === 'image').length;
+                const videoCount = slides.filter(item => item.type === 'video').length;
                 return {
                     slideIndex: slides.length ? currentSlideIndex + 1 : 0,
                     slideTotal: slides.length,
                     slideName,
+                    typeLabel,
+                    autoplay: headerAutoplayActive ? 'On' : 'Off',
+                    transitionState,
+                    activeLayer: typeof getLayerLabel === 'function' ? getLayerLabel(activeLayerKey) : activeLayerKey,
                     action,
                     timer,
                     mask,
                     dotCount,
                     layers: `${visibleLayerCount}/${DOT_LAYER_KEYS.length}`,
                     mediaMode: `${mediaMode === 'videos' ? 'video' : 'image'}:${getMediaTransitionModeLabel()}`,
+                    cache,
+                    svgCount,
+                    imageCount,
+                    videoCount,
                     anchorCount: slide?.geometry?.anchorPoints?.length || 0,
                     oldMaskDots: formatOverlayCount(oldMaskDots),
                     newMaskDots: formatOverlayCount(newMaskDots),

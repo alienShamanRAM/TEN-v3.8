@@ -8,9 +8,20 @@ const viewport = document.getElementById('canvas-viewport');
             const toastRegion = document.getElementById('ui-toast-region');
             let uiToastTimer = null;
             let overlayStatusText = '';
+            const TEN26_DOT_RANDOM_COLORS = [
+                '#ffffff',
+                '#ffc5f4',
+                '#02006c'
+            ];
+            let headerAutoplayActive = false;
 
             function setOverlayStatus(text) {
                 overlayStatusText = text || '';
+                if (typeof updateViewStatus === 'function') updateViewStatus();
+            }
+
+            function setHeaderAutoplayStatus(active) {
+                headerAutoplayActive = !!active;
                 if (typeof updateViewStatus === 'function') updateViewStatus();
             }
 
@@ -846,8 +857,20 @@ const viewport = document.getElementById('canvas-viewport');
                 return `<span>${escapeOverlayText(label)}</span> <span class="overlay-value">${escapeOverlayText(value)}</span>`;
             }
 
-            function renderOverlayMarkup(parts) {
-                return parts.filter(Boolean).join(' <span class="overlay-divider">|</span> ');
+            function renderOverlayLine(label, value) {
+                return `<div class="overlay-line">${overlayMetric(label, value)}</div>`;
+            }
+
+            function renderOverlayMarkup(realtimeParts, staticParts) {
+                return [
+                    `<div class="overlay-realtime">${realtimeParts.filter(Boolean).join('')}</div>`,
+                    `<div class="overlay-static">${staticParts.filter(Boolean).join(' <span class="overlay-divider">·</span> ')}</div>`
+                ].join('');
+            }
+
+            function getSelectedPresetOverlayName() {
+                const label = presetSelect?.selectedOptions?.[0]?.textContent || 'Space Mod';
+                return label.replace(/^!\s*/, '').trim() || 'Space Mod';
             }
 
             function updateViewStatus() {
@@ -863,25 +886,33 @@ const viewport = document.getElementById('canvas-viewport');
                         viewControls.overlay.textContent = '';
                     } else {
                         const info = typeof getOverlayRuntimeInfo === 'function' ? getOverlayRuntimeInfo() : null;
-                        const overlayParts = [
-                            overlayMetric('stage', `${STUDIO_WIDTH}x${STUDIO_HEIGHT}`),
-                            overlayMetric('view', `${scale}%`),
-                            overlayMetric('browser', `${browserZoomPercent}%`),
-                            overlayMetric('cap', `${frameCap}`),
-                            overlayMetric('dpr', dpr)
-                        ];
+                        const realtimeParts = [];
                         if (info) {
-                            overlayParts.push(overlayMetric('slide', `${info.slideIndex}/${info.slideTotal} ${info.slideName || 'Untitled'}`));
-                            overlayParts.push(overlayMetric('action', info.action));
-                            overlayParts.push(overlayMetric('timer', info.timer));
-                            overlayParts.push(overlayMetric('mask', info.mask));
-                            overlayParts.push(overlayMetric('dots', info.dotCount));
-                            overlayParts.push(overlayMetric('layers', info.layers));
-                            overlayParts.push(overlayMetric('media', info.mediaMode));
-                            if (info.status) overlayParts.push(overlayMetric('status', info.status));
+                            realtimeParts.push(renderOverlayLine('Slide', `${info.slideIndex}/${info.slideTotal}`));
+                            realtimeParts.push(renderOverlayLine('Type', info.typeLabel || 'None'));
+                            realtimeParts.push(renderOverlayLine('Autoplay', info.autoplay || 'Off'));
+                            realtimeParts.push(renderOverlayLine('Transition', info.transitionState || 'Idle'));
+                            realtimeParts.push(renderOverlayLine('Active Layer', info.activeLayer || '-'));
+                            realtimeParts.push(renderOverlayLine('Dots', info.dotCount));
+                            realtimeParts.push(renderOverlayLine('FPS', `${overlayFrameStats.fps} / worst ${overlayFrameStats.worst}`));
+                            realtimeParts.push(renderOverlayLine('Cache', info.cache || 'Ready'));
+                            realtimeParts.push(renderOverlayLine('Action', info.action || '-'));
+                            realtimeParts.push(renderOverlayLine('Mask', info.mask || 'clear'));
+                            if (info.status) realtimeParts.push(renderOverlayLine('Status', info.status));
                         }
-                        overlayParts.push(overlayMetric('keys', 'L/R flicker  Space hold  Up/Down UI  Esc stop'));
-                        viewControls.overlay.innerHTML = renderOverlayMarkup(overlayParts);
+                        const staticParts = [
+                            overlayMetric('Canvas', `${STUDIO_WIDTH}x${STUDIO_HEIGHT}`),
+                            overlayMetric('View', `${scale}%`),
+                            overlayMetric('Browser', `${browserZoomPercent}%`),
+                            overlayMetric('Cap', `${frameCap}`),
+                            overlayMetric('DPR', dpr),
+                            overlayMetric('SVG', info?.svgCount ?? 0),
+                            overlayMetric('Images', info?.imageCount ?? 0),
+                            overlayMetric('Videos', info?.videoCount ?? 0),
+                            overlayMetric('Preset', getSelectedPresetOverlayName()),
+                            overlayMetric('Runtime', 'Local')
+                        ];
+                        viewControls.overlay.innerHTML = renderOverlayMarkup(realtimeParts, staticParts);
                         viewControls.overlay.style.opacity = String(overlayOpacity / 100);
                         viewControls.overlay.classList.remove('hidden-ui-node');
                     }
@@ -893,10 +924,32 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             let overlayRuntimeRefreshElapsed = 0;
+            let overlayFrameSampleElapsed = 0;
+            let overlayFrameSampleCount = 0;
+            let overlayWorstFrameMs = 0;
+            let overlayFrameStats = { fps: '-', worst: '-' };
+
             function updateOverlayRuntimeTick(deltaTime) {
-                if (!viewControls.overlay || readOverlayOpacity() <= 0) return;
+                if (!viewControls.overlay || readOverlayOpacity() <= 0) {
+                    overlayRuntimeRefreshElapsed = 0;
+                    overlayFrameSampleElapsed = 0;
+                    overlayFrameSampleCount = 0;
+                    overlayWorstFrameMs = 0;
+                    return;
+                }
+                const frameMs = Math.max(0, deltaTime * 1000);
+                overlayFrameSampleElapsed += deltaTime;
+                overlayFrameSampleCount += 1;
+                overlayWorstFrameMs = Math.max(overlayWorstFrameMs, frameMs);
                 overlayRuntimeRefreshElapsed += deltaTime;
                 if (overlayRuntimeRefreshElapsed < 0.25) return;
+                overlayFrameStats = {
+                    fps: overlayFrameSampleElapsed > 0 ? Math.round(overlayFrameSampleCount / overlayFrameSampleElapsed) : '-',
+                    worst: overlayFrameSampleCount ? `${Math.round(overlayWorstFrameMs)}ms` : '-'
+                };
+                overlayFrameSampleElapsed = 0;
+                overlayFrameSampleCount = 0;
+                overlayWorstFrameMs = 0;
                 overlayRuntimeRefreshElapsed = 0;
                 updateViewStatus();
             }
@@ -1245,13 +1298,77 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!picker || !hex) return;
                 picker.addEventListener('input', () => {
                     hex.value = picker.value;
+                    syncDotColorSwatchState(hex);
                     onChange();
                 });
                 hex.addEventListener('input', () => {
                     if (/^#[0-9a-f]{6}$/i.test(hex.value)) {
-                        picker.value = hex.value;
+                        picker.value = hex.value.toLowerCase();
+                        hex.value = picker.value;
+                        syncDotColorSwatchState(hex);
                         onChange();
                     }
+                });
+            }
+
+            function isDotColorHexControl(control) {
+                return !!control?.id && /^dot-.+-color-hex$/.test(control.id);
+            }
+
+            function getDotColorPickerForHex(hex) {
+                if (!isDotColorHexControl(hex)) return null;
+                return document.getElementById(hex.id.replace(/-hex$/, ''));
+            }
+
+            function syncDotColorSwatchState(control) {
+                const hex = isDotColorHexControl(control)
+                    ? control
+                    : (control?.id ? document.getElementById(`${control.id}-hex`) : null);
+                if (!isDotColorHexControl(hex)) return;
+                const color = normalizeHexColor(hex.value, '').toLowerCase();
+                const wrap = hex.closest('.compact-color');
+                wrap?.querySelectorAll('.dot-color-swatch').forEach(button => {
+                    const active = button.dataset.color === color;
+                    button.classList.toggle('active', active);
+                    button.setAttribute('aria-pressed', String(active));
+                });
+            }
+
+            function installDotColorPaletteUi() {
+                document.querySelectorAll('#motion-matrix-panel .compact-color input[type="text"]').forEach(hex => {
+                    if (!isDotColorHexControl(hex)) return;
+                    const wrap = hex.closest('.compact-color');
+                    if (!wrap || wrap.querySelector('.dot-color-swatch-row')) {
+                        syncDotColorSwatchState(hex);
+                        return;
+                    }
+                    const picker = getDotColorPickerForHex(hex);
+                    wrap.classList.add('dot-palette-control');
+                    hex.readOnly = true;
+                    hex.setAttribute('aria-readonly', 'true');
+                    const swatches = document.createElement('div');
+                    swatches.className = 'dot-color-swatch-row';
+                    TEN26_DOT_RANDOM_COLORS.forEach(color => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'dot-color-swatch';
+                        button.dataset.color = color;
+                        button.style.backgroundColor = color;
+                        button.title = `Set dot color ${color}`;
+                        button.setAttribute('aria-label', `Set dot color ${color}`);
+                        button.addEventListener('click', event => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setColorPairValue(picker, hex, color);
+                            if (picker) picker.dispatchEvent(new Event('input', { bubbles: true }));
+                            else hex.dispatchEvent(new Event('input', { bubbles: true }));
+                        });
+                        swatches.appendChild(button);
+                    });
+                    const label = wrap.querySelector('.compact-color-label');
+                    if (label) label.insertAdjacentElement('afterend', swatches);
+                    else wrap.prepend(swatches);
+                    syncDotColorSwatchState(hex);
                 });
             }
 
@@ -1473,6 +1590,7 @@ const viewport = document.getElementById('canvas-viewport');
                     ...copiedState
                 });
                 dotLayerStates[layerKey] = coerceLayerStateForV12(dotLayerStates[layerKey], copiedState);
+                copyRandomRangeStateForLayer(sourceLayerKey, layerKey);
                 invalidateLayerRuntimeConfig(layerKey);
                 DOT_LAYER_KEYS.splice(insertIndex, 0, layerKey);
                 activeLayerKey = layerKey;
@@ -1626,8 +1744,10 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!control) return;
                 control.value = value;
                 if (control.type === 'range') updateRangeIndicator(control);
+                if (control.type === 'range') syncRandomRangeVisual(control);
             }
 
+            const randomRangeControlState = {};
             const randomLockedControlIds = new Set();
             const MOTION_RANDOM_CONTROL_KEYS = [
                 'pull', 'svgRadius', 'returnPull', 'gridRadius', 'speedLimit',
@@ -1638,41 +1758,246 @@ const viewport = document.getElementById('canvas-viewport');
             const BLINK_RANDOM_CONTROL_KEYS = [
                 'visibilityOn', 'visibilityOff', 'visibilityRandomness', 'visibilityProbability'
             ];
-            const SMART_RANDOM_RANGES = {
-                'dot-pull': [0.12, 1.85],
-                'dot-svg-radius': [120, 980],
-                'dot-return-pull': [0.01, 0.6],
-                'dot-grid-radius': [950, 2200],
-                'dot-speed-limit': [6, 105],
-                'dot-mass': [0.25, 7.2],
-                'dot-friction': [4, 88],
-                'dot-elasticity': [0, 100],
-                'dot-orbit': [-1.8, 1.8],
-                'dot-shuffle': [0, 100],
-                'dot-variation': [0, 84],
-                'dot-grid-size': [0.5, 8],
-                'dot-mid-size': [0.5, 14],
-                'dot-target-size': [0.6, 16],
-                'dot-speed-size': [-4, 6],
-                'blink-visibility-on': [0.12, 4.5],
-                'blink-visibility-off': [0.05, 2.2],
-                'blink-visibility-randomness': [0, 100],
-                'blink-visibility-probability': [8, 92],
-                'transition-current-time': [0.15, 2.4],
-                'transition-travel-time': [0.35, 3.6],
-                'transition-grid-time': [0.25, 2.8],
-                'transition-flicker-time': [0.12, 2.2],
-                'transition-flicker-bias': [-44, 44],
-                'transition-flicker-speed': [2, 24],
-                'transition-flicker-balance': [24, 76],
-                'transition-flicker-wildness': [0, 100]
-            };
+            function isRandomizableRangeControl(control) {
+                return !!control?.id &&
+                    control.type === 'range' &&
+                    !!control.closest('#motion-matrix-panel .motion-layer-content, #drawer-blink-mode, #drawer-auto-transition');
+            }
 
-            function getRandomRangeKey(control) {
-                const id = control?.id || '';
-                const layerKey = ALL_DOT_LAYER_KEYS.find(key => id.startsWith(`dot-${key}-`));
-                if (layerKey) return `dot-${id.slice(`dot-${layerKey}-`.length)}`;
-                return id.replace(/^dot-(top|mid|bottom)-/, 'dot-');
+            function getRangeBounds(control) {
+                const min = parseFloat(control.min);
+                const max = parseFloat(control.max);
+                const step = parseFloat(control.step) || 1;
+                return {
+                    min: Number.isFinite(min) ? min : 0,
+                    max: Number.isFinite(max) ? max : 100,
+                    step
+                };
+            }
+
+            function snapControlNumber(control, value) {
+                const { min, max, step } = getRangeBounds(control);
+                const numeric = Number.isFinite(parseFloat(value)) ? parseFloat(value) : min;
+                const snapped = min + Math.round((numeric - min) / step) * step;
+                return Number(clamp(snapped, min, max).toFixed(stepDecimals(step)));
+            }
+
+            function formatControlNumber(control, value) {
+                return String(Number(snapControlNumber(control, value).toFixed(stepDecimals(parseFloat(control.step) || 1))));
+            }
+
+            function getRandomRangeId(control) {
+                return control?.id || '';
+            }
+
+            function getDefaultRandomRange(control) {
+                const { min, max } = getRangeBounds(control);
+                return { randomMin: min, randomMax: max };
+            }
+
+            function normalizeRandomRangeControl(control, options = {}) {
+                if (!isRandomizableRangeControl(control)) return null;
+                const { clampValue = false } = options;
+                const id = getRandomRangeId(control);
+                const { min, max } = getRangeBounds(control);
+                const stored = randomRangeControlState[id] || getDefaultRandomRange(control);
+                let value = snapControlNumber(control, control.value);
+                let randomMin = snapControlNumber(control, stored.randomMin);
+                let randomMax = snapControlNumber(control, stored.randomMax);
+                randomMin = clamp(randomMin, min, max);
+                randomMax = clamp(randomMax, min, max);
+                if (randomMin > randomMax) {
+                    const fallback = getDefaultRandomRange(control);
+                    randomMin = fallback.randomMin;
+                    randomMax = fallback.randomMax;
+                }
+                if (clampValue) {
+                    value = snapControlNumber(control, clamp(value, randomMin, randomMax));
+                    control.value = formatControlNumber(control, value);
+                    updateRangeIndicator(control);
+                } else {
+                    value = snapControlNumber(control, clamp(value, min, max));
+                }
+                randomMin = snapControlNumber(control, clamp(randomMin, min, value));
+                randomMax = snapControlNumber(control, clamp(randomMax, value, max));
+                randomRangeControlState[id] = { randomMin, randomMax };
+                return { randomMin, value, randomMax, min, max };
+            }
+
+            function getRangePercent(value, min, max) {
+                if (max <= min) return 0;
+                return clamp(((value - min) / (max - min)) * 100, 0, 100);
+            }
+
+            function syncRandomRangeVisual(control) {
+                if (!isRandomizableRangeControl(control) || !control.dataset.randomRangeInstalled) return;
+                const range = normalizeRandomRangeControl(control);
+                if (!range) return;
+                const wrap = control.closest('.random-range-wrap');
+                const group = control.closest('.slider-group');
+                if (!wrap) return;
+                const minPct = getRangePercent(range.randomMin, range.min, range.max);
+                const valuePct = getRangePercent(range.value, range.min, range.max);
+                const maxPct = getRangePercent(range.randomMax, range.min, range.max);
+                wrap.style.setProperty('--random-min-pct', `${minPct}%`);
+                wrap.style.setProperty('--random-value-pct', `${valuePct}%`);
+                wrap.style.setProperty('--random-max-pct', `${maxPct}%`);
+                const minThumb = wrap.querySelector('.random-limit-thumb-min');
+                const maxThumb = wrap.querySelector('.random-limit-thumb-max');
+                if (minThumb) minThumb.style.left = `${minPct}%`;
+                if (maxThumb) maxThumb.style.left = `${maxPct}%`;
+                group?.classList.toggle('random-range-locked', isControlRandomLocked(control));
+            }
+
+            function setRandomRangeLimit(control, side, value) {
+                const current = snapControlNumber(control, control.value);
+                const existing = normalizeRandomRangeControl(control) || getDefaultRandomRange(control);
+                const { min, max } = getRangeBounds(control);
+                const nextValue = snapControlNumber(control, value);
+                if (side === 'min') {
+                    randomRangeControlState[getRandomRangeId(control)] = {
+                        randomMin: clamp(nextValue, min, current),
+                        randomMax: existing.randomMax
+                    };
+                } else {
+                    randomRangeControlState[getRandomRangeId(control)] = {
+                        randomMin: existing.randomMin,
+                        randomMax: clamp(nextValue, current, max)
+                    };
+                }
+                syncRandomRangeVisual(control);
+            }
+
+            function getPointerRangeValue(event, control, wrap) {
+                const rect = wrap.getBoundingClientRect();
+                const { min, max } = getRangeBounds(control);
+                const percent = rect.width ? clamp((event.clientX - rect.left) / rect.width, 0, 1) : 0;
+                return snapControlNumber(control, min + percent * (max - min));
+            }
+
+            function beginRandomLimitDrag(event, control, side) {
+                const wrap = control.closest('.random-range-wrap');
+                if (!wrap) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const pointerId = event.pointerId;
+                const update = pointerEvent => {
+                    setRandomRangeLimit(control, side, getPointerRangeValue(pointerEvent, control, wrap));
+                };
+                const stop = pointerEvent => {
+                    wrap.removeEventListener('pointermove', update);
+                    wrap.removeEventListener('pointerup', stop);
+                    wrap.removeEventListener('pointercancel', stop);
+                    try {
+                        wrap.releasePointerCapture?.(pointerId);
+                    } catch (error) {
+                    }
+                    syncRandomRangeVisual(control);
+                };
+                try {
+                    wrap.setPointerCapture?.(pointerId);
+                } catch (error) {
+                }
+                wrap.addEventListener('pointermove', update);
+                wrap.addEventListener('pointerup', stop);
+                wrap.addEventListener('pointercancel', stop);
+                update(event);
+            }
+
+            function resetRandomRangeLimits(control) {
+                if (!isRandomizableRangeControl(control)) return;
+                const { min, max } = getRangeBounds(control);
+                randomRangeControlState[getRandomRangeId(control)] = { randomMin: min, randomMax: max };
+                normalizeRandomRangeControl(control, { clampValue: true });
+                syncRandomRangeVisual(control);
+            }
+
+            function setupRandomRangeControl(control) {
+                if (!isRandomizableRangeControl(control) || control.dataset.randomRangeInstalled) return;
+                const group = control.closest('.slider-group');
+                if (!group) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'random-range-wrap';
+                control.parentElement.insertBefore(wrap, control);
+                wrap.appendChild(control);
+                control.classList.add('random-main-range');
+                control.dataset.randomRangeInstalled = 'true';
+                ['min', 'max'].forEach(side => {
+                    const thumb = document.createElement('button');
+                    thumb.type = 'button';
+                    thumb.className = `random-limit-thumb random-limit-thumb-${side}`;
+                    thumb.title = side === 'min' ? 'Minimum randomization value' : 'Maximum randomization value';
+                    thumb.setAttribute('aria-label', thumb.title);
+                    thumb.addEventListener('pointerdown', event => beginRandomLimitDrag(event, control, side));
+                    wrap.appendChild(thumb);
+                });
+                control.addEventListener('input', () => {
+                    normalizeRandomRangeControl(control, { clampValue: true });
+                    syncRandomRangeVisual(control);
+                });
+                const reset = document.createElement('button');
+                reset.type = 'button';
+                reset.className = 'value-lock-btn random-range-reset-btn';
+                reset.dataset.rangeControl = control.id;
+                reset.textContent = '↔';
+                reset.title = 'Reset randomization limits';
+                reset.setAttribute('aria-label', 'Reset randomization limits');
+                reset.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    resetRandomRangeLimits(control);
+                });
+                group.classList.add('has-random-range');
+                group.appendChild(reset);
+                normalizeRandomRangeControl(control);
+                syncRandomRangeVisual(control);
+            }
+
+            function setupRandomRangeUi() {
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"]').forEach(setupRandomRangeControl);
+            }
+
+            function getRandomRangeState() {
+                setupRandomRangeUi();
+                return Array.from(document.querySelectorAll('[data-random-range-installed="true"]')).reduce((acc, control) => {
+                    const range = normalizeRandomRangeControl(control);
+                    if (range) {
+                        acc[control.id] = {
+                            randomMin: String(range.randomMin),
+                            randomMax: String(range.randomMax)
+                        };
+                    }
+                    return acc;
+                }, {});
+            }
+
+            function applyRandomRangeState(state = {}) {
+                setupRandomRangeUi();
+                document.querySelectorAll('[data-random-range-installed="true"]').forEach(control => {
+                    const incoming = state?.[control.id];
+                    if (incoming && incoming.randomMin !== undefined && incoming.randomMax !== undefined) {
+                        randomRangeControlState[control.id] = {
+                            randomMin: incoming.randomMin,
+                            randomMax: incoming.randomMax
+                        };
+                    } else {
+                        randomRangeControlState[control.id] = getDefaultRandomRange(control);
+                    }
+                    normalizeRandomRangeControl(control, { clampValue: true });
+                    syncRandomRangeVisual(control);
+                });
+            }
+
+            function copyRandomRangeStateForLayer(sourceLayerKey, targetLayerKey) {
+                if (!sourceLayerKey || !targetLayerKey) return;
+                Object.keys(randomRangeControlState).forEach(id => {
+                    const sourcePrefix = `dot-${sourceLayerKey}-`;
+                    if (!id.startsWith(sourcePrefix)) return;
+                    const targetId = `dot-${targetLayerKey}-${id.slice(sourcePrefix.length)}`;
+                    randomRangeControlState[targetId] = { ...randomRangeControlState[id] };
+                    const targetControl = document.getElementById(targetId);
+                    if (targetControl) syncRandomRangeVisual(targetControl);
+                });
             }
 
             function getControlLockId(control) {
@@ -1697,36 +2022,23 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function randomValueForRange(control) {
-                const min = parseFloat(control.min);
-                const max = parseFloat(control.max);
-                const step = parseFloat(control.step) || 1;
-                const smartRange = SMART_RANDOM_RANGES[control.id] || SMART_RANDOM_RANGES[getRandomRangeKey(control)] || [min, max];
-                const low = clamp(smartRange[0], min, max);
-                const high = clamp(smartRange[1], min, max);
+                const range = normalizeRandomRangeControl(control, { clampValue: true });
+                const { min, max } = getRangeBounds(control);
+                const low = range ? range.randomMin : min;
+                const high = range ? range.randomMax : max;
                 const raw = low + Math.random() * Math.max(0, high - low);
-                const snapped = Math.round(raw / step) * step;
-                return String(Number(clamp(snapped, min, max).toFixed(stepDecimals(step))));
+                return formatControlNumber(control, raw);
             }
 
-            function randomHexColor(lightnessBias = 0.78) {
-                const hue = Math.floor(Math.random() * 360);
-                const saturation = 0.18 + Math.random() * 0.62;
-                const lightness = clamp(lightnessBias + (Math.random() - 0.5) * 0.24, 0.42, 0.92);
-                const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-                const x = chroma * (1 - Math.abs((hue / 60) % 2 - 1));
-                const m = lightness - chroma / 2;
-                const rgb = hue < 60 ? [chroma, x, 0]
-                    : hue < 120 ? [x, chroma, 0]
-                    : hue < 180 ? [0, chroma, x]
-                    : hue < 240 ? [0, x, chroma]
-                    : hue < 300 ? [x, 0, chroma]
-                    : [chroma, 0, x];
-                return `#${rgb.map(channel => Math.round((channel + m) * 255).toString(16).padStart(2, '0')).join('')}`;
+            function randomDotPaletteColor() {
+                return TEN26_DOT_RANDOM_COLORS[Math.floor(Math.random() * TEN26_DOT_RANDOM_COLORS.length)];
             }
 
             function setColorPairValue(picker, hex, value) {
-                if (picker) picker.value = value;
-                if (hex) hex.value = value;
+                const color = normalizeHexColor(value, '#ffffff');
+                if (picker) picker.value = color;
+                if (hex) hex.value = color;
+                syncDotColorSwatchState(hex || picker);
             }
 
             function getMotionRandomControls(layerKey) {
@@ -1757,12 +2069,13 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function updateRandomLockButtons() {
-                document.querySelectorAll('.value-lock-btn').forEach(button => {
+                document.querySelectorAll('.value-lock-btn[data-lock-control]').forEach(button => {
                     const control = document.getElementById(button.dataset.lockControl);
                     const locked = isControlRandomLocked(control);
                     button.classList.toggle('locked', locked);
                     button.setAttribute('aria-pressed', String(locked));
                     setIconButton(button, locked ? 'lock' : 'unlock', `${locked ? 'Unlock' : 'Lock'} ${button.dataset.lockLabel || 'value'} for randomize`);
+                    if (control?.type === 'range') syncRandomRangeVisual(control);
                 });
                 Object.entries(motionLayerControls.layers).forEach(([layerKey, controls]) => {
                     const label = getLayerLabel(layerKey);
@@ -1861,13 +2174,13 @@ const viewport = document.getElementById('canvas-viewport');
                 const controls = getMotionLayerControls(layerKey);
                 MOTION_RANDOM_CONTROL_KEYS.forEach(key => randomizeSliderControl(controls[key]));
                 if (controls.gridColorHex && !isControlRandomLocked(controls.gridColorHex)) {
-                    setColorPairValue(controls.gridColor, controls.gridColorHex, randomHexColor(0.82));
+                    setColorPairValue(controls.gridColor, controls.gridColorHex, randomDotPaletteColor());
                 }
                 if (controls.midColorHex && !isControlRandomLocked(controls.midColorHex)) {
-                    setColorPairValue(controls.midColor, controls.midColorHex, randomHexColor(0.82));
+                    setColorPairValue(controls.midColor, controls.midColorHex, randomDotPaletteColor());
                 }
                 if (controls.targetColorHex && !isControlRandomLocked(controls.targetColorHex)) {
-                    setColorPairValue(controls.targetColor, controls.targetColorHex, randomHexColor(0.82));
+                    setColorPairValue(controls.targetColor, controls.targetColorHex, randomDotPaletteColor());
                 }
                 persistMotionLayerControls(layerKey, { retarget });
                 if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} randomized. Locked values were skipped.`;
