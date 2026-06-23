@@ -206,6 +206,7 @@ function bindEvents() {
                         clearMaskCache();
                         scheduleMaskWarmup();
                         scheduleTargetWarmup();
+                        updateSlideControlStatus();
                     });
                 });
                 [slideControls.scale, slideControls.offsetX, slideControls.offsetY].forEach(control => {
@@ -216,7 +217,11 @@ function bindEvents() {
                         refreshAttractorTargetsIfNeeded();
                         scheduleMaskWarmup();
                         scheduleTargetWarmup();
+                        updateSlideControlStatus();
                     });
+                });
+                mediaControls.duration?.addEventListener('input', () => {
+                    updateSlideControlStatus();
                 });
                 slideControls.autoDuration?.addEventListener('input', () => {
                     setHeaderAutoState(!!headerAutoTimer);

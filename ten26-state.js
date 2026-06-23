@@ -634,6 +634,19 @@ const viewport = document.getElementById('canvas-viewport');
             };
             const imageSlideControls = mediaControls;
 
+            const slideControlControls = {
+                drawer: document.getElementById('drawer-slide-control'),
+                trigger: document.getElementById('drawer-trigger-slide-control'),
+                summary: document.getElementById('slide-control-summary'),
+                counts: document.getElementById('slide-control-counts'),
+                countTotal: document.getElementById('slide-count-total'),
+                countSvg: document.getElementById('slide-count-svg'),
+                countMedia: document.getElementById('slide-count-media'),
+                currentStatus: document.getElementById('slide-current-status'),
+                currentProperties: document.getElementById('slide-current-properties'),
+                grid: document.getElementById('slide-button-grid')
+            };
+
             const imageMaskControls = {
                 enabled: document.getElementById('image-mask-enabled'),
                 status: document.getElementById('image-mask-status'),
@@ -977,6 +990,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
                 'drawer-trigger-slides': 'SVG artwork used as dot targets.',
                 'drawer-trigger-image-slides': 'Media slides used as rectangular dot targets.',
+                'drawer-trigger-slide-control': 'Direct slide navigation and current slide inspection.',
                 'drawer-trigger-flicker': 'Glitch timing between slides.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',

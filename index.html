@@ -224,7 +224,7 @@
 
         <!-- SVG Slides Drawer -->
         <div class="drawer" id="drawer-slides">
-            <button class="drawer-trigger" id="drawer-trigger-slides">SVG Slides</button>
+            <button class="drawer-trigger" id="drawer-trigger-slides">SVG Setup</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
@@ -257,7 +257,7 @@
 
         <!-- Media Slides Drawer -->
         <div class="drawer collapsed" id="drawer-image-slides">
-            <button class="drawer-trigger" id="drawer-trigger-image-slides">Media Slides</button>
+            <button class="drawer-trigger" id="drawer-trigger-image-slides">Media Setup</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
@@ -479,9 +479,25 @@
             </div>
         </div>
 
+        <!-- Slide Control Drawer -->
+        <div class="drawer collapsed" id="drawer-slide-control">
+            <button class="drawer-trigger" id="drawer-trigger-slide-control" type="button">Slide Control</button>
+            <div class="drawer-content">
+                <div class="geometry-status" id="slide-control-summary">No slides loaded.</div>
+                <div class="slide-control-counts" id="slide-control-counts">
+                    <span id="slide-count-total">Total: 0</span>
+                    <span id="slide-count-svg">SVG: 0</span>
+                    <span id="slide-count-media">Media: 0</span>
+                </div>
+                <div class="geometry-status" id="slide-current-status">Current: none</div>
+                <div class="geometry-status" id="slide-current-properties">No slide selected.</div>
+                <div class="slide-button-grid" id="slide-button-grid" aria-label="Slide navigation buttons"></div>
+            </div>
+        </div>
+
         <!-- View Drawer -->
         <div class="drawer" id="drawer-view-options">
-            <button class="drawer-trigger" id="drawer-trigger-view-options">View</button>
+            <button class="drawer-trigger" id="drawer-trigger-view-options">View Options</button>
             <div class="drawer-content">
                 <div class="geometry-status view-status" id="view-status">Canvas 1280 x 720 · View 100%</div>
                 <span class="section-title">View Scale</span>

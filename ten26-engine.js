@@ -1337,7 +1337,7 @@
                 slides.forEach(slide => pauseVideoSlide(slide, reset));
             }
 
-            function renderCurrentSlide() {
+            function renderCurrentSlide(options = {}) {
                 pauseAllVideos(false);
                 if (!slides.length) {
                     slideLayer.replaceChildren();
@@ -1349,6 +1349,7 @@
                     updateMaskStatus();
                     updateImageMaskStatus();
                     updateDrawerTitleStates();
+                    updateSlideControlStatus();
                     return;
                 }
                 const slide = slides[currentSlideIndex];
@@ -1357,7 +1358,7 @@
                     slideLayer.replaceChildren(node);
                 }
                 applySlideTransform();
-                if (!autoTransition && slide?.type === 'video') {
+                if (!autoTransition && options.autoplayVideo !== false && slide?.type === 'video') {
                     playVideoSlide(slide, false);
                 }
                 updateSlideStatus();
@@ -1372,6 +1373,141 @@
                 if (!maskAlphaTransition && !deferMaskActivation) activateSlideMask(currentSlideIndex, { sync: !isPerformanceCriticalMotionActive() });
                 scheduleMaskWarmup();
                 scheduleTargetWarmup();
+                updateViewStatus();
+                updateSlideControlStatus();
+            }
+
+            function getSlideTypeLabel(type) {
+                if (type === 'video') return 'Video';
+                if (type === 'image') return 'Image';
+                return 'SVG';
+            }
+
+            function getCurrentSlidePropertySummary(slide) {
+                if (!slide) return 'No slide selected.';
+                const controls = getSlideControlsForType(slide.type);
+                const scale = controls?.scale?.value ? `${controls.scale.value}%` : '-';
+                const offsetX = controls?.offsetX?.value ?? '-';
+                const offsetY = controls?.offsetY?.value ?? '-';
+                const name = slide.name || slide.fileName || 'Untitled slide';
+                const parts = [
+                    `Type: ${getSlideTypeLabel(slide.type)}`,
+                    `Name: ${name}`,
+                    `Scale: ${scale}`,
+                    `Offset X: ${offsetX}`,
+                    `Offset Y: ${offsetY}`
+                ];
+                if (slide.type === 'video') {
+                    const duration = Number.isFinite(slide.duration) && slide.duration > 0
+                        ? slide.duration.toFixed(2)
+                        : '-';
+                    parts.push(`Duration: ${duration}s`);
+                }
+                if (slide.type === 'image') {
+                    const duration = mediaControls?.duration?.value || '-';
+                    parts.push(`Image Duration: ${duration}s`);
+                }
+                return parts.join(' · ');
+            }
+
+            function renderSlideButtonGrid() {
+                const grid = slideControlControls?.grid;
+                if (!grid) return;
+                grid.replaceChildren();
+                slides.forEach((slide, index) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'slide-jump-button';
+                    if (isSvgSlideType(slide.type)) {
+                        button.classList.add('slide-jump-button-svg');
+                    } else if (isMediaSlideType(slide.type)) {
+                        button.classList.add('slide-jump-button-media');
+                    }
+                    if (index === currentSlideIndex) {
+                        button.classList.add('active-slide-jump-button');
+                        button.setAttribute('aria-current', 'true');
+                    }
+                    button.textContent = String(index + 1);
+                    button.title = `${index + 1}. ${getSlideTypeLabel(slide.type)} · ${slide.name || slide.fileName || 'Untitled slide'}`;
+                    button.addEventListener('click', () => {
+                        jumpToSlide(index, { autoplayVideo: true });
+                    });
+                    grid.appendChild(button);
+                });
+            }
+
+            function updateSlideControlStatus() {
+                const controls = slideControlControls;
+                if (!controls || !controls.grid) return;
+                const total = slides.length;
+                const svgCount = slides.filter(slide => isSvgSlideType(slide.type)).length;
+                const mediaCount = slides.filter(slide => isMediaSlideType(slide.type)).length;
+                const current = slides[currentSlideIndex];
+                if (controls.countTotal) controls.countTotal.textContent = `Total: ${total}`;
+                if (controls.countSvg) controls.countSvg.textContent = `SVG: ${svgCount}`;
+                if (controls.countMedia) controls.countMedia.textContent = `Media: ${mediaCount}`;
+                if (!total || !current) {
+                    if (controls.summary) controls.summary.textContent = 'No slides loaded.';
+                    if (controls.currentStatus) controls.currentStatus.textContent = 'Current: none';
+                    if (controls.currentProperties) controls.currentProperties.textContent = 'No slide selected.';
+                    controls.grid.replaceChildren();
+                    return;
+                }
+                const humanIndex = currentSlideIndex + 1;
+                const typeLabel = getSlideTypeLabel(current.type);
+                if (controls.summary) controls.summary.textContent = `Slide ${humanIndex} / ${total}`;
+                if (controls.currentStatus) controls.currentStatus.textContent = `Current: ${humanIndex} / ${total} · ${typeLabel}`;
+                if (controls.currentProperties) controls.currentProperties.textContent = getCurrentSlidePropertySummary(current);
+                renderSlideButtonGrid();
+            }
+
+            function jumpToSlide(index, options = {}) {
+                pauseAllVideos(true);
+                if (autoTransition && typeof stopAutoTransition === 'function') {
+                    stopAutoTransition();
+                    pauseAllVideos(true);
+                } else {
+                    autoTransition = null;
+                }
+                if (!slides.length) {
+                    currentSlideIndex = 0;
+                    pendingSlideIndex = null;
+                    slideOpacity = 0;
+                    slideFade = null;
+                    holdState = 'idle';
+                    activeHoldMode = null;
+                    activeHoldCode = null;
+                    renderCurrentSlide();
+                    updateSlideControlStatus();
+                    return;
+                }
+                const targetIndex = clamp(Math.round(index), 0, slides.length - 1);
+                currentSlideIndex = targetIndex;
+                pendingSlideIndex = null;
+                slideOpacity = 1;
+                slideFade = null;
+                holdState = 'idle';
+                activeHoldMode = null;
+                activeHoldCode = null;
+                returnSettleCheckElapsed = 0;
+                resetForcesToGrid();
+                if (typeof dotGroups !== 'undefined') {
+                    DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey]?.returnToGrid());
+                }
+                clearAppliedSlideMask();
+                clearMaskCache();
+                renderCurrentSlide({ autoplayVideo: false });
+                updateSlideStatus();
+                updateMediaSlideStatus();
+                updateImageSlideStatus();
+                updateMaskStatus();
+                updateImageMaskStatus();
+                updateDrawerTitleStates();
+                updateSlideControlStatus();
+                const selectedSlide = slides[currentSlideIndex];
+                if (options.autoplayVideo !== false && selectedSlide?.type === 'video') {
+                    playVideoSlide(selectedSlide, true);
+                }
                 updateViewStatus();
             }
 
@@ -1462,6 +1598,7 @@
                     updateSlideStatus();
                     updateMediaSlideStatus();
                     updateDrawerTitleStates();
+                    updateSlideControlStatus();
                     return;
                 }
                 const existingMediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
@@ -1512,6 +1649,7 @@
                 if (!supportedFiles.length) {
                     updateMediaSlideStatus();
                     updateDrawerTitleStates();
+                    updateSlideControlStatus();
                     return;
                 }
                 const first = supportedFiles[0];
@@ -1538,6 +1676,7 @@
                 if (!newSlides.length) {
                     updateMediaSlideStatus();
                     updateDrawerTitleStates();
+                    updateSlideControlStatus();
                     return;
                 }
                 mediaMode = nextMode;
@@ -2241,6 +2380,7 @@
                 setAutoStatus(`Flicker complete. Slide ${currentSlideIndex + 1}/${slides.length}.`);
                 requestDeferredWarmups({ mask: true, target: true });
                 updateViewStatus();
+                updateSlideControlStatus();
             }
 
             function phaseProgress(time, duration) {
