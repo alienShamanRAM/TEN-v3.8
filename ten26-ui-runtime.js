@@ -278,6 +278,10 @@ function bindEvents() {
                     event.stopPropagation();
                     unlockAllMotionLayers();
                 });
+                motionLayerControls.resetAll?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    resetAllMotionLayerRanges();
+                });
                 motionLayerControls.unlockLayer?.addEventListener('click', event => {
                     event.stopPropagation();
                     unlockMotionLayer(activeLayerKey);
@@ -314,6 +318,10 @@ function bindEvents() {
                     event.stopPropagation();
                     unlockAllBlinkLayers();
                 });
+                blinkControls.reset?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    resetBlinkRandomRanges();
+                });
 
                 Object.entries(motionLayerControls.layers).forEach(([layerKey, controls]) => {
                     controls.trigger?.addEventListener('click', () => {
@@ -338,6 +346,10 @@ function bindEvents() {
                     controls.unlock?.addEventListener('click', event => {
                         event.stopPropagation();
                         unlockMotionLayer(layerKey);
+                    });
+                    controls.reset?.addEventListener('click', event => {
+                        event.stopPropagation();
+                        resetMotionLayerRanges(layerKey);
                     });
                     controls.deleteLayer?.addEventListener('click', event => {
                         event.stopPropagation();
@@ -382,6 +394,10 @@ function bindEvents() {
                 autoControls.unlock?.addEventListener('click', event => {
                     event.stopPropagation();
                     unlockFlickerMorph();
+                });
+                autoControls.reset?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    resetFlickerRandomRanges();
                 });
 
                 maskControls.enabled.addEventListener('change', () => {

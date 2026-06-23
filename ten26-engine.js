@@ -2269,7 +2269,7 @@
                 setAutoStatus(INTERACTION_HELP_TEXT);
             }
 
-            function startAutoTransition(direction = 1) {
+            function startAutoTransition(direction = 1, options = {}) {
                 if (!slides.length) {
                     setAutoStatus('Upload at least one slide first.');
                     return;
@@ -2285,6 +2285,7 @@
 
                 const fromIndex = currentSlideIndex;
                 const targetIndex = getWrappedSlideIndex(direction);
+                const skipCurrentLock = options.skipCurrentLock === true;
                 if (!areTransitionAssetsReady(targetIndex)) {
                     scheduleTransitionPrewarm();
                     setAutoStatus(`Preparing slide ${targetIndex + 1} before transition. Try again in a moment.`);
@@ -2336,6 +2337,16 @@
                 setAutoStatus(`Flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
                 if (sourceSlide?.type === 'video') {
                     playVideoSlide(sourceSlide, true);
+                }
+                if (skipCurrentLock) {
+                    pauseVideoSlide(slides[autoTransition.fromIndex], false);
+                    if (autoTransition.mediaTransitionMode === 'cut') {
+                        finishMediaFrameCutTransition();
+                        return;
+                    }
+                    setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
+                    setAutoPhase('oldFlicker');
+                    setAutoStatus('Current slide flickering out.');
                 }
                 updateViewStatus();
             }
@@ -2624,9 +2635,12 @@
                 };
             }
 
-            function beginHoldAdvance(direction = 1, code = 'button-next') {
+            function beginHoldAdvance(direction = 1, code = 'button-next', options = {}) {
                 pauseAllVideos(true);
-                startAutoTransition(direction);
+                const skipCurrentLock = options.skipCurrentLock !== undefined
+                    ? options.skipCurrentLock
+                    : code !== 'header-auto';
+                startAutoTransition(direction, { skipCurrentLock });
             }
 
             function releaseHoldAdvance(code = null) {

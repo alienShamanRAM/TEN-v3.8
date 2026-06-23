@@ -66,7 +66,7 @@ function getActiveLayerStateFromControls() {
 
             function getMaskControlState() {
                 return {
-                    enabled: maskControls.enabled.checked,
+                    enabled: true,
                     expansion: maskControls.expansion.value,
                     scaleTime: maskControls.scaleTime?.value || '2',
                     samples: maskControls.samples.value,
@@ -76,7 +76,7 @@ function getActiveLayerStateFromControls() {
             }
 
             function applyMaskControlState(state = {}) {
-                maskControls.enabled.checked = state.enabled !== false;
+                maskControls.enabled.checked = true;
                 setControlValue(maskControls.expansion, state.expansion || '32');
                 setControlValue(maskControls.scaleTime, state.scaleTime || '2');
                 setControlValue(maskControls.samples, state.samples || '18');
@@ -110,14 +110,14 @@ function getActiveLayerStateFromControls() {
 
             function getImageMaskControlState() {
                 return {
-                    enabled: imageMaskControls.enabled?.checked !== false,
+                    enabled: true,
                     expansion: imageMaskControls.expansion?.value || '32',
                     scaleTime: imageMaskControls.scaleTime?.value || '2'
                 };
             }
 
             function applyImageMaskControlState(state = {}) {
-                if (imageMaskControls.enabled) imageMaskControls.enabled.checked = state.enabled !== false;
+                if (imageMaskControls.enabled) imageMaskControls.enabled.checked = true;
                 setControlValue(imageMaskControls.expansion, state.expansion || '32');
                 setControlValue(imageMaskControls.scaleTime, state.scaleTime || '2');
                 clearMaskCache();

@@ -160,13 +160,18 @@ const viewport = document.getElementById('canvas-viewport');
                 randomize.className = 'preset-action-btn pink-action';
                 randomize.id = `motion-randomize-text-${layerKey}`;
                 randomize.type = 'button';
-                randomize.textContent = 'Randomize';
+                randomize.textContent = 'Random';
                 const unlock = document.createElement('button');
                 unlock.className = 'preset-action-btn';
                 unlock.id = `motion-unlock-${layerKey}`;
                 unlock.type = 'button';
                 unlock.textContent = 'Unlock';
-                actions.append(randomize, unlock);
+                const reset = document.createElement('button');
+                reset.className = 'preset-action-btn';
+                reset.id = `motion-reset-${layerKey}`;
+                reset.type = 'button';
+                reset.textContent = 'Reset';
+                actions.append(randomize, unlock, reset);
                 content.appendChild(actions);
 
                 drawer.append(header, content);
@@ -392,12 +397,19 @@ const viewport = document.getElementById('canvas-viewport');
                         button.title = `${direction === 'up' ? 'Move layer up' : 'Move layer down'}.`;
                         actions.appendChild(button);
                     });
-                    ['randomize-text', 'unlock'].forEach(actionKey => {
-                        const button = document.getElementById(`motion-${actionKey}-${layerKey}`);
+                    ['randomize-text', 'unlock', 'reset'].forEach(actionKey => {
+                        let button = document.getElementById(`motion-${actionKey}-${layerKey}`);
+                        if (!button && actionKey === 'reset') {
+                            button = document.createElement('button');
+                            button.id = `motion-reset-${layerKey}`;
+                            button.type = 'button';
+                            button.className = 'preset-action-btn';
+                            button.textContent = 'Reset';
+                        }
                         if (!button) return;
                         button.classList.add('preset-action-btn', 'motion-layer-text-action');
                         button.classList.remove('pink-action');
-                        button.textContent = actionKey === 'unlock' ? 'Unlock' : 'Randomize';
+                        button.textContent = actionKey === 'randomize-text' ? 'Random' : (actionKey === 'unlock' ? 'Unlock' : 'Reset');
                         actions.appendChild(button);
                     });
                     const deleteButton = document.createElement('button');
@@ -526,6 +538,7 @@ const viewport = document.getElementById('canvas-viewport');
                 collapseAll: document.getElementById('matrix-collapse-all'),
                 randomizeAll: document.getElementById('matrix-randomize-all'),
                 unlockAll: document.getElementById('matrix-unlock-all'),
+                resetAll: document.getElementById('matrix-reset-all'),
                 addAbove: document.getElementById('matrix-add-above'),
                 addBelow: document.getElementById('matrix-add-below'),
                 rename: document.getElementById('matrix-rename-layer'),
@@ -539,6 +552,7 @@ const viewport = document.getElementById('canvas-viewport');
                         randomize: document.getElementById(`motion-randomize-${layerKey}`),
                         randomizeText: document.getElementById(`motion-randomize-text-${layerKey}`),
                         unlock: document.getElementById(`motion-unlock-${layerKey}`),
+                        reset: document.getElementById(`motion-reset-${layerKey}`),
                         deleteLayer: document.getElementById(`motion-delete-${layerKey}`),
                         moveUp: document.getElementById(`motion-move-up-${layerKey}`),
                         moveDown: document.getElementById(`motion-move-down-${layerKey}`),
@@ -578,6 +592,7 @@ const viewport = document.getElementById('canvas-viewport');
                 visibilityProbability: document.getElementById('blink-visibility-probability'),
                 randomize: document.getElementById('blink-randomize-btn'),
                 unlock: document.getElementById('blink-unlock-btn'),
+                reset: document.getElementById('blink-reset-btn'),
                 status: document.getElementById('blink-status')
             };
             let morphControls = motionLayerControls.layers[DEFAULT_LAYER_KEY];
@@ -708,6 +723,7 @@ const viewport = document.getElementById('canvas-viewport');
                 status: document.getElementById('auto-transition-status'),
                 randomize: document.getElementById('flicker-randomize-btn'),
                 unlock: document.getElementById('flicker-unlock-btn'),
+                reset: document.getElementById('flicker-reset-btn'),
                 currentTime: document.getElementById('transition-current-time'),
                 travelTime: document.getElementById('transition-travel-time'),
                 gridTime: document.getElementById('transition-grid-time'),
@@ -1150,18 +1166,21 @@ const viewport = document.getElementById('canvas-viewport');
                 'header-hold-btn': 'Hold to attract dots to the current slide.',
                 'header-next-btn': 'Next slide.',
                 'header-auto-btn': 'Automatically advance to the next slide every 4 seconds.',
-                'matrix-open-all': 'Open all Grid Layer drawers.',
-                'matrix-collapse-all': 'Collapse all Grid Layer drawers.',
+                'matrix-open-all': 'Expand all grid-layer drawers.',
+                'matrix-collapse-all': 'Collapse all grid-layer drawers.',
                 'matrix-add-above': 'Create a copy above the selected grid layer.',
                 'matrix-add-below': 'Create a copy below the selected grid layer.',
                 'matrix-randomize-all': 'Randomize unlocked values across all grid layers.',
                 'matrix-unlock-all': 'Unlock every locked grid-layer value.',
+                'matrix-reset-all': 'Reset randomization limits for every grid-layer slider.',
                 'matrix-rename-layer': 'Rename the selected grid layer.',
                 'matrix-delete-layer': 'Delete the selected grid layer.',
                 'blink-randomize-btn': 'Randomize unlocked blink timing values.',
                 'blink-unlock-btn': 'Unlock all blink timing values.',
+                'blink-reset-btn': 'Reset blink randomization limits.',
                 'flicker-randomize-btn': 'Randomize unlocked flicker values.',
                 'flicker-unlock-btn': 'Unlock all flicker values.',
+                'flicker-reset-btn': 'Reset flicker randomization limits.',
                 'grid-apply-all': 'Apply the selected grid layout to every active layer.',
                 'preset-apply-btn': 'Apply the selected full-scene preset to the canvas.',
                 'preset-add-btn': 'Save the current settings as a new preset.',
@@ -1211,6 +1230,7 @@ const viewport = document.getElementById('canvas-viewport');
                 CONTROL_TOOLTIPS[`motion-randomize-${layerKey}`] = `${label}: randomize unlocked motion values.`;
                 CONTROL_TOOLTIPS[`motion-randomize-text-${layerKey}`] = `${label}: randomize unlocked motion values.`;
                 CONTROL_TOOLTIPS[`motion-unlock-${layerKey}`] = `${label}: unlock all motion values.`;
+                CONTROL_TOOLTIPS[`motion-reset-${layerKey}`] = `${label}: reset randomization limits.`;
                 CONTROL_TOOLTIPS[`motion-delete-${layerKey}`] = `${label}: delete this layer.`;
             });
 
@@ -1529,7 +1549,7 @@ const viewport = document.getElementById('canvas-viewport');
                     motionLayerControls.addAbove.title = `Create a copy ABOVE ${activeLabel}`;
                 }
                 if (motionLayerControls.addBelow) {
-                    motionLayerControls.addBelow.textContent = 'Copy Bellow';
+                    motionLayerControls.addBelow.textContent = 'Copy Below';
                     motionLayerControls.addBelow.title = `Create a copy BELOW ${activeLabel}`;
                 }
                 if (motionLayerControls.rename) {
@@ -1912,6 +1932,16 @@ const viewport = document.getElementById('canvas-viewport');
                 syncRandomRangeVisual(control);
             }
 
+            function resetRandomRangeControls(controls = []) {
+                let count = 0;
+                controls.forEach(control => {
+                    if (!isRandomizableRangeControl(control)) return;
+                    resetRandomRangeLimits(control);
+                    count += 1;
+                });
+                return count;
+            }
+
             function setupRandomRangeControl(control) {
                 if (!isRandomizableRangeControl(control) || control.dataset.randomRangeInstalled) return;
                 const group = control.closest('.slider-group');
@@ -1935,20 +1965,7 @@ const viewport = document.getElementById('canvas-viewport');
                     normalizeRandomRangeControl(control, { clampValue: true });
                     syncRandomRangeVisual(control);
                 });
-                const reset = document.createElement('button');
-                reset.type = 'button';
-                reset.className = 'value-lock-btn random-range-reset-btn';
-                reset.dataset.rangeControl = control.id;
-                reset.textContent = '↔';
-                reset.title = 'Reset randomization limits';
-                reset.setAttribute('aria-label', 'Reset randomization limits');
-                reset.addEventListener('click', event => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    resetRandomRangeLimits(control);
-                });
                 group.classList.add('has-random-range');
-                group.appendChild(reset);
                 normalizeRandomRangeControl(control);
                 syncRandomRangeVisual(control);
             }
@@ -2081,12 +2098,16 @@ const viewport = document.getElementById('canvas-viewport');
                     const label = getLayerLabel(layerKey);
                     if (controls.randomize) setIconButton(controls.randomize, 'dice', 'Randomize motion layer');
                     if (controls.randomizeText) {
-                        controls.randomizeText.textContent = 'Randomize';
+                        controls.randomizeText.textContent = 'Random';
                         controls.randomizeText.title = `Randomize ${label}`;
                     }
                     if (controls.unlock) {
                         controls.unlock.textContent = 'Unlock';
                         controls.unlock.title = `Unlock ${label}`;
+                    }
+                    if (controls.reset) {
+                        controls.reset.textContent = 'Reset';
+                        controls.reset.title = `Reset ${label} randomization limits`;
                     }
                 });
                 updateActionAvailability();
@@ -2216,6 +2237,26 @@ const viewport = document.getElementById('canvas-viewport');
                 if (blinkControls.status) blinkControls.status.textContent = 'Blink values unlocked.';
             }
 
+            function resetMotionLayerRanges(layerKey) {
+                const count = resetRandomRangeControls(getMotionRandomControls(layerKey));
+                if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} randomization limits reset.`;
+                return count;
+            }
+
+            function resetAllMotionLayerRanges() {
+                let count = 0;
+                DOT_LAYER_KEYS.forEach(layerKey => {
+                    count += resetRandomRangeControls(getMotionRandomControls(layerKey));
+                });
+                if (motionLayerControls.status) motionLayerControls.status.textContent = `Randomization limits reset for ${DOT_LAYER_KEYS.length} active layer${DOT_LAYER_KEYS.length === 1 ? '' : 's'}.`;
+                return count;
+            }
+
+            function resetBlinkRandomRanges() {
+                resetRandomRangeControls(getBlinkRandomControls());
+                if (blinkControls.status) blinkControls.status.textContent = 'Blink randomization limits reset.';
+            }
+
             function randomizeFlickerMorph() {
                 getFlickerRandomControls().forEach(randomizeSliderControl);
                 if (autoControls.status) autoControls.status.textContent = 'Flicker randomized. Locked values were skipped.';
@@ -2225,6 +2266,11 @@ const viewport = document.getElementById('canvas-viewport');
                 getFlickerRandomControls().forEach(control => setControlRandomLocked(control, false));
                 updateRandomLockButtons();
                 if (autoControls.status) autoControls.status.textContent = 'Flicker values unlocked.';
+            }
+
+            function resetFlickerRandomRanges() {
+                resetRandomRangeControls(getFlickerRandomControls());
+                if (autoControls.status) autoControls.status.textContent = 'Flicker randomization limits reset.';
             }
 
             function getGridLayerStateFromControls(layerKey) {
