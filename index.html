@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLIDES</title>
+    <link rel="stylesheet" href="ten26.css">
+</head>
+<body>
+    <button id="panel-toggle" class="brand-toggle" title="Open controls">
+        <span class="brand-r">R</span><span class="brand-bars">|||</span>
+    </button>
+    <main id="canvas-viewport">
+        <div class="layer-container" id="image-layer"></div>
+        <canvas id="grid-canvas-primary" class="grid-canvas-instance"></canvas>
+        <div class="layer-container" id="svg-slide-layer"></div>
+        <canvas id="svg-geometry-canvas" class="grid-canvas-instance"></canvas>
+        <canvas id="morph-canvas" class="grid-canvas-instance"></canvas>
+    </main>
+    <div id="view-resolution-overlay" class="view-resolution-overlay hidden-ui-node">Canvas 1280 x 720 · View 100%</div>
+    <div id="ui-toast-region" class="ui-toast-region" aria-live="polite" aria-atomic="true"></div>
+
+    <section id="grid-control-panel" class="grid-control-panel minimized" aria-label="Grid controls"></section>
+
+    <section id="motion-matrix-panel" class="motion-matrix-panel" aria-label="Dot motion layer controls">
+        <div class="motion-layer-drawer active-layer" id="motion-drawer-top" data-layer="top">
+            <div class="motion-layer-header">
+                <button class="motion-layer-icon-btn layer-visibility-btn" id="motion-toggle-layer-top" type="button" title="Show or hide the Top grid layer.">Eye</button>
+                <button class="motion-layer-trigger" id="motion-trigger-top" type="button" title="Top layer motion physics."><span>Top Grid</span></button>
+            </div>
+            <div class="motion-layer-content">
+                <span class="section-spacer"></span>
+                <select id="dot-top-target-type" title="Choose the SVG target points for the Top layer.">
+                    <option value="fill" selected>Fill</option>
+                    <option value="path">Path</option>
+                    <option value="anchor">Anchor</option>
+                </select>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>SVG Pull</span><input type="range" id="dot-top-pull" min="0" max="3" value="0.7" step="0.01"><span class="val-indicator" id="val-dot-top-pull">0.7</span></div>
+                <div class="slider-group"><span>SVG Reach</span><input type="range" id="dot-top-svg-radius" min="20" max="1400" value="320" step="5"><span class="val-indicator" id="val-dot-top-svg-radius">320</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Grid Pull</span><input type="range" id="dot-top-return-pull" min="0.01" max="0.6" value="0.38" step="0.01"><span class="val-indicator" id="val-dot-top-return-pull">0.38</span></div>
+                <div class="slider-group"><span>Grid Reach</span><input type="range" id="dot-top-grid-radius" min="120" max="2200" value="1600" step="10"><span class="val-indicator" id="val-dot-top-grid-radius">1600</span></div>
+                <div class="slider-group"><span>Speed Cap</span><input type="range" id="dot-top-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-dot-top-speed-limit">80</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Weight</span><input type="range" id="dot-top-mass" min="0.2" max="8" value="1" step="0.1"><span class="val-indicator" id="val-dot-top-mass">1</span></div>
+                <div class="slider-group"><span>Damping</span><input type="range" id="dot-top-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-dot-top-friction">34</span></div>
+                <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="dot-top-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-dot-top-elasticity">45</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Swirl</span><input type="range" id="dot-top-orbit" min="-2" max="2" value="0" step="0.01"><span class="val-indicator" id="val-dot-top-orbit">0</span></div>
+                <div class="slider-group"><span>Shuffle</span><input type="range" id="dot-top-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-dot-top-shuffle">0</span></div>
+                <div class="slider-group"><span>Motion Var</span><input type="range" id="dot-top-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-dot-top-variation">0</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Grid Size</span><input type="range" id="dot-top-grid-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-top-grid-size">2.5</span></div>
+                <div class="slider-group"><span>Mid Size</span><input type="range" id="dot-top-mid-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-top-mid-size">2.5</span></div>
+                <div class="slider-group"><span>Target Size</span><input type="range" id="dot-top-target-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-top-target-size">2.5</span></div>
+                <div class="slider-group"><span>Speed Size</span><input type="range" id="dot-top-speed-size" min="-8" max="8" value="0" step="0.1"><span class="val-indicator" id="val-dot-top-speed-size">0</span></div>
+                <span class="section-spacer"></span>
+                <div class="color-pair-row">
+                    <div class="compact-color"><span class="compact-color-label">Grid</span><div class="color-picker-wrapper"><input type="color" id="dot-top-grid-color" value="#ffffff"></div><input type="text" id="dot-top-grid-color-hex" value="#ffffff" maxlength="7"></div>
+                    <div class="compact-color"><span class="compact-color-label">Target</span><div class="color-picker-wrapper"><input type="color" id="dot-top-target-color" value="#ffffff"></div><input type="text" id="dot-top-target-color-hex" value="#ffffff" maxlength="7"></div>
+                </div>
+                <div class="drawer-bottom-actions">
+                    <button class="preset-action-btn pink-action" id="motion-randomize-text-top" type="button">Randomize</button>
+                    <button class="preset-action-btn" id="motion-unlock-top" type="button">Unlock</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="motion-layer-drawer collapsed" id="motion-drawer-mid" data-layer="mid">
+            <div class="motion-layer-header">
+                <button class="motion-layer-icon-btn layer-visibility-btn" id="motion-toggle-layer-mid" type="button" title="Show or hide the Mid grid layer.">Eye</button>
+                <button class="motion-layer-trigger" id="motion-trigger-mid" type="button" title="Mid layer motion physics."><span>Mid Grid</span></button>
+            </div>
+            <div class="motion-layer-content">
+                <span class="section-spacer"></span>
+                <select id="dot-mid-target-type" title="Choose the SVG target points for the Mid layer.">
+                    <option value="fill" selected>Fill</option>
+                    <option value="path">Path</option>
+                    <option value="anchor">Anchor</option>
+                </select>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>SVG Pull</span><input type="range" id="dot-mid-pull" min="0" max="3" value="0.7" step="0.01"><span class="val-indicator" id="val-dot-mid-pull">0.7</span></div>
+                <div class="slider-group"><span>SVG Reach</span><input type="range" id="dot-mid-svg-radius" min="20" max="1400" value="320" step="5"><span class="val-indicator" id="val-dot-mid-svg-radius">320</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Grid Pull</span><input type="range" id="dot-mid-return-pull" min="0.01" max="0.6" value="0.38" step="0.01"><span class="val-indicator" id="val-dot-mid-return-pull">0.38</span></div>
+                <div class="slider-group"><span>Grid Reach</span><input type="range" id="dot-mid-grid-radius" min="120" max="2200" value="1600" step="10"><span class="val-indicator" id="val-dot-mid-grid-radius">1600</span></div>
+                <div class="slider-group"><span>Speed Cap</span><input type="range" id="dot-mid-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-dot-mid-speed-limit">80</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Weight</span><input type="range" id="dot-mid-mass" min="0.2" max="8" value="1" step="0.1"><span class="val-indicator" id="val-dot-mid-mass">1</span></div>
+                <div class="slider-group"><span>Damping</span><input type="range" id="dot-mid-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-dot-mid-friction">34</span></div>
+                <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="dot-mid-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-dot-mid-elasticity">45</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Swirl</span><input type="range" id="dot-mid-orbit" min="-2" max="2" value="0" step="0.01"><span class="val-indicator" id="val-dot-mid-orbit">0</span></div>
+                <div class="slider-group"><span>Shuffle</span><input type="range" id="dot-mid-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-dot-mid-shuffle">0</span></div>
+                <div class="slider-group"><span>Motion Var</span><input type="range" id="dot-mid-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-dot-mid-variation">0</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Grid Size</span><input type="range" id="dot-mid-grid-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-mid-grid-size">2.5</span></div>
+                <div class="slider-group"><span>Mid Size</span><input type="range" id="dot-mid-mid-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-mid-mid-size">2.5</span></div>
+                <div class="slider-group"><span>Target Size</span><input type="range" id="dot-mid-target-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-mid-target-size">2.5</span></div>
+                <div class="slider-group"><span>Speed Size</span><input type="range" id="dot-mid-speed-size" min="-8" max="8" value="0" step="0.1"><span class="val-indicator" id="val-dot-mid-speed-size">0</span></div>
+                <span class="section-spacer"></span>
+                <div class="color-pair-row">
+                    <div class="compact-color"><span class="compact-color-label">Grid</span><div class="color-picker-wrapper"><input type="color" id="dot-mid-grid-color" value="#ffffff"></div><input type="text" id="dot-mid-grid-color-hex" value="#ffffff" maxlength="7"></div>
+                    <div class="compact-color"><span class="compact-color-label">Target</span><div class="color-picker-wrapper"><input type="color" id="dot-mid-target-color" value="#ffffff"></div><input type="text" id="dot-mid-target-color-hex" value="#ffffff" maxlength="7"></div>
+                </div>
+                <div class="drawer-bottom-actions">
+                    <button class="preset-action-btn pink-action" id="motion-randomize-text-mid" type="button">Randomize</button>
+                    <button class="preset-action-btn" id="motion-unlock-mid" type="button">Unlock</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="motion-layer-drawer collapsed" id="motion-drawer-bottom" data-layer="bottom">
+            <div class="motion-layer-header">
+                <button class="motion-layer-icon-btn layer-visibility-btn" id="motion-toggle-layer-bottom" type="button" title="Show or hide the Bottom grid layer.">Eye</button>
+                <button class="motion-layer-trigger" id="motion-trigger-bottom" type="button" title="Bottom layer motion physics."><span>Bottom Grid</span></button>
+            </div>
+            <div class="motion-layer-content">
+                <span class="section-spacer"></span>
+                <select id="dot-bottom-target-type" title="Choose the SVG target points for the Bottom layer.">
+                    <option value="fill" selected>Fill</option>
+                    <option value="path">Path</option>
+                    <option value="anchor">Anchor</option>
+                </select>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>SVG Pull</span><input type="range" id="dot-bottom-pull" min="0" max="3" value="0.7" step="0.01"><span class="val-indicator" id="val-dot-bottom-pull">0.7</span></div>
+                <div class="slider-group"><span>SVG Reach</span><input type="range" id="dot-bottom-svg-radius" min="20" max="1400" value="320" step="5"><span class="val-indicator" id="val-dot-bottom-svg-radius">320</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Grid Pull</span><input type="range" id="dot-bottom-return-pull" min="0.01" max="0.6" value="0.38" step="0.01"><span class="val-indicator" id="val-dot-bottom-return-pull">0.38</span></div>
+                <div class="slider-group"><span>Grid Reach</span><input type="range" id="dot-bottom-grid-radius" min="120" max="2200" value="1600" step="10"><span class="val-indicator" id="val-dot-bottom-grid-radius">1600</span></div>
+                <div class="slider-group"><span>Speed Cap</span><input type="range" id="dot-bottom-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-dot-bottom-speed-limit">80</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Weight</span><input type="range" id="dot-bottom-mass" min="0.2" max="8" value="1" step="0.1"><span class="val-indicator" id="val-dot-bottom-mass">1</span></div>
+                <div class="slider-group"><span>Damping</span><input type="range" id="dot-bottom-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-dot-bottom-friction">34</span></div>
+                <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="dot-bottom-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-dot-bottom-elasticity">45</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Swirl</span><input type="range" id="dot-bottom-orbit" min="-2" max="2" value="0" step="0.01"><span class="val-indicator" id="val-dot-bottom-orbit">0</span></div>
+                <div class="slider-group"><span>Shuffle</span><input type="range" id="dot-bottom-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-dot-bottom-shuffle">0</span></div>
+                <div class="slider-group"><span>Motion Var</span><input type="range" id="dot-bottom-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-dot-bottom-variation">0</span></div>
+                <span class="section-spacer"></span>
+                <div class="slider-group"><span>Grid Size</span><input type="range" id="dot-bottom-grid-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-bottom-grid-size">2.5</span></div>
+                <div class="slider-group"><span>Mid Size</span><input type="range" id="dot-bottom-mid-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-bottom-mid-size">2.5</span></div>
+                <div class="slider-group"><span>Target Size</span><input type="range" id="dot-bottom-target-size" min="0.5" max="20" value="2.5" step="0.1"><span class="val-indicator" id="val-dot-bottom-target-size">2.5</span></div>
+                <div class="slider-group"><span>Speed Size</span><input type="range" id="dot-bottom-speed-size" min="-8" max="8" value="0" step="0.1"><span class="val-indicator" id="val-dot-bottom-speed-size">0</span></div>
+                <span class="section-spacer"></span>
+                <div class="color-pair-row">
+                    <div class="compact-color"><span class="compact-color-label">Grid</span><div class="color-picker-wrapper"><input type="color" id="dot-bottom-grid-color" value="#ffffff"></div><input type="text" id="dot-bottom-grid-color-hex" value="#ffffff" maxlength="7"></div>
+                    <div class="compact-color"><span class="compact-color-label">Target</span><div class="color-picker-wrapper"><input type="color" id="dot-bottom-target-color" value="#ffffff"></div><input type="text" id="dot-bottom-target-color-hex" value="#ffffff" maxlength="7"></div>
+                </div>
+                <div class="drawer-bottom-actions">
+                    <button class="preset-action-btn pink-action" id="motion-randomize-text-bottom" type="button">Randomize</button>
+                    <button class="preset-action-btn" id="motion-unlock-bottom" type="button">Unlock</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="control-panel" class="minimized">
+        <div class="panel-header">
+            <div class="header-transport" aria-label="Slide performance controls">
+                <button class="header-nav-btn" id="header-prev-btn" type="button" title="Previous slide" aria-label="Previous slide">
+                    <svg class="transport-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12l9-6v12z"/></svg>
+                </button>
+                <button class="header-nav-btn header-hold-btn" id="header-hold-btn" type="button" title="Hold to attract dots to the current slide" aria-label="Hold to attract dots to the current slide">
+                    <svg class="transport-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.8"/></svg>
+                </button>
+                <button class="header-nav-btn" id="header-next-btn" type="button" title="Next slide" aria-label="Next slide">
+                    <svg class="transport-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 12l-9 6V6z"/></svg>
+                </button>
+            </div>
+            <div class="header-utility">
+                <button class="header-auto-btn" id="header-auto-btn" type="button" title="Automatically advance to the next slide every 4 seconds" aria-label="Automatically advance to the next slide every 4 seconds">
+                    <svg class="transport-icon transport-icon-forward" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6l7 6-7 6zM12 6l7 6-7 6z"/></svg>
+                </button>
+                <button class="minimize-btn" id="minimize-btn" title="Hide controls">✕</button>
+            </div>
+        </div>
+
+        <!-- Layers Main Drawer -->
+        <div class="drawer" id="drawer-dot-matrix" data-left-panel="motion">
+            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Layers</button>
+            <div class="drawer-content">
+                <div class="matrix-action-grid">
+                    <button class="preset-action-btn" id="matrix-open-all" type="button">Open All</button>
+                    <button class="preset-action-btn" id="matrix-collapse-all" type="button">Collapse All</button>
+                    <button class="preset-action-btn pink-action" id="matrix-randomize-all" type="button">Randomize All</button>
+                    <button class="preset-action-btn" id="matrix-unlock-all" type="button">Unlock All</button>
+                </div>
+                <div class="layer-create-row">
+                    <button class="preset-action-btn" id="matrix-add-above" type="button">Copy Above</button>
+                    <button class="preset-action-btn" id="matrix-add-below" type="button">Copy Below</button>
+                </div>
+                <div class="layer-selected-actions">
+                    <button class="preset-action-btn" id="matrix-rename-layer" type="button">Rename</button>
+                    <button class="preset-action-btn" id="matrix-delete-layer" type="button">Delete</button>
+                </div>
+                <div class="geometry-status" id="matrix-status">Layer controls open beside this drawer.</div>
+            </div>
+        </div>
+
+        <!-- Blink Drawer -->
+        <div class="drawer" id="drawer-blink-mode">
+            <button class="drawer-trigger" id="drawer-trigger-blink-mode">Blink</button>
+            <div class="drawer-content">
+                <div class="sub-toggle-container compact-toggle">
+                    <span>Enable Blink</span>
+                    <label>
+                        <input type="checkbox" id="blink-enabled" class="hidden-ui-node" checked>
+                        <span class="checkbox-switch"></span>
+                    </label>
+                </div>
+                <div class="slider-group"><span>On Period</span><input type="range" id="blink-visibility-on" min="0.05" max="8" value="7" step="0.05"><span class="val-indicator" id="val-blink-visibility-on">7</span></div>
+                <div class="slider-group"><span>Off Period</span><input type="range" id="blink-visibility-off" min="0.05" max="8" value="3" step="0.05"><span class="val-indicator" id="val-blink-visibility-off">3</span></div>
+                <div class="slider-group"><span>Randomness</span><input type="range" id="blink-visibility-randomness" min="0" max="100" value="100" step="1"><span class="val-indicator" id="val-blink-visibility-randomness">100</span></div>
+                <div class="slider-group"><span>Probability</span><input type="range" id="blink-visibility-probability" min="0" max="100" value="70" step="1"><span class="val-indicator" id="val-blink-visibility-probability">70</span></div>
+                <div class="drawer-bottom-actions">
+                    <button class="preset-action-btn pink-action" id="blink-randomize-btn" type="button">Randomize</button>
+                    <button class="preset-action-btn" id="blink-unlock-btn" type="button">Unlock</button>
+                </div>
+                <div class="geometry-status" id="blink-status">Blink hides and reveals the same dot index across all visible grid layers.</div>
+            </div>
+        </div>
+
+        <!-- Slides Drawer -->
+        <div class="drawer" id="drawer-slides">
+            <button class="drawer-trigger" id="drawer-trigger-slides">Slides</button>
+            <div class="drawer-content">
+                <div class="layer-control-row">
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-btn" id="label-slides">Upload SVGs</div>
+                        <input type="file" class="file-input" id="file-slides" accept=".svg,image/svg+xml" multiple>
+                    </div>
+                    <button class="action-btn delete-btn" id="clear-slides" title="Remove Slides">✕</button>
+                </div>
+                <div class="geometry-status" id="slide-status">No slides loaded.</div>
+                <div class="slider-group"><span>Scale</span><input type="range" id="slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-slide-scale">100%</span></div>
+                <div class="slider-group"><span>Offset X</span><input type="range" id="slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-slide-offset-x">0</span></div>
+                <div class="slider-group"><span>Offset Y</span><input type="range" id="slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-slide-offset-y">0</span></div>
+                <div class="slider-group auto-duration-row"><span>Auto Duration</span><input type="range" id="slide-auto-duration" min="1" max="8" value="4" step="0.5"><span class="val-indicator" id="val-slide-auto-duration">4</span></div>
+                <span class="section-title">Slide Mask</span>
+                <div class="sub-toggle-container">
+                    <span>Binary Mask</span>
+                    <label>
+                        <input type="checkbox" id="mask-enabled" class="hidden-ui-node" checked>
+                        <span class="checkbox-switch"></span>
+                    </label>
+                </div>
+                <div class="geometry-status" id="mask-status">Mask hides dots whose grid homes sit inside or near painted slide artwork.</div>
+                <div class="slider-group"><span>Mask Expand</span><input type="range" id="mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-mask-expansion">32</span></div>
+                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="mask-scale-time" min="0" max="7" value="2" step="0.05"><span class="val-indicator" id="val-mask-scale-time">2</span></div>
+                <div class="slider-group hidden-ui-node"><span>Edge Samples</span><input type="range" id="mask-samples" min="4" max="36" value="18" step="1"><span class="val-indicator" id="val-mask-samples">18</span></div>
+                <div class="slider-group hidden-ui-node"><span>Act Speed</span><input type="range" id="mask-speed-threshold" min="0" max="2" value="0.18" step="0.01"><span class="val-indicator" id="val-mask-speed-threshold">0.18</span></div>
+                <div class="slider-group hidden-ui-node"><span>Act Grid Dist</span><input type="range" id="mask-grid-threshold" min="0" max="80" value="4" step="0.1"><span class="val-indicator" id="val-mask-grid-threshold">4</span></div>
+            </div>
+        </div>
+
+        <!-- Grid Drawer -->
+        <div class="drawer" id="drawer-grid">
+            <button class="drawer-trigger" id="drawer-trigger-grid">Grid</button>
+            <div class="drawer-content">
+                <button class="preset-action-btn" id="grid-apply-all" type="button" style="width:100%; margin-bottom:8px;">Apply To All</button>
+                <div class="grid-layer-content active" id="grid-content-top" data-layer="top">
+                    <div class="slider-group"><span>Columns</span><input type="range" id="grid-top-cols" min="1" max="60" value="25"><span class="val-indicator" id="val-grid-top-cols">25</span></div>
+                    <div class="slider-group"><span>Rows</span><input type="range" id="grid-top-rows" min="1" max="40" value="7"><span class="val-indicator" id="val-grid-top-rows">7</span></div>
+                    <div class="slider-group"><span>Spacing</span><input type="range" id="grid-top-spacing" min="5" max="120" value="42"><span class="val-indicator" id="val-grid-top-spacing">42</span></div>
+                    <div class="slider-group"><span>Offset X</span><input type="range" id="grid-top-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-grid-top-offset-x">0</span></div>
+                    <div class="slider-group"><span>Offset Y</span><input type="range" id="grid-top-offset-y" min="-360" max="360" value="110"><span class="val-indicator" id="val-grid-top-offset-y">110</span></div>
+                </div>
+                <div class="grid-layer-content" id="grid-content-mid" data-layer="mid">
+                    <div class="slider-group"><span>Columns</span><input type="range" id="grid-mid-cols" min="1" max="60" value="25"><span class="val-indicator" id="val-grid-mid-cols">25</span></div>
+                    <div class="slider-group"><span>Rows</span><input type="range" id="grid-mid-rows" min="1" max="40" value="7"><span class="val-indicator" id="val-grid-mid-rows">7</span></div>
+                    <div class="slider-group"><span>Spacing</span><input type="range" id="grid-mid-spacing" min="5" max="120" value="42"><span class="val-indicator" id="val-grid-mid-spacing">42</span></div>
+                    <div class="slider-group"><span>Offset X</span><input type="range" id="grid-mid-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-grid-mid-offset-x">0</span></div>
+                    <div class="slider-group"><span>Offset Y</span><input type="range" id="grid-mid-offset-y" min="-360" max="360" value="110"><span class="val-indicator" id="val-grid-mid-offset-y">110</span></div>
+                </div>
+                <div class="grid-layer-content" id="grid-content-bottom" data-layer="bottom">
+                    <div class="slider-group"><span>Columns</span><input type="range" id="grid-bottom-cols" min="1" max="60" value="25"><span class="val-indicator" id="val-grid-bottom-cols">25</span></div>
+                    <div class="slider-group"><span>Rows</span><input type="range" id="grid-bottom-rows" min="1" max="40" value="7"><span class="val-indicator" id="val-grid-bottom-rows">7</span></div>
+                    <div class="slider-group"><span>Spacing</span><input type="range" id="grid-bottom-spacing" min="5" max="120" value="42"><span class="val-indicator" id="val-grid-bottom-spacing">42</span></div>
+                    <div class="slider-group"><span>Offset X</span><input type="range" id="grid-bottom-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-grid-bottom-offset-x">0</span></div>
+                    <div class="slider-group"><span>Offset Y</span><input type="range" id="grid-bottom-offset-y" min="-360" max="360" value="110"><span class="val-indicator" id="val-grid-bottom-offset-y">110</span></div>
+                </div>
+                <div class="geometry-status" id="grid-layout-status">Top layout active.</div>
+            </div>
+        </div>
+
+        <!-- Flicker Drawer -->
+        <div class="drawer" id="drawer-auto-transition">
+            <button class="drawer-trigger" id="drawer-trigger-flicker">Flicker</button>
+            <div class="drawer-content">
+                <div class="geometry-status" id="auto-transition-status">Left/Right change slides. Space holds the current slide. Up hides the UI. Down restores it. Esc stops flicker.</div>
+                <span class="section-title">Transition Path</span>
+                <div class="slider-group"><span>Hold Current</span><input type="range" id="transition-current-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-current-time">3</span></div>
+                <div class="slider-group"><span>Move To Next</span><input type="range" id="transition-travel-time" min="0.1" max="12" value="2" step="0.05"><span class="val-indicator" id="val-transition-travel-time">2</span></div>
+                <div class="slider-group"><span>Return To Grid</span><input type="range" id="transition-grid-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-grid-time">3</span></div>
+                <span class="section-title">Flicker Shape</span>
+                <div class="slider-group"><span>Duration</span><input type="range" id="transition-flicker-time" min="0.05" max="6" value="2" step="0.05"><span class="val-indicator" id="val-transition-flicker-time">2</span></div>
+                <div class="slider-group"><span>Old/New</span><input type="range" id="transition-flicker-bias" min="-100" max="100" value="6" step="1"><span class="val-indicator" id="val-transition-flicker-bias">6</span></div>
+                <div class="slider-group"><span>Speed</span><input type="range" id="transition-flicker-speed" min="1" max="30" value="10" step="0.5"><span class="val-indicator" id="val-transition-flicker-speed">10</span></div>
+                <div class="slider-group"><span>On/Off</span><input type="range" id="transition-flicker-balance" min="10" max="90" value="75" step="1"><span class="val-indicator" id="val-transition-flicker-balance">75</span></div>
+                <div class="slider-group"><span>Wildness</span><input type="range" id="transition-flicker-wildness" min="0" max="100" value="100" step="1"><span class="val-indicator" id="val-transition-flicker-wildness">100</span></div>
+                <div class="drawer-bottom-actions">
+                    <button class="preset-action-btn pink-action" id="flicker-randomize-btn" type="button">Randomize</button>
+                    <button class="preset-action-btn" id="flicker-unlock-btn" type="button">Unlock</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Drawer -->
+        <div class="drawer" id="drawer-bg">
+            <button class="drawer-trigger" id="drawer-trigger-background">Background</button>
+            <div class="drawer-content">
+                <span class="section-title">Image</span>
+                <div class="layer-control-row">
+                    <button class="motion-layer-icon-btn layer-visibility-btn image-visibility-btn" id="image-visibility-toggle" type="button" title="Show or hide the background image.">Eye</button>
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-btn" id="label-image">Upload PNG/JPG</div>
+                        <input type="file" class="file-input" id="file-image" accept=".png,.jpg,.jpeg,image/png,image/jpeg">
+                    </div>
+                    <button class="action-btn delete-btn" id="clear-image" title="Remove Image">✕</button>
+                </div>
+                <div class="geometry-status" id="image-status">No image loaded.</div>
+                <div class="slider-group"><span>Scale</span><input type="range" id="image-scale" min="5" max="300" value="100" step="1"><span class="val-indicator" id="val-image-scale">100</span></div>
+                <div class="slider-group"><span>Offset X</span><input type="range" id="image-offset-x" min="-1280" max="1280" value="0"><span class="val-indicator" id="val-image-offset-x">0</span></div>
+                <div class="slider-group"><span>Offset Y</span><input type="range" id="image-offset-y" min="-720" max="720" value="0"><span class="val-indicator" id="val-image-offset-y">0</span></div>
+                <div id="bg-static-node-wrapper">
+                    <span class="section-title">Canvas Color</span>
+                    <select id="bg-mode" title="Static, 2-color, or 3-color background.">
+                        <option value="static" selected>Static</option>
+                        <option value="cycle2">2 Color Cycle</option>
+                        <option value="cycle3">3 Color Cycle</option>
+                    </select>
+                    <div class="color-grid">
+                        <span>Color 1</span>
+                        <div class="color-picker-wrapper"><input type="color" id="bg-static-picker" value="#02006c"></div>
+                        <input type="text" id="bg-static-hex" value="#02006c" maxlength="7">
+                    </div>
+                    <div class="color-grid bg-cycle-color" id="bg-color-2-row">
+                        <span>Color 2</span>
+                        <div class="color-picker-wrapper"><input type="color" id="bg-color-2-picker" value="#ffd4f5"></div>
+                        <input type="text" id="bg-color-2-hex" value="#ffd4f5" maxlength="7">
+                    </div>
+                    <div class="color-grid bg-cycle-color" id="bg-color-3-row">
+                        <span>Color 3</span>
+                        <div class="color-picker-wrapper"><input type="color" id="bg-color-3-picker" value="#00002a"></div>
+                        <input type="text" id="bg-color-3-hex" value="#00002a" maxlength="7">
+                    </div>
+                    <div class="slider-group" id="bg-cycle-speed-row"><span>Cycle Speed</span><input type="range" id="bg-cycle-speed" min="0.02" max="2.5" value="0.18" step="0.01"><span class="val-indicator" id="val-bg-cycle-speed">0.18</span></div>
+                    <div class="slider-group"><span>Canvas Width</span><input type="range" id="stage-width" min="640" max="3840" value="1280" step="10"><span class="val-indicator" id="val-stage-width">1280</span></div>
+                    <div class="slider-group"><span>Canvas Height</span><input type="range" id="stage-height" min="360" max="2160" value="720" step="10"><span class="val-indicator" id="val-stage-height">720</span></div>
+                </div>
+                <div id="app-background-wrapper">
+                    <span class="section-title">Background Color</span>
+                    <select id="app-bg-mode" title="Choose the app backdrop style outside the canvas.">
+                        <option value="gradient" selected>Gradient Glow</option>
+                        <option value="solid">Solid</option>
+                    </select>
+                    <div class="color-grid">
+                        <span>Color</span>
+                        <div class="color-picker-wrapper"><input type="color" id="app-bg-picker" value="#02006c"></div>
+                        <input type="text" id="app-bg-hex" value="#02006c" maxlength="7">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Drawer -->
+        <div class="drawer" id="drawer-help">
+            <button class="drawer-trigger" id="drawer-trigger-help">Help</button>
+            <div class="drawer-content help-content" id="help-content">
+                <section>
+                    <h3>Shortcuts</h3>
+                    <p>Up hides the UI. Down restores it. Left and Right perform slide flicker. Space attracts dots to the current slide. Esc stops flicker.</p>
+                </section>
+                <section>
+                    <h3>Overview</h3>
+                    <p>SLIDES displays slide artwork on a fixed canvas and animates active dot-grid layers between grid positions and slide target positions. The canvas, image layer, slides, masks, and grid coordinates share the same center-based stage coordinate system.</p>
+                </section>
+                <section>
+                    <h3>Header Controls</h3>
+                    <p>Left arrow button or keyboard Left loads the previous slide. Right arrow button or keyboard Right loads the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes every four seconds.</p>
+                </section>
+                <section>
+                    <h3>Layers</h3>
+                    <p>Layers controls the physics and appearance of active dot layers. Use the eye button to hide a layer, add layers above or below the selection, rename layers, delete layers, and reorder them. Target Type chooses whether that layer follows SVG fills, paths, anchors, or combined target data.</p>
+                </section>
+                <section>
+                    <h3>Grid</h3>
+                    <p>Grid defines columns, rows, spacing, and X/Y offset for each layer. Select a layer, adjust its grid, or use Apply To All to copy the selected layout to every layer.</p>
+                </section>
+                <section>
+                    <h3>Blink</h3>
+                    <p>Blink applies shared visibility timing to the dot layers. On Period is visible time, Off Period is hidden time, Randomness varies the timing, and Probability selects how many dots participate.</p>
+                </section>
+                <section>
+                    <h3>Slides</h3>
+                    <p>Slides loads and manages SVG artwork. The slide scale and offset controls apply to all slides. Slide Mask hides dots whose grid homes sit inside or near painted artwork. Mask Scale Time controls how masked dots scale down or back up during slide changes.</p>
+                </section>
+                <section>
+                    <h3>Flicker</h3>
+                    <p>Flicker controls transition timing. Hold Current pulls dots into the current slide, Move To Next sends dots toward the next slide, Return To Grid settles dots back into the grid, Duration controls flicker length, Old/New biases the swap, Speed controls flicker rate, On/Off controls visible ratio, and Wildness adds timing variation.</p>
+                </section>
+                <section>
+                    <h3>Background</h3>
+                    <p>Image loads a PNG or JPG behind the dots. Canvas Color controls the color or color cycle inside the stage canvas and includes canvas width and height. Background Color controls the app backdrop outside the canvas and can be solid or gradient.</p>
+                </section>
+                <section>
+                    <h3>Presets</h3>
+                    <p>Add Preset saves the current settings and adds them to the preset list. The X removes the selected preset unless it is the last one. Export writes all presets to JSON. Import loads a saved preset file and replaces the current list.</p>
+                </section>
+                <section>
+                    <h3>View</h3>
+                    <p>View Scale changes preview zoom only. It does not resize the canvas or move grid/slide coordinates. Frame Cap limits animation FPS. Info Overlay shows live canvas and runtime data at the bottom of the screen.</p>
+                </section>
+                <section>
+                    <h3>Contact</h3>
+                    <p>If you still have any questions, please give me a call :)<br>+961 03 208 177</p>
+                </section>
+            </div>
+        </div>
+
+        <!-- Presets Drawer -->
+        <div class="drawer" id="drawer-presets">
+            <button class="drawer-trigger" id="drawer-trigger-presets">Presets</button>
+            <div class="drawer-content">
+                <span class="section-title">Global Presets</span>
+                <div class="preset-row">
+                    <select id="preset-select"></select>
+                    <button id="preset-apply-btn" class="pink-action" type="button">Apply</button>
+                    <button class="preset-action-btn preset-delete-btn" id="preset-delete-btn" type="button" title="Delete selected preset">✕</button>
+                </div>
+                <div class="preset-action-row">
+                    <button class="preset-action-btn pink-action" id="preset-add-btn" type="button">Add Preset</button>
+                    <button class="preset-action-btn" id="preset-export-btn" type="button">Export</button>
+                    <button class="preset-action-btn" id="preset-import-btn" type="button">Import</button>
+                    <input type="file" class="file-input" id="preset-import-file" accept=".json,application/json">
+                </div>
+                <div class="geometry-status" id="preset-status">Presets loaded. Add, export, import, or remove any preset except the last one.</div>
+            </div>
+        </div>
+
+        <!-- View Drawer -->
+        <div class="drawer" id="drawer-view-options">
+            <button class="drawer-trigger" id="drawer-trigger-view-options">View</button>
+            <div class="drawer-content">
+                <div class="geometry-status view-status" id="view-status">Canvas 1280 x 720 · View 100%</div>
+                <span class="section-title">View Scale</span>
+                <div class="slider-group"><span>View Scale</span><input type="range" id="view-scale" min="25" max="200" value="100" step="1"><span class="val-indicator" id="val-view-scale">100</span></div>
+                <div class="slider-group"><span>Frame Cap</span><input type="range" id="view-frame-rate" min="30" max="120" value="60" step="1"><span class="val-indicator" id="val-view-frame-rate">60</span></div>
+                <div class="view-scale-grid">
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="25" type="button">25%</button>
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="50" type="button">50%</button>
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="75" type="button">75%</button>
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="100" type="button">100%</button>
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="125" type="button">125%</button>
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="150" type="button">150%</button>
+                    <button class="preset-action-btn view-scale-btn" data-view-scale="200" type="button">200%</button>
+                    <button class="preset-action-btn" id="view-fit-btn" type="button">Fit</button>
+                </div>
+                <div class="sub-toggle-container compact-toggle">
+                    <span>Info Overlay</span>
+                    <label title="Show canvas, slide, mask, and frame info at the bottom of the screen.">
+                        <input type="checkbox" id="view-resolution-overlay-toggle" class="hidden-ui-node" checked>
+                        <span class="checkbox-switch"></span>
+                    </label>
+                </div>
+                <div class="view-actions">
+                    <button id="fullscreen-enter-btn" class="preset-action-btn">Full Screen</button>
+                    <button id="fullscreen-exit-btn" class="preset-action-btn">Exit Full Screen</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="paper-full.min.js"></script>
+    <script src="ten26-default-assets.js"></script>
+    <script src="ten26-state.js"></script>
+    <script src="ten26-engine.js"></script>
+    <script src="ten26-presets.js"></script>
+    <script src="ten26-ui.js"></script>
+</body>
+</html>

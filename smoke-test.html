@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEN26 Smoke Test</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #050518;
+            color: #f7f4ff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+        header {
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        h1 {
+            font-size: 15px;
+            margin: 0;
+            letter-spacing: 0;
+        }
+        #status {
+            font-size: 13px;
+            color: #ffd4f5;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #02006c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>TEN26 Smoke Test</h1>
+        <div id="status">Starting...</div>
+    </header>
+    <iframe id="app-frame" src="index.html" title="TEN26 app smoke test"></iframe>
+    <script>
+        const statusNode = document.getElementById('status');
+        const frame = document.getElementById('app-frame');
+        const failures = [];
+
+        window.addEventListener('error', event => {
+            failures.push(event.message || 'Unhandled error');
+        });
+        window.addEventListener('unhandledrejection', event => {
+            failures.push(event.reason?.message || String(event.reason || 'Unhandled promise rejection'));
+        });
+
+        function pass(message) {
+            statusNode.textContent = message;
+            statusNode.style.color = '#d4ffde';
+        }
+
+        function fail(message) {
+            statusNode.textContent = message;
+            statusNode.style.color = '#ffd4f5';
+        }
+
+        frame.addEventListener('load', () => {
+            setTimeout(() => {
+                try {
+                    const doc = frame.contentDocument;
+                    const win = frame.contentWindow;
+                    const required = [
+                        '#canvas-viewport',
+                        '#morph-canvas',
+                        '#control-panel',
+                        '#preset-select',
+                        '#svg-slide-layer'
+                    ];
+                    const missing = required.filter(selector => !doc.querySelector(selector));
+                    if (missing.length) {
+                        fail(`Missing nodes: ${missing.join(', ')}`);
+                        return;
+                    }
+                    const canvas = doc.querySelector('#morph-canvas');
+                    const presetCount = doc.querySelector('#preset-select')?.options.length || 0;
+                    const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');
+                    const sanitizer = win.TEN26SanitizeSvgText;
+                    const unsafeSvg = '<svg onload="alert(1)" xmlns="http://www.w3.org/2000/svg"><scr' + 'ipt>alert(1)</scr' + 'ipt><rect width="10" height="10" /></svg>';
+                    const sanitized = typeof sanitizer === 'function' ? sanitizer(unsafeSvg) : '';
+                    const hardeningReady = !!win.__TEN26_HARDENING_INSTALLED__ &&
+                        typeof sanitizer === 'function' &&
+                        !/onload|<script/i.test(sanitized);
+                    if (failures.length) {
+                        fail(`Runtime errors: ${failures.slice(0, 2).join(' | ')}`);
+                        return;
+                    }
+                    if (!hardeningReady) {
+                        fail('Hardening layer did not initialize.');
+                        return;
+                    }
+                    if (!hasRuntime || presetCount < 10) {
+                        fail(`Runtime did not initialize fully; found ${presetCount} preset option${presetCount === 1 ? '' : 's'}.`);
+                        return;
+                    }
+                    pass(`Passed: hardening active with ${presetCount} preset option${presetCount === 1 ? '' : 's'}.`);
+                } catch (error) {
+                    fail(`Smoke test failed: ${error.message}`);
+                }
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
