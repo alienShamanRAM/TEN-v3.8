@@ -831,7 +831,7 @@ const viewport = document.getElementById('canvas-viewport');
                         if (info.imageName) overlayParts.push(`Image: ${info.imageName}`);
                         if (info.status) overlayParts.push(`Status: ${info.status}`);
                     }
-                    viewControls.overlay.textContent = overlayParts.join(' · ');
+                    viewControls.overlay.textContent = overlayParts.join('\n');
                     viewControls.overlay.classList.toggle('hidden-ui-node', !viewControls.overlayToggle?.checked);
                 }
                 viewControls.scaleButtons.forEach(button => {

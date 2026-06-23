@@ -320,36 +320,13 @@ input:focus-visible {
     content: none;
 }
 .drawer-content {
-    padding: 12px; border-top: 1px solid rgba(255,212,245,0.08); display: block;
+    padding: 10px 12px; border-top: 1px solid rgba(255,212,245,0.08); display: block;
 }
 .drawer.collapsed .drawer-content { display: none; }
-#drawer-slide-control .geometry-status {
-    display: block;
-    margin-top: 0;
-}
-#slide-current-status,
-#slide-current-properties {
-    margin-top: 8px;
-}
-.slide-control-counts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-    font-size: 11px;
-    opacity: 0.82;
-}
-.slide-control-counts span {
-    border: 1px solid rgba(255,212,245,0.14);
-    border-radius: 999px;
-    padding: 3px 7px;
-    background: rgba(255,212,245,0.035);
-}
 .slide-button-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
     gap: 6px;
-    margin-top: 10px;
 }
 .slide-jump-button {
     min-height: 28px;
@@ -435,7 +412,7 @@ input:focus-visible {
     width: 100%;
 }
 .layer-control-row {
-    display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
 }
 .file-upload-wrapper { position: relative; flex: 1; }
 .file-upload-btn {
@@ -585,7 +562,7 @@ input[type="range"]::-webkit-slider-thumb {
 .sub-toggle-container {
     display: flex; align-items: center; justify-content: space-between;
     background: rgba(255,212,245,0.055); padding: 8px; border-radius: 6px;
-    margin-top: 12px; border: 1px solid rgba(255,212,245,0.1);
+    margin-top: 8px; border: 1px solid rgba(255,212,245,0.1);
 }
 .sub-toggle-container.compact-toggle {
     margin: 0 0 8px;
@@ -1013,6 +990,11 @@ input:disabled {
 .view-status {
     margin: 0 0 10px;
 }
+.flicker-section-gap,
+#bg-static-node-wrapper,
+#app-background-wrapper {
+    margin-top: 10px;
+}
 .view-scale-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1027,9 +1009,9 @@ input:disabled {
 }
 .view-resolution-overlay {
     position: fixed;
-    left: 50%;
+    left: 24px;
     bottom: 18px;
-    transform: translateX(-50%);
+    transform: none;
     z-index: 12;
     padding: 7px 10px;
     border-radius: 6px;
@@ -1038,12 +1020,13 @@ input:disabled {
     color: rgba(224,221,234,0.88);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px;
+    line-height: 1.38;
     letter-spacing: 0;
     pointer-events: none;
-    white-space: nowrap;
-    max-width: min(92vw, 1120px);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: pre-line;
+    width: var(--drawer-width);
+    max-width: calc(100vw - 48px);
+    overflow-wrap: anywhere;
 }
 .ui-toast-region {
     position: fixed;
@@ -1093,4 +1076,12 @@ input:disabled {
     color: var(--ui-pink);
     font-size: 11px;
     line-height: 1.45;
+}
+.help-signature {
+    margin-top: 12px;
+    text-align: right;
+    color: var(--ui-pink);
+    font-size: 13px;
+    font-weight: 850;
+    letter-spacing: 0;
 }
