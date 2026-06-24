@@ -1844,6 +1844,14 @@
                         dot.idleAlpha = approachValue(dot.idleAlpha ?? 1, 1, cfg.visibilityRespawn, deltaTime);
                         return;
                     }
+                    if (cfg.visibilityGridProximity > 0) {
+                        const gridDx = dot.x - dot.gridX;
+                        const gridDy = dot.y - dot.gridY;
+                        if (gridDx * gridDx + gridDy * gridDy > cfg.visibilityGridProximitySq) {
+                            dot.idleAlpha = approachValue(dot.idleAlpha ?? 1, 1, cfg.visibilityRespawn, deltaTime);
+                            return;
+                        }
+                    }
                     const sharedSeed = index + 1;
                     const affected = pseudoRandom(sharedSeed + 911) < clamp(cfg.visibilityProbability, 0, 100) / 100;
                     if (!affected) {
@@ -1878,8 +1886,11 @@
                     const startSize = firstLeg ? cfg.gridSize : cfg.midSize;
                     const endSize = firstLeg ? cfg.midSize : cfg.targetSize;
                     const baseSize = startSize + (endSize - startSize) * smoothstep(0, 1, legT);
-                    const speed = Math.hypot(dot.vx, dot.vy);
-                    const speedResponse = smoothstep(0, Math.max(0.1, cfg.speedLimit), speed) * cfg.speedSize;
+                    let speedResponse = 0;
+                    if (cfg.speedSize !== 0) {
+                        const speed = Math.hypot(dot.vx, dot.vy);
+                        speedResponse = smoothstep(0, Math.max(0.1, cfg.speedLimit), speed) * cfg.speedSize;
+                    }
                     dot.size = clamp(baseSize + speedResponse, 0.5, MAX_DOT_SIZE);
                 }
 
@@ -1955,6 +1966,7 @@
                     const frictionFactor = Math.max(0, 1 - baseDrag * frameDt);
                     const animatedSvgRadius = Math.max(1, cfg.svgRadius * (1 + (cfg.svgRadiusMotion / 100) * forceState.svgRadiusPhase));
                     const animatedGridRadius = Math.max(1, cfg.gridRadius * (1 + (cfg.gridRadiusMotion / 100) * forceState.gridRadiusPhase));
+                    const snapDistanceSq = cfg.snapDistance * cfg.snapDistance;
                     this.dots.forEach((dot, index) => {
                         let fx = 0;
                         let fy = 0;
@@ -2017,9 +2029,11 @@
                         const invMass = 1 / Math.max(0.1, cfg.mass * Math.max(0.2, massScale));
                         dot.vx = (dot.vx + fx * invMass * frameDt) * frictionFactor;
                         dot.vy = (dot.vy + fy * invMass * frameDt) * frictionFactor;
-                        const speed = Math.hypot(dot.vx, dot.vy);
                         const maxSpeed = Math.max(0.05, cfg.speedLimit * Math.max(0.2, speedScale));
-                        if (speed > maxSpeed) {
+                        const speedSq = dot.vx * dot.vx + dot.vy * dot.vy;
+                        const maxSpeedSq = maxSpeed * maxSpeed;
+                        if (speedSq > maxSpeedSq) {
+                            const speed = Math.sqrt(speedSq);
                             dot.vx = dot.vx / speed * maxSpeed;
                             dot.vy = dot.vy / speed * maxSpeed;
                         }
@@ -2037,8 +2051,10 @@
                         }
 
                         if (this.mode === 'grid') {
-                            const gridDistance = Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY);
-                            if (gridDistance <= cfg.snapDistance && Math.hypot(dot.vx, dot.vy) <= 0.08) {
+                            const gridDx = dot.x - dot.gridX;
+                            const gridDy = dot.y - dot.gridY;
+                            const velocitySq = dot.vx * dot.vx + dot.vy * dot.vy;
+                            if (gridDx * gridDx + gridDy * gridDy <= snapDistanceSq && velocitySq <= 0.0064) {
                                 dot.x = dot.gridX;
                                 dot.y = dot.gridY;
                                 dot.vx = 0;

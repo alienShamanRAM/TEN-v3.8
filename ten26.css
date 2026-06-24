@@ -2060,3 +2060,14 @@ input[type="range"]::-moz-range-thumb {
     background: rgba(255,197,244,0.24);
     color: #ffffff;
 }
+
+/* V4 performance cue: low range end cyan, high range end pink */
+.random-limit-thumb-min {
+    background: var(--ui-cyan);
+    box-shadow: 0 0 0 1px rgba(0,174,239,0.56);
+}
+
+.random-limit-thumb-max {
+    background: var(--ui-pink);
+    box-shadow: 0 0 0 1px rgba(255,197,244,0.58);
+}

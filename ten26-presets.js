@@ -37,6 +37,7 @@ function getActiveLayerStateFromControls() {
                     visibilityOff: motionState.visibilityOff,
                     visibilityRandomness: motionState.visibilityRandomness,
                     visibilityProbability: motionState.visibilityProbability,
+                    visibilityGridProximity: motionState.visibilityGridProximity,
                     visibilityRespawn: '0',
                     snapDistance: current.snapDistance || '1.5',
                     gridColor: motionState.gridColor,
@@ -266,6 +267,7 @@ function getActiveLayerStateFromControls() {
                 if (source.visibilityOff === undefined) layer.visibilityOff = '3';
                 if (source.visibilityRandomness === undefined) layer.visibilityRandomness = '100';
                 if (source.visibilityProbability === undefined) layer.visibilityProbability = '70';
+                if (source.visibilityGridProximity === undefined) layer.visibilityGridProximity = '0';
                 layer.visibilityRespawn = '0';
                 const fallbackColor = normalizeHexColor(source.dotColor || source.gridColor || layer.gridColor || '#ffffff');
                 layer.gridColor = normalizeHexColor(source.gridColor || source.dotColor || layer.gridColor, fallbackColor);
@@ -704,6 +706,7 @@ function getActiveLayerStateFromControls() {
                     visibilityOff: '3',
                     visibilityRandomness: '100',
                     visibilityProbability: '70',
+                    visibilityGridProximity: '0',
                     visibilityRespawn: '0'
                 };
             }
@@ -1093,6 +1096,7 @@ function getActiveLayerStateFromControls() {
                     visibilityOff: '0.28',
                     visibilityRandomness: '28',
                     visibilityProbability: '42',
+                    visibilityGridProximity: '0',
                     visibilityRespawn: '0'
                 };
                 const legacyLayers = {

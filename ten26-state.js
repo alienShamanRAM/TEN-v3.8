@@ -42,7 +42,11 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function forceBlinkRespawnState(state = {}) {
-                return { ...state, visibilityRespawn: '0' };
+                return {
+                    ...state,
+                    visibilityGridProximity: state.visibilityGridProximity ?? '0',
+                    visibilityRespawn: '0'
+                };
             }
 
             function createRangeGroup(label, id, min, max, value, step = '1') {
@@ -596,6 +600,7 @@ const viewport = document.getElementById('canvas-viewport');
                 visibilityOff: document.getElementById('blink-visibility-off'),
                 visibilityRandomness: document.getElementById('blink-visibility-randomness'),
                 visibilityProbability: document.getElementById('blink-visibility-probability'),
+                gridProximity: document.getElementById('blink-grid-proximity'),
                 randomize: document.getElementById('blink-randomize-btn'),
                 unlock: document.getElementById('blink-unlock-btn'),
                 reset: document.getElementById('blink-reset-btn'),
@@ -1119,7 +1124,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'blink-visibility-on': 'Visible time per blink cycle.',
                 'blink-visibility-off': 'Hidden time per blink cycle.',
                 'blink-visibility-randomness': 'Timing variation per dot.',
-                'blink-visibility-probability': 'Dots included in blink.'
+                'blink-visibility-probability': 'Dots included in blink.',
+                'blink-grid-proximity': 'Distance from grid where blink begins. 0 keeps blink active through motion.'
             };
 
             const MODULE_TOOLTIPS = {
@@ -1555,6 +1561,7 @@ const viewport = document.getElementById('canvas-viewport');
                     visibilityOff: '3',
                     visibilityRandomness: '100',
                     visibilityProbability: '70',
+                    visibilityGridProximity: '0',
                     visibilityRespawn: '0',
                     snapDistance: '1.5',
                     gridColor: meta.defaultColor,
@@ -1753,6 +1760,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const gridColor = normalizeHexColor(state.gridColor, meta.defaultColor);
                 const midColor = normalizeHexColor(state.midColor, gridColor);
                 const targetColor = normalizeHexColor(state.targetColor, midColor);
+                const visibilityGridProximity = clamp(readStateFloat(state.visibilityGridProximity, 0), 0, 240);
                 const config = {
                     hidden: !!state.hidden,
                     cols: Math.max(1, parseInt(state.cols, 10) || 1),
@@ -1798,6 +1806,8 @@ const viewport = document.getElementById('canvas-viewport');
                     visibilityOff: readStateFloat(state.visibilityOff, 3),
                     visibilityRandomness: readStateFloat(state.visibilityRandomness, 100),
                     visibilityProbability: readStateFloat(state.visibilityProbability, 70),
+                    visibilityGridProximity,
+                    visibilityGridProximitySq: visibilityGridProximity * visibilityGridProximity,
                     visibilityRespawn: 0
                 };
                 layerRuntimeConfigCache[layerKey] = { source: state, config };
@@ -1839,7 +1849,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'gridSize', 'midSize', 'targetSize', 'speedSize'
             ];
             const BLINK_RANDOM_CONTROL_KEYS = [
-                'visibilityOn', 'visibilityOff', 'visibilityRandomness', 'visibilityProbability'
+                'visibilityOn', 'visibilityOff', 'visibilityRandomness', 'visibilityProbability',
+                'gridProximity'
             ];
             function isRandomizableRangeControl(control) {
                 return !!control?.id &&
@@ -2414,7 +2425,8 @@ const viewport = document.getElementById('canvas-viewport');
                     visibilityOn: blinkControls.visibilityOn?.value || '7',
                     visibilityOff: blinkControls.visibilityOff?.value || '3',
                     visibilityRandomness: blinkControls.visibilityRandomness?.value || '100',
-                    visibilityProbability: blinkControls.visibilityProbability?.value || '70'
+                    visibilityProbability: blinkControls.visibilityProbability?.value || '70',
+                    visibilityGridProximity: blinkControls.gridProximity?.value || '0'
                 });
             }
 
@@ -2425,6 +2437,7 @@ const viewport = document.getElementById('canvas-viewport');
                 setControlValue(blinkControls.visibilityOff, state.visibilityOff || '3');
                 setControlValue(blinkControls.visibilityRandomness, state.visibilityRandomness || '100');
                 setControlValue(blinkControls.visibilityProbability, state.visibilityProbability || '70');
+                setControlValue(blinkControls.gridProximity, state.visibilityGridProximity || '0');
                 if (blinkControls.status) blinkControls.status.textContent = blinkControls.enabled?.checked
                     ? 'Blink is enabled for all visible layers with shared dot indexes.'
                     : 'Blink applies the same dot index across all visible layers.';
