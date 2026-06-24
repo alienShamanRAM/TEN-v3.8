@@ -186,15 +186,6 @@ const viewport = document.getElementById('canvas-viewport');
                 return drawer;
             }
 
-            function createGridLayerButton(layerKey) {
-                const button = document.createElement('button');
-                button.className = 'layer-tab';
-                button.id = `grid-select-layer-${layerKey}`;
-                button.type = 'button';
-                button.textContent = 'Layer';
-                return button;
-            }
-
             function createGridLayerContent(layerKey) {
                 const content = document.createElement('div');
                 content.className = 'grid-layer-content';
@@ -220,10 +211,8 @@ const viewport = document.getElementById('canvas-viewport');
                     });
                 }
                 const gridDrawer = document.getElementById('drawer-grid');
-                const tabRow = gridDrawer?.querySelector('.layer-tab-row');
                 const gridStatus = document.getElementById('grid-layout-status');
-                if (tabRow) tabRow.remove();
-                if (gridStatus?.parentElement) {
+                if (gridDrawer && gridStatus?.parentElement) {
                     gridDrawer.querySelectorAll('.grid-layer-content').forEach(node => node.remove());
                     ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                         gridStatus.parentElement.insertBefore(createGridLayerContent(layerKey), gridStatus);
@@ -527,10 +516,6 @@ const viewport = document.getElementById('canvas-viewport');
             const gridControls = {
                 applyAll: document.getElementById('grid-apply-all'),
                 status: document.getElementById('grid-layout-status'),
-                selectButtons: ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
-                    acc[layerKey] = document.getElementById(`grid-select-layer-${layerKey}`);
-                    return acc;
-                }, {}),
                 layers: ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
                     acc[layerKey] = {
                         content: document.getElementById(`grid-content-${layerKey}`),
@@ -673,15 +658,6 @@ const viewport = document.getElementById('canvas-viewport');
             const imageSlideControls = mediaControls;
 
             const slideControlControls = {
-                drawer: document.getElementById('drawer-slide-control'),
-                trigger: document.getElementById('drawer-trigger-slide-control'),
-                summary: document.getElementById('slide-control-summary'),
-                counts: document.getElementById('slide-control-counts'),
-                countTotal: document.getElementById('slide-count-total'),
-                countSvg: document.getElementById('slide-count-svg'),
-                countMedia: document.getElementById('slide-count-media'),
-                currentStatus: document.getElementById('slide-current-status'),
-                currentProperties: document.getElementById('slide-current-properties'),
                 grid: document.getElementById('slide-button-grid')
             };
 
@@ -1077,26 +1053,6 @@ const viewport = document.getElementById('canvas-viewport');
                 'image-slide-scale': 'Image slide target size on the canvas.',
                 'image-slide-offset-x': 'Move image slide targets left or right.',
                 'image-slide-offset-y': 'Move image slide targets up or down.',
-                'dot-pull': 'Strength pulling dots into SVG targets.',
-                'dot-svg-radius': 'Distance where SVG targets affect dots.',
-                'dot-return-pull': 'Strength pulling dots back to grid.',
-                'dot-grid-radius': 'Distance where grid homes affect dots.',
-                'dot-speed-limit': 'Maximum dot speed.',
-                'dot-mass': 'Dot weight and response lag.',
-                'dot-friction': 'Motion damping.',
-                'dot-elasticity': 'Stick on the low end; fly by on the high end.',
-                'dot-orbit': 'Sideways swirl around targets.',
-                'dot-shuffle': 'Random target reassignment.',
-                'dot-variation': 'Per-dot motion variation.',
-                'dot-grid-size': 'Dot size at grid rest.',
-                'dot-mid-size': 'Dot size mid-transition.',
-                'dot-target-size': 'Dot size on SVG targets.',
-                'dot-speed-size': 'Size added by dot speed.',
-                'grid-cols': 'Grid columns for this layer.',
-                'grid-rows': 'Grid rows for this layer.',
-                'grid-spacing': 'Distance between grid dots.',
-                'grid-offset-x': 'Move this grid layer horizontally.',
-                'grid-offset-y': 'Move this grid layer vertically.',
                 'view-scale': 'Preview zoom only. It does not resize the canvas, grid, image, or SVG coordinates.',
                 'stage-width': 'Canvas width in shared stage coordinates.',
                 'stage-height': 'Canvas height in shared stage coordinates.',
@@ -1236,7 +1192,6 @@ const viewport = document.getElementById('canvas-viewport');
                 }).forEach(([suffix, tip]) => {
                     SLIDER_TOOLTIPS[`dot-${layerKey}-${suffix}`] = `${label}: ${tip}`;
                 });
-                CONTROL_TOOLTIPS[`grid-select-layer-${layerKey}`] = `Edit the ${label} grid layout controls.`;
                 CONTROL_TOOLTIPS[`dot-${layerKey}-target-type`] = `${label}: SVG points this layer follows.`;
                 CONTROL_TOOLTIPS[`motion-trigger-${layerKey}`] = `${label} layer motion physics.`;
                 CONTROL_TOOLTIPS[`motion-toggle-layer-${layerKey}`] = `Show or hide the ${label} grid layer.`;
@@ -1310,10 +1265,6 @@ const viewport = document.getElementById('canvas-viewport');
                     }
                     if (node.matches?.('[data-view-scale]')) {
                         setNativeTooltip(node, `Set preview scale to ${node.dataset.viewScale}%.`);
-                        return;
-                    }
-                    if (node.classList?.contains('layer-tab')) {
-                        setNativeTooltip(node, `Edit the ${readableControlName(node)} grid layout controls.`);
                         return;
                     }
                     if (node.classList?.contains('section-title')) {
@@ -1602,18 +1553,11 @@ const viewport = document.getElementById('canvas-viewport');
                     const triggerLabel = motionControls?.trigger?.querySelector('.motion-layer-name, span');
                     if (triggerLabel) triggerLabel.textContent = label;
                     if (motionControls?.trigger) setNativeTooltip(motionControls.trigger, `${label} layer motion physics.`);
-                    if (gridControls.selectButtons[layerKey]) {
-                        gridControls.selectButtons[layerKey].hidden = !active;
-                        gridControls.selectButtons[layerKey].style.order = String(order);
-                        gridControls.selectButtons[layerKey].textContent = label;
-                    }
                     if (gridLayerControls?.content) gridLayerControls.content.hidden = !active;
                 });
                 const canAdd = DOT_LAYER_KEYS.length < ALL_DOT_LAYER_KEYS.length;
                 setButtonActionable(motionLayerControls.addAbove, canAdd);
                 setButtonActionable(motionLayerControls.addBelow, canAdd);
-                setButtonActionable(motionLayerControls.delete, DOT_LAYER_KEYS.length > 1);
-                if (motionLayerControls.rename) setButtonActionable(motionLayerControls.rename, DOT_LAYER_KEYS.length > 0);
                 if (motionLayerControls.addAbove) {
                     motionLayerControls.addAbove.textContent = 'Copy Above';
                     setNativeTooltip(motionLayerControls.addAbove, `Create a copy ABOVE ${activeLabel}`);
@@ -1621,14 +1565,6 @@ const viewport = document.getElementById('canvas-viewport');
                 if (motionLayerControls.addBelow) {
                     motionLayerControls.addBelow.textContent = 'Copy Below';
                     setNativeTooltip(motionLayerControls.addBelow, `Create a copy BELOW ${activeLabel}`);
-                }
-                if (motionLayerControls.rename) {
-                    motionLayerControls.rename.textContent = 'Rename';
-                    setNativeTooltip(motionLayerControls.rename, `Rename ${activeLabel}`);
-                }
-                if (motionLayerControls.delete) {
-                    motionLayerControls.delete.textContent = 'Delete';
-                    setNativeTooltip(motionLayerControls.delete, `Delete ${activeLabel}`);
                 }
                 DOT_LAYER_KEYS.forEach((layerKey, index) => {
                     const controls = motionLayerControls.layers[layerKey];
@@ -2553,8 +2489,6 @@ const viewport = document.getElementById('canvas-viewport');
                     const isRegistered = DOT_LAYER_KEYS.includes(layerKey);
                     const isActive = isRegistered && layerKey === activeLayerKey;
                     const isHidden = !!dotLayerStates[layerKey]?.hidden;
-                    gridControls.selectButtons[layerKey]?.classList.toggle('active', isActive);
-                    gridControls.selectButtons[layerKey]?.classList.toggle('hidden-state', isHidden);
                     const motionControls = getMotionLayerControls(layerKey);
                     const gridLayerControls = gridControls.layers[layerKey];
                     gridLayerControls?.content?.classList.toggle('active', isActive);

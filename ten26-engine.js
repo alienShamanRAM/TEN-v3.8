@@ -1384,33 +1384,6 @@
                 return 'SVG';
             }
 
-            function getCurrentSlidePropertySummary(slide) {
-                if (!slide) return 'No slide selected.';
-                const controls = getSlideControlsForType(slide.type);
-                const scale = controls?.scale?.value ? `${controls.scale.value}%` : '-';
-                const offsetX = controls?.offsetX?.value ?? '-';
-                const offsetY = controls?.offsetY?.value ?? '-';
-                const name = slide.name || slide.fileName || 'Untitled slide';
-                const parts = [
-                    `Type: ${getSlideTypeLabel(slide.type)}`,
-                    `Name: ${name}`,
-                    `Scale: ${scale}`,
-                    `Offset X: ${offsetX}`,
-                    `Offset Y: ${offsetY}`
-                ];
-                if (slide.type === 'video') {
-                    const duration = Number.isFinite(slide.duration) && slide.duration > 0
-                        ? slide.duration.toFixed(2)
-                        : '-';
-                    parts.push(`Duration: ${duration}s`);
-                }
-                if (slide.type === 'image') {
-                    const duration = mediaControls?.duration?.value || '-';
-                    parts.push(`Image Duration: ${duration}s`);
-                }
-                return parts.join(' · ');
-            }
-
             function renderSlideButtonGrid() {
                 const grid = slideControlControls?.grid;
                 if (!grid) return;
@@ -1442,25 +1415,11 @@
             function updateSlideControlStatus() {
                 const controls = slideControlControls;
                 if (!controls || !controls.grid) return;
-                const total = slides.length;
-                const svgCount = slides.filter(slide => isSvgSlideType(slide.type)).length;
-                const mediaCount = slides.filter(slide => isMediaSlideType(slide.type)).length;
                 const current = slides[currentSlideIndex];
-                if (controls.countTotal) controls.countTotal.textContent = `Total: ${total}`;
-                if (controls.countSvg) controls.countSvg.textContent = `SVG: ${svgCount}`;
-                if (controls.countMedia) controls.countMedia.textContent = `Media: ${mediaCount}`;
-                if (!total || !current) {
-                    if (controls.summary) controls.summary.textContent = 'No slides loaded.';
-                    if (controls.currentStatus) controls.currentStatus.textContent = 'Current: none';
-                    if (controls.currentProperties) controls.currentProperties.textContent = 'No slide selected.';
+                if (!slides.length || !current) {
                     controls.grid.replaceChildren();
                     return;
                 }
-                const humanIndex = currentSlideIndex + 1;
-                const typeLabel = getSlideTypeLabel(current.type);
-                if (controls.summary) controls.summary.textContent = `Slide ${humanIndex} / ${total}`;
-                if (controls.currentStatus) controls.currentStatus.textContent = `Current: ${humanIndex} / ${total} · ${typeLabel}`;
-                if (controls.currentProperties) controls.currentProperties.textContent = getCurrentSlidePropertySummary(current);
                 renderSlideButtonGrid();
             }
 

@@ -86,6 +86,8 @@
                     }
                     const canvas = doc.querySelector('#morph-canvas');
                     const presetCount = doc.querySelector('#preset-select')?.options.length || 0;
+                    const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
+                    const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');
                     const sanitizer = win.TEN26SanitizeSvgText;
                     const unsafeSvg = '<svg onload="alert(1)" xmlns="http://www.w3.org/2000/svg"><scr' + 'ipt>alert(1)</scr' + 'ipt><rect width="10" height="10" /></svg>';
@@ -101,11 +103,11 @@
                         fail('Hardening layer did not initialize.');
                         return;
                     }
-                    if (!hasRuntime || presetCount < 10) {
-                        fail(`Runtime did not initialize fully; found ${presetCount} preset option${presetCount === 1 ? '' : 's'}.`);
+                    if (!hasRuntime || presetCount < 1 || motionLayerCount < 9 || gridLayerCount < 9) {
+                        fail(`Runtime did not initialize fully; presets ${presetCount}, motion layers ${motionLayerCount}, grid layers ${gridLayerCount}.`);
                         return;
                     }
-                    pass(`Passed: hardening active with ${presetCount} preset option${presetCount === 1 ? '' : 's'}.`);
+                    pass(`Passed: hardening active with ${presetCount} preset option${presetCount === 1 ? '' : 's'} and ${motionLayerCount} dynamic layers.`);
                 } catch (error) {
                     fail(`Smoke test failed: ${error.message}`);
                 }

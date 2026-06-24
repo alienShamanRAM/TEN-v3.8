@@ -235,13 +235,6 @@ function bindEvents() {
                     if (headerAutoTimer) startHeaderAutoTimer();
                 });
 
-                Object.entries(gridControls.selectButtons).forEach(([layerKey, button]) => {
-                    button?.addEventListener('click', () => {
-                        switchActiveLayer(layerKey);
-                        syncLeftPanels();
-                    });
-                });
-
                 Object.entries(gridControls.layers).forEach(([layerKey, controls]) => {
                     [controls.cols, controls.rows, controls.spacing, controls.offsetX, controls.offsetY].forEach(control => {
                         control?.addEventListener('input', () => {
@@ -273,10 +266,6 @@ function bindEvents() {
                     event.stopPropagation();
                     randomizeAllMotionLayers();
                 });
-                motionLayerControls.randomizeLayer?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    randomizeMotionLayer(activeLayerKey);
-                });
                 motionLayerControls.unlockAll?.addEventListener('click', event => {
                     event.stopPropagation();
                     unlockAllMotionLayers();
@@ -284,10 +273,6 @@ function bindEvents() {
                 motionLayerControls.resetAll?.addEventListener('click', event => {
                     event.stopPropagation();
                     resetAllMotionLayerRanges();
-                });
-                motionLayerControls.unlockLayer?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    unlockMotionLayer(activeLayerKey);
                 });
                 motionLayerControls.addAbove?.addEventListener('click', event => {
                     event.stopPropagation();
@@ -297,15 +282,6 @@ function bindEvents() {
                     event.stopPropagation();
                     addLayerRelative('below');
                 });
-                motionLayerControls.rename?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    renameActiveLayer();
-                });
-                motionLayerControls.delete?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    deleteActiveLayer();
-                });
-
                 blinkControls.enabled?.addEventListener('change', () => {
                     applyBlinkControlsToAllLayers();
                     updateDrawerTitleStates();
@@ -547,7 +523,14 @@ function bindEvents() {
                 drawMorphDots();
             }
 
-            bindEvents();
+            try {
+                bindEvents();
+            } catch (error) {
+                console.error('TEN26 startup binding failed:', error);
+                if (typeof showUiToast === 'function') {
+                    showUiToast('Some controls could not start. The canvas will keep running.', 'warning');
+                }
+            }
             createDefaultPresets();
             applyState(getStartupPresetState());
             syncFrameInterval();

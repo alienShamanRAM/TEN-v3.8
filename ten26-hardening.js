@@ -156,18 +156,6 @@ window.installTen26Hardening = function installTen26Hardening() {
         };
     }
 
-    if (typeof bindEvents === 'function') {
-        const originalBindEvents = bindEvents;
-        bindEvents = function bindEventsWithStartupGuard() {
-            try {
-                originalBindEvents();
-            } catch (error) {
-                console.error('TEN26 startup binding failed:', error);
-                if (typeof showUiToast === 'function') showUiToast('Some controls could not start. The canvas will keep running.', 'warning');
-            }
-        };
-    }
-
     const style = document.createElement('style');
     style.id = 'ten26-responsive-hardening';
     style.textContent = `
