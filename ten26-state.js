@@ -15,7 +15,8 @@ const viewport = document.getElementById('canvas-viewport');
             const TEN26_DOT_RANDOM_COLORS = [
                 '#02006c',
                 '#ffffff',
-                '#ffc5f4'
+                '#ffc5f4',
+                '#00aeef'
             ];
             let headerAutoplayActive = false;
 
@@ -131,8 +132,8 @@ const viewport = document.getElementById('canvas-viewport');
                 content.appendChild(targetSelect);
 
                 [
-                    ['SVG Pull', 'pull', '0', '3', '0.7', '0.01'],
-                    ['SVG Reach', 'svg-radius', '20', '1400', '320', '5'],
+                    ['Slide Pull', 'pull', '0', '3', '0.7', '0.01'],
+                    ['Slide Reach', 'svg-radius', '20', '1400', '320', '5'],
                     ['Grid Pull', 'return-pull', '0.01', '0.6', '0.38', '0.01'],
                     ['Grid Reach', 'grid-radius', '120', '2200', '1600', '10'],
                     ['Speed Cap', 'speed-limit', '0.5', '120', '80', '0.5'],
@@ -1356,6 +1357,7 @@ const viewport = document.getElementById('canvas-viewport');
                 picker.addEventListener('input', () => {
                     hex.value = picker.value;
                     syncDotColorSwatchState(hex);
+                    updateSizeSliderThumbColorsForColorControl(hex);
                     onChange();
                 });
                 hex.addEventListener('input', () => {
@@ -1363,6 +1365,7 @@ const viewport = document.getElementById('canvas-viewport');
                         picker.value = hex.value.toLowerCase();
                         hex.value = picker.value;
                         syncDotColorSwatchState(hex);
+                        updateSizeSliderThumbColorsForColorControl(hex);
                         onChange();
                     }
                 });
@@ -1389,6 +1392,27 @@ const viewport = document.getElementById('canvas-viewport');
                     button.classList.toggle('active', active);
                     button.setAttribute('aria-pressed', String(active));
                 });
+            }
+
+            function updateLayerSizeSliderThumbColors(layerKey) {
+                const controls = motionLayerControls.layers[layerKey];
+                if (!controls) return;
+                const setThumbColor = (control, color) => {
+                    const group = control?.closest('.slider-group');
+                    if (!group) return;
+                    group.style.setProperty('--slider-thumb-color', normalizeHexColor(color, '#ffffff'));
+                };
+                setThumbColor(controls.gridSize, controls.gridColorHex?.value || controls.gridColor?.value || '#ffffff');
+                setThumbColor(controls.midSize, controls.midColorHex?.value || controls.midColor?.value || '#ffffff');
+                setThumbColor(controls.targetSize, controls.targetColorHex?.value || controls.targetColor?.value || '#ffffff');
+                setThumbColor(controls.speedSize, '#ffffff');
+                setThumbColor(controls.speedLimit, '#ffffff');
+            }
+
+            function updateSizeSliderThumbColorsForColorControl(control) {
+                const id = control?.id || '';
+                const match = id.match(/^dot-(.+)-(grid|mid|target)-color(?:-hex)?$/);
+                if (match) updateLayerSizeSliderThumbColors(match[1]);
             }
 
             function installDotColorPaletteUi() {
@@ -1428,6 +1452,7 @@ const viewport = document.getElementById('canvas-viewport');
                     else wrap.prepend(swatches);
                     syncDotColorSwatchState(hex);
                 });
+                ALL_DOT_LAYER_KEYS.forEach(updateLayerSizeSliderThumbColors);
             }
 
             function enableSliderValueEditing() {
@@ -2099,6 +2124,7 @@ const viewport = document.getElementById('canvas-viewport');
                 if (picker) picker.value = color;
                 if (hex) hex.value = color;
                 syncDotColorSwatchState(hex || picker);
+                updateSizeSliderThumbColorsForColorControl(hex || picker);
             }
 
             function getMotionRandomControls(layerKey) {

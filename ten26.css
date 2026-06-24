@@ -1908,3 +1908,78 @@ select:hover {
 #grid-layout-status {
     order: 3;
 }
+
+/* V4 color and slider thumb tuning */
+.header-transport {
+    grid-template-columns: repeat(4, 42px);
+    gap: 8px;
+    height: 34px;
+}
+
+.header-utility {
+    height: 34px;
+}
+
+.header-nav-btn,
+.header-auto-btn {
+    width: 42px;
+    min-width: 42px;
+    height: 34px;
+}
+
+.transport-icon {
+    width: 19px;
+    height: 19px;
+}
+
+.header-auto-btn .transport-icon-forward {
+    width: 20px;
+    height: 20px;
+}
+
+.minimize-btn {
+    height: 34px;
+    margin-right: 4px;
+}
+
+.dot-color-swatch-row {
+    grid-template-columns: repeat(4, 12px);
+    gap: 8px;
+}
+
+.dot-color-swatch {
+    border: 1px solid rgba(255,255,255,0.46) !important;
+}
+
+.dot-color-swatch.active {
+    border: 1px solid rgba(255,255,255,0.9) !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    width: 10px;
+    height: 10px;
+    background: var(--slider-thumb-color, var(--ui-pink));
+}
+
+.random-range-wrap input[type="range"]::-webkit-slider-thumb {
+    width: 11px;
+    height: 11px;
+    background: var(--slider-thumb-color, #ffc5f4);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    background: var(--slider-thumb-color, var(--ui-pink));
+}
+
+.random-range-wrap input[type="range"]::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    background: var(--slider-thumb-color, #ffc5f4);
+}
+
+.slider-group:has(input[id$="-speed-size"]),
+.slider-group:has(input[id$="-speed-limit"]) {
+    --slider-thumb-color: #ffffff;
+}
