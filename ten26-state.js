@@ -49,7 +49,7 @@ const viewport = document.getElementById('canvas-viewport');
                 };
             }
 
-            function createRangeGroup(label, id, min, max, value, step = '1') {
+            function createRangeGroup(label, id, min, max, value, step = '1', options = {}) {
                 const group = document.createElement('div');
                 group.className = 'slider-group';
                 const labelNode = document.createElement('span');
@@ -61,12 +61,40 @@ const viewport = document.getElementById('canvas-viewport');
                 input.max = max;
                 input.value = value;
                 input.step = step;
+                if (options.snapValue !== undefined) input.dataset.snapValue = String(options.snapValue);
                 const indicator = document.createElement('span');
                 indicator.className = 'val-indicator';
                 indicator.id = `val-${id}`;
                 indicator.textContent = value;
                 group.append(labelNode, input, indicator);
                 return group;
+            }
+
+            function createBlendModeControl(layerKey) {
+                const wrap = document.createElement('label');
+                wrap.className = 'motion-blend-control';
+                const label = document.createElement('span');
+                label.textContent = 'Blend';
+                const select = document.createElement('select');
+                select.id = `dot-${layerKey}-blend-mode`;
+                setNativeTooltip(select, 'Blend this grid layer with the canvas color without blending dots into other dots.');
+                [
+                    ['source-over', 'Normal'],
+                    ['screen', 'Screen'],
+                    ['multiply', 'Multiply'],
+                    ['overlay', 'Overlay'],
+                    ['lighten', 'Lighten'],
+                    ['darken', 'Darken'],
+                    ['difference', 'Difference'],
+                    ['exclusion', 'Exclusion']
+                ].forEach(([value, text]) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = text;
+                    select.appendChild(option);
+                });
+                wrap.append(label, select);
+                return wrap;
             }
 
             function createCompactColorControl(layerKey, label, suffix, value = '#ffffff') {
@@ -103,7 +131,7 @@ const viewport = document.getElementById('canvas-viewport');
                 toggle.className = 'motion-layer-icon-btn layer-visibility-btn';
                 toggle.id = `motion-toggle-layer-${layerKey}`;
                 toggle.type = 'button';
-                setNativeTooltip(toggle, 'Show or hide this layer.');
+                setNativeTooltip(toggle, 'Show or hide this grid layer.');
                 toggle.textContent = 'Eye';
                 const trigger = document.createElement('button');
                 trigger.className = 'motion-layer-trigger';
@@ -111,7 +139,7 @@ const viewport = document.getElementById('canvas-viewport');
                 trigger.type = 'button';
                 const triggerText = document.createElement('span');
                 triggerText.className = 'motion-layer-name';
-                triggerText.textContent = 'Layer';
+                triggerText.textContent = 'Grid';
                 trigger.appendChild(triggerText);
                 header.append(toggle, trigger);
 
@@ -120,7 +148,7 @@ const viewport = document.getElementById('canvas-viewport');
 
                 const targetSelect = document.createElement('select');
                 targetSelect.id = `dot-${layerKey}-target-type`;
-                setNativeTooltip(targetSelect, 'Choose the SVG target points for this layer.');
+                setNativeTooltip(targetSelect, 'Choose the SVG target points for this grid layer.');
                 [
                     ['fill', 'Fill'],
                     ['path', 'Path'],
@@ -135,23 +163,23 @@ const viewport = document.getElementById('canvas-viewport');
                 content.appendChild(targetSelect);
 
                 [
-                    ['Slide Pull', 'pull', '0', '3', '0.7', '0.01'],
-                    ['Slide Reach', 'svg-radius', '20', '1400', '320', '5'],
-                    ['Grid Pull', 'return-pull', '0.01', '0.6', '0.38', '0.01'],
-                    ['Grid Reach', 'grid-radius', '120', '2200', '1600', '10'],
+                    ['Slide Pull', 'pull', '0.1', '1', '0.7', '0.01'],
+                    ['Slide Reach', 'svg-radius', '100', '1000', '320', '5'],
+                    ['Grid Pull', 'return-pull', '0.1', '1', '0.38', '0.01'],
+                    ['Grid Reach', 'grid-radius', '100', '1000', '1000', '10'],
                     ['Speed Cap', 'speed-limit', '0.5', '120', '80', '0.5'],
-                    ['Weight', 'mass', '0.2', '8', '1', '0.1'],
+                    ['Weight', 'mass', '1', '10', '1', '0.1'],
                     ['Damping', 'friction', '0', '100', '34', '1'],
                     ['Stick / Fly-By', 'elasticity', '0', '100', '45', '1'],
-                    ['Swirl', 'orbit', '-2', '2', '0', '0.01'],
+                    ['Swirl', 'orbit', '-2', '2', '0', '0.01', { snapValue: 0 }],
                     ['Shuffle', 'shuffle', '0', '100', '0', '1'],
                     ['Motion Var', 'variation', '0', '100', '0', '1'],
-                    ['Grid Size', 'grid-size', '0.5', '20', '2.5', '0.1'],
-                    ['Mid Size', 'mid-size', '0.5', '20', '2.5', '0.1'],
-                    ['Target Size', 'target-size', '0.5', '20', '2.5', '0.1'],
-                    ['Speed Size', 'speed-size', '-8', '8', '0', '0.1']
-                ].forEach(([label, suffix, min, max, value, step]) => {
-                    content.appendChild(createRangeGroup(label, `dot-${layerKey}-${suffix}`, min, max, value, step));
+                    ['Grid Size', 'grid-size', '1', '100', '2.5', '0.1'],
+                    ['Mid Size', 'mid-size', '1', '100', '2.5', '0.1'],
+                    ['Target Size', 'target-size', '1', '100', '2.5', '0.1'],
+                    ['Speed Size', 'speed-size', '-10', '10', '0', '0.1', { snapValue: 0 }]
+                ].forEach(([label, suffix, min, max, value, step, options]) => {
+                    content.appendChild(createRangeGroup(label, `dot-${layerKey}-${suffix}`, min, max, value, step, options));
                 });
 
                 const colorRow = document.createElement('div');
@@ -161,6 +189,7 @@ const viewport = document.getElementById('canvas-viewport');
                     createCompactColorControl(layerKey, 'Target', 'target')
                 );
                 content.appendChild(colorRow);
+                content.appendChild(createBlendModeControl(layerKey));
 
                 const actions = document.createElement('div');
                 actions.className = 'drawer-bottom-actions';
@@ -183,6 +212,33 @@ const viewport = document.getElementById('canvas-viewport');
                 content.appendChild(actions);
 
                 drawer.append(header, content);
+                return drawer;
+            }
+
+            function createSvgMediaStackDrawer() {
+                const drawer = document.createElement('div');
+                drawer.className = 'motion-layer-drawer svg-media-stack-drawer';
+                drawer.id = 'svg-media-stack-drawer';
+                drawer.dataset.stack = 'svg-media';
+
+                const header = document.createElement('div');
+                header.className = 'motion-layer-header svg-media-stack-header';
+                const reorderActions = document.createElement('div');
+                reorderActions.className = 'motion-layer-reorder-actions svg-media-stack-actions';
+                [
+                    ['up', 'Move SVG/media above grid layers', '▲'],
+                    ['down', 'Move SVG/media below grid layers', '▼']
+                ].forEach(([direction, title, text]) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.id = `svg-media-stack-${direction}`;
+                    button.className = 'motion-layer-icon-btn motion-layer-reorder-btn svg-media-stack-btn';
+                    button.textContent = text;
+                    setNativeTooltip(button, title);
+                    reorderActions.appendChild(button);
+                });
+                header.appendChild(reorderActions);
+                drawer.appendChild(header);
                 return drawer;
             }
 
@@ -209,6 +265,7 @@ const viewport = document.getElementById('canvas-viewport');
                     ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                         motionMatrixPanel.appendChild(createMotionLayerDrawer(layerKey));
                     });
+                    motionMatrixPanel.appendChild(createSvgMediaStackDrawer());
                 }
                 const gridDrawer = document.getElementById('drawer-grid');
                 const gridStatus = document.getElementById('grid-layout-status');
@@ -220,7 +277,7 @@ const viewport = document.getElementById('canvas-viewport');
                 }
             }
 
-            // The Layers drawer controls the companion layer editor surface.
+            // The Grid Layers drawer controls the companion layer editor surface.
             const LEFT_PANEL_DRAWER_IDS = ['drawer-dot-matrix'];
 
             function getLeftPanelForDrawer(drawerId) {
@@ -228,21 +285,24 @@ const viewport = document.getElementById('canvas-viewport');
                 return null;
             }
 
-            function installGridControlPanel() {
-                if (!gridControlPanel) return;
-                ['drawer-dot-matrix', 'drawer-grid', 'drawer-blink-mode', 'drawer-presets'].forEach(drawerId => {
-                    const drawer = document.getElementById(drawerId);
-                    if (drawer && drawer.parentElement !== gridControlPanel) gridControlPanel.appendChild(drawer);
-                });
+            function installRightPanelDrawers() {
+                const advancedDrawer = document.getElementById('drawer-grid');
+                const advancedContent = advancedDrawer?.querySelector('.drawer-content');
+                const blinkDrawer = document.getElementById('drawer-blink-mode');
+                if (advancedContent && blinkDrawer && blinkDrawer.parentElement !== advancedContent) {
+                    advancedContent.appendChild(blinkDrawer);
+                    blinkDrawer.classList.add('sub-drawer');
+                }
+                gridControlPanel?.classList.add('minimized', 'retired-panel');
             }
 
             function collapseLeftPanelDrawers(drawerId) {
-                getLeftPanelForDrawer(drawerId)?.querySelectorAll('.motion-layer-drawer').forEach(drawer => drawer.classList.add('collapsed'));
+                getLeftPanelForDrawer(drawerId)?.querySelectorAll('.motion-layer-drawer:not(.svg-media-stack-drawer)').forEach(drawer => drawer.classList.add('collapsed'));
             }
 
             // The GRID drawer owns the embedded layer controls while the left panel is open.
             function syncLeftPanels() {
-                const panelIsHidden = controlPanel.classList.contains('minimized') || gridControlPanel?.classList.contains('minimized');
+                const panelIsHidden = controlPanel.classList.contains('minimized');
                 LEFT_PANEL_DRAWER_IDS.forEach(drawerId => {
                     const drawer = document.getElementById(drawerId);
                     const panel = getLeftPanelForDrawer(drawerId);
@@ -276,7 +336,7 @@ const viewport = document.getElementById('canvas-viewport');
                 updateActionAvailability();
             }
 
-            installGridControlPanel();
+            installRightPanelDrawers();
             document.querySelectorAll('.drawer').forEach(drawer => drawer.classList.add('collapsed'));
             LEFT_PANEL_DRAWER_IDS.forEach(collapseLeftPanelDrawers);
             document.querySelectorAll('.drawer-trigger').forEach(trigger => {
@@ -288,13 +348,11 @@ const viewport = document.getElementById('canvas-viewport');
             syncLeftPanels();
             function hideControlPanels() {
                 controlPanel.classList.add('minimized');
-                gridControlPanel?.classList.add('minimized');
                 syncLeftPanels();
             }
 
             function showControlPanels() {
                 controlPanel.classList.remove('minimized');
-                gridControlPanel?.classList.remove('minimized');
                 syncLeftPanels();
             }
 
@@ -312,17 +370,45 @@ const viewport = document.getElementById('canvas-viewport');
             const geometryCanvas = document.getElementById('svg-geometry-canvas');
             const morphCanvas = document.getElementById('morph-canvas');
             const morphCtx = morphCanvas.getContext('2d');
+            const dotLayerCanvases = new Map();
+            const dotLayerContexts = new Map();
 
             const MAX_DOT_LAYERS = 9;
             const DEFAULT_LAYER_KEY = 'layer-1';
             const LEGACY_DOT_LAYER_KEYS = ['top', 'mid', 'bottom'];
             const ALL_DOT_LAYER_KEYS = Array.from({ length: MAX_DOT_LAYERS }, (_, index) => `layer-${index + 1}`);
             let DOT_LAYER_KEYS = [DEFAULT_LAYER_KEY];
+            let svgMediaStackIndex = DOT_LAYER_KEYS.length;
             const TARGET_TYPE_KEYS = ['anchor', 'path', 'fill'];
+            const BLEND_MODE_KEYS = ['source-over', 'screen', 'multiply', 'overlay', 'lighten', 'darken', 'difference', 'exclusion'];
             const DOT_LAYER_META = ALL_DOT_LAYER_KEYS.reduce((acc, layerKey, index) => {
-                acc[layerKey] = { label: `Layer ${index + 1}`, defaultOffsetY: '110', defaultColor: '#ffffff' };
+                acc[layerKey] = { label: `Grid ${index + 1}`, defaultOffsetY: '110', defaultColor: '#ffffff' };
                 return acc;
             }, {});
+            function registerDotLayerCanvas(layerKey, canvas, ctx = null) {
+                if (!layerKey || !canvas) return;
+                canvas.dataset.layerCanvas = layerKey;
+                canvas.classList.add('dot-layer-canvas');
+                dotLayerCanvases.set(layerKey, canvas);
+                dotLayerContexts.set(layerKey, ctx || canvas.getContext('2d'));
+            }
+
+            function installDotLayerCanvases() {
+                registerDotLayerCanvas(DEFAULT_LAYER_KEY, morphCanvas, morphCtx);
+                ALL_DOT_LAYER_KEYS.forEach(layerKey => {
+                    if (layerKey === DEFAULT_LAYER_KEY) return;
+                    let canvas = document.getElementById(`dot-canvas-${layerKey}`);
+                    if (!canvas) {
+                        canvas = document.createElement('canvas');
+                        canvas.id = `dot-canvas-${layerKey}`;
+                        canvas.className = 'grid-canvas-instance dot-layer-canvas';
+                        viewport.appendChild(canvas);
+                    }
+                    registerDotLayerCanvas(layerKey, canvas);
+                });
+            }
+
+            installDotLayerCanvases();
             installDynamicLayerControls();
             organizeMotionLayerLayouts();
             const DEFAULT_STUDIO_WIDTH = 1280;
@@ -337,8 +423,8 @@ const viewport = document.getElementById('canvas-viewport');
             let STUDIO_CENTER_Y = STUDIO_HEIGHT / 2;
             const PRESET_GRID_SPACING = '42';
             const PRESET_GRID_OFFSET_Y = '110';
-            const PRESET_GRID_RADIUS = '1600';
-            const MAX_DOT_SIZE = 20;
+            const PRESET_GRID_RADIUS = '1000';
+            const MAX_DOT_SIZE = 100;
             const INTERACTION_HELP_TEXT = 'Left/Right change slides. Space holds the current slide. Up hides the UI. Down restores it. Esc stops flicker.';
 
             const UI_ICONS = {
@@ -396,6 +482,22 @@ const viewport = document.getElementById('canvas-viewport');
                     });
                     if (reorderActions.children.length) header.appendChild(reorderActions);
 
+                    const copyActions = document.createElement('div');
+                    copyActions.className = 'motion-layer-copy-actions';
+                    [
+                        ['above', 'Copy above this grid layer', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v2H6V5Zm6 3 6 9H6l6-9Z"/></svg>'],
+                        ['below', 'Copy below this grid layer', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6 6 15h12l-6-9Zm-6 11h12v2H6v-2Z"/></svg>']
+                    ].forEach(([position, title, icon]) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.id = `motion-copy-${position}-${layerKey}`;
+                        button.className = 'motion-layer-icon-btn motion-layer-copy-btn';
+                        button.innerHTML = icon;
+                        setNativeTooltip(button, title);
+                        copyActions.appendChild(button);
+                    });
+                    header.appendChild(copyActions);
+
                     const actions = document.createElement('div');
                     actions.className = 'motion-layer-actions';
                     ['randomize-text', 'unlock', 'reset'].forEach(actionKey => {
@@ -438,6 +540,9 @@ const viewport = document.getElementById('canvas-viewport');
                         targetWrap.append(label, targetSelect);
                         topRow.appendChild(targetWrap);
                     }
+
+                    const blendControl = document.getElementById(`dot-${layerKey}-blend-mode`)?.closest('.motion-blend-control');
+                    if (blendControl) topRow.appendChild(blendControl);
 
                     const colorRow = content.querySelector('.color-pair-row');
                     const gridColorControl = document.getElementById(`dot-${layerKey}-grid-color`)?.closest('.compact-color');
@@ -534,10 +639,6 @@ const viewport = document.getElementById('canvas-viewport');
                 openAll: document.getElementById('matrix-open-all'),
                 collapseAll: document.getElementById('matrix-collapse-all'),
                 randomizeAll: document.getElementById('matrix-randomize-all'),
-                unlockAll: document.getElementById('matrix-unlock-all'),
-                resetAll: document.getElementById('matrix-reset-all'),
-                addAbove: document.getElementById('matrix-add-above'),
-                addBelow: document.getElementById('matrix-add-below'),
                 status: document.getElementById('matrix-status'),
                 layers: ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
                     acc[layerKey] = {
@@ -551,8 +652,11 @@ const viewport = document.getElementById('canvas-viewport');
                         deleteLayer: document.getElementById(`motion-delete-${layerKey}`),
                         moveUp: document.getElementById(`motion-move-up-${layerKey}`),
                         moveDown: document.getElementById(`motion-move-down-${layerKey}`),
+                        copyAbove: document.getElementById(`motion-copy-above-${layerKey}`),
+                        copyBelow: document.getElementById(`motion-copy-below-${layerKey}`),
                         status: document.getElementById(`motion-status-${layerKey}`),
                         targetType: document.getElementById(`dot-${layerKey}-target-type`),
+                        blendMode: document.getElementById(`dot-${layerKey}-blend-mode`),
                         mass: document.getElementById(`dot-${layerKey}-mass`),
                         friction: document.getElementById(`dot-${layerKey}-friction`),
                         returnPull: document.getElementById(`dot-${layerKey}-return-pull`),
@@ -578,6 +682,11 @@ const viewport = document.getElementById('canvas-viewport');
                     };
                     return acc;
                 }, {})
+            };
+            const svgMediaStackControls = {
+                drawer: document.getElementById('svg-media-stack-drawer'),
+                moveUp: document.getElementById('svg-media-stack-up'),
+                moveDown: document.getElementById('svg-media-stack-down')
             };
             const blinkControls = {
                 enabled: document.getElementById('blink-enabled'),
@@ -714,6 +823,20 @@ const viewport = document.getElementById('canvas-viewport');
                 currentTime: document.getElementById('transition-current-time'),
                 travelTime: document.getElementById('transition-travel-time'),
                 gridTime: document.getElementById('transition-grid-time'),
+                gridAttractTime: document.getElementById('slide-grid-attract-time'),
+                gridAttractReturnPull: document.getElementById('grid-attract-return-pull'),
+                gridAttractGridRadius: document.getElementById('grid-attract-grid-radius'),
+                gridAttractSpeedLimit: document.getElementById('grid-attract-speed-limit'),
+                gridAttractMass: document.getElementById('grid-attract-mass'),
+                gridAttractFriction: document.getElementById('grid-attract-friction'),
+                gridAttractElasticity: document.getElementById('grid-attract-elasticity'),
+                gridAttractOrbit: document.getElementById('grid-attract-orbit'),
+                gridAttractShuffle: document.getElementById('grid-attract-shuffle'),
+                gridAttractVariation: document.getElementById('grid-attract-variation'),
+                gridAttractGridSize: document.getElementById('grid-attract-grid-size'),
+                gridAttractMidSize: document.getElementById('grid-attract-mid-size'),
+                gridAttractTargetSize: document.getElementById('grid-attract-target-size'),
+                gridAttractSpeedSize: document.getElementById('grid-attract-speed-size'),
                 flickerTime: document.getElementById('transition-flicker-time'),
                 flickerBias: document.getElementById('transition-flicker-bias'),
                 flickerSpeed: document.getElementById('transition-flicker-speed'),
@@ -973,6 +1096,48 @@ const viewport = document.getElementById('canvas-viewport');
                 };
             }
 
+            function parseRgbColor(value, fallback = null) {
+                const text = String(value || '').trim();
+                if (/^#[0-9a-f]{6}$/i.test(text)) return hexToRgb(text);
+                const match = text.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+                if (!match) return fallback;
+                return {
+                    r: clamp(Math.round(parseFloat(match[1])), 0, 255),
+                    g: clamp(Math.round(parseFloat(match[2])), 0, 255),
+                    b: clamp(Math.round(parseFloat(match[3])), 0, 255)
+                };
+            }
+
+            function rgbToCss({ r, g, b }) {
+                return `rgb(${Math.round(clamp(r, 0, 255))},${Math.round(clamp(g, 0, 255))},${Math.round(clamp(b, 0, 255))})`;
+            }
+
+            function blendColorChannel(source, backdrop, mode) {
+                if (mode === 'multiply') return source * backdrop / 255;
+                if (mode === 'screen') return 255 - (255 - source) * (255 - backdrop) / 255;
+                if (mode === 'overlay') {
+                    return backdrop < 128
+                        ? 2 * source * backdrop / 255
+                        : 255 - 2 * (255 - source) * (255 - backdrop) / 255;
+                }
+                if (mode === 'lighten') return Math.max(source, backdrop);
+                if (mode === 'darken') return Math.min(source, backdrop);
+                if (mode === 'difference') return Math.abs(backdrop - source);
+                if (mode === 'exclusion') return backdrop + source - 2 * backdrop * source / 255;
+                return source;
+            }
+
+            function blendDotColorWithCanvas(fillStyle, blendMode, backdropRgb) {
+                if (!blendMode || blendMode === 'source-over') return fillStyle;
+                const sourceRgb = parseRgbColor(fillStyle);
+                if (!sourceRgb || !backdropRgb) return fillStyle;
+                return rgbToCss({
+                    r: blendColorChannel(sourceRgb.r, backdropRgb.r, blendMode),
+                    g: blendColorChannel(sourceRgb.g, backdropRgb.g, blendMode),
+                    b: blendColorChannel(sourceRgb.b, backdropRgb.b, blendMode)
+                });
+            }
+
             function interpolateRgbColor(start, end, amount) {
                 const t = clamp(amount, 0, 1);
                 const r = Math.round(start.r + (end.r - start.r) * t);
@@ -1039,9 +1204,26 @@ const viewport = document.getElementById('canvas-viewport');
                 indicator.dataset.prevValue = indicator.textContent;
             }
 
+            function snapRangeToMarkedValue(slider) {
+                if (!slider?.dataset || slider.dataset.snapValue === undefined) return;
+                const snapValue = parseFloat(slider.dataset.snapValue);
+                const current = parseFloat(slider.value);
+                const min = parseFloat(slider.min);
+                const max = parseFloat(slider.max);
+                const step = parseFloat(slider.step) || 1;
+                if (![snapValue, current, min, max].every(Number.isFinite)) return;
+                const threshold = Math.max(step * 1.5, Math.abs(max - min) * 0.012);
+                if (Math.abs(current - snapValue) <= threshold) {
+                    slider.value = String(snapControlNumber(slider, snapValue));
+                }
+            }
+
             function bindAllRangeDisplays() {
                 document.querySelectorAll('input[type="range"]').forEach(slider => {
-                    slider.addEventListener('input', () => updateRangeIndicator(slider));
+                    slider.addEventListener('input', () => {
+                        snapRangeToMarkedValue(slider);
+                        updateRangeIndicator(slider);
+                    });
                     updateRangeIndicator(slider);
                 });
             }
@@ -1067,6 +1249,20 @@ const viewport = document.getElementById('canvas-viewport');
                 'transition-current-time': 'Time dots spend locking onto the current slide before it flickers out.',
                 'transition-travel-time': 'Time dots spend traveling toward the next slide while artwork is hidden.',
                 'transition-grid-time': 'Time dots spend relaxing back from the new slide into the grid.',
+                'slide-grid-attract-time': 'Time spent attracting dots back to their grid homes after the outgoing slide disappears and before the next slide activates.',
+                'grid-attract-return-pull': 'Temporary grid pull used during the inter-slide grid-attract stage.',
+                'grid-attract-grid-radius': 'Temporary grid reach used during the inter-slide grid-attract stage.',
+                'grid-attract-speed-limit': 'Temporary speed cap used during the inter-slide grid-attract stage.',
+                'grid-attract-mass': 'Temporary dot weight used during the inter-slide grid-attract stage.',
+                'grid-attract-friction': 'Temporary damping used during the inter-slide grid-attract stage.',
+                'grid-attract-elasticity': 'Temporary stick/fly-by response used during the inter-slide grid-attract stage.',
+                'grid-attract-orbit': 'Temporary swirl used during the inter-slide grid-attract stage.',
+                'grid-attract-shuffle': 'Temporary target shuffle used during the inter-slide grid-attract stage.',
+                'grid-attract-variation': 'Temporary per-dot variation used during the inter-slide grid-attract stage.',
+                'grid-attract-grid-size': 'Temporary grid-rest dot size used during the inter-slide grid-attract stage.',
+                'grid-attract-mid-size': 'Temporary mid-transition dot size used during the inter-slide grid-attract stage.',
+                'grid-attract-target-size': 'Temporary target dot size used during the inter-slide grid-attract stage.',
+                'grid-attract-speed-size': 'Temporary speed-based size change used during the inter-slide grid-attract stage.',
                 'transition-flicker-time': 'Length of flicker phase.',
                 'transition-flicker-bias': 'Favor old-out or new-in.',
                 'transition-flicker-speed': 'Flicker pulses per second.',
@@ -1091,6 +1287,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-slides': 'SVG artwork used as dot targets.',
                 'drawer-trigger-image-slides': 'Media slides used as rectangular dot targets.',
                 'drawer-trigger-slide-control': 'Direct slide navigation and current slide inspection.',
+                'drawer-trigger-slide-grid-advanced': 'Override dot physics during the grid-attract stage between slides.',
                 'drawer-trigger-flicker': 'Glitch timing between slides.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
@@ -1138,11 +1335,9 @@ const viewport = document.getElementById('canvas-viewport');
                 'header-auto-btn': 'Automatically advance to the next slide every 4 seconds.',
                 'matrix-open-all': 'Expand all grid-layer drawers.',
                 'matrix-collapse-all': 'Collapse all grid-layer drawers.',
-                'matrix-add-above': 'Create a copy above the selected grid layer.',
-                'matrix-add-below': 'Create a copy below the selected grid layer.',
                 'matrix-randomize-all': 'Randomize unlocked values across all grid layers.',
-                'matrix-unlock-all': 'Unlock every locked grid-layer value.',
-                'matrix-reset-all': 'Reset randomization limits for every grid-layer slider.',
+                'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
+                'svg-media-stack-down': 'Move SVG/media below the next grid layer.',
                 'blink-randomize-btn': 'Randomize unlocked blink timing values.',
                 'blink-unlock-btn': 'Unlock all blink timing values.',
                 'blink-reset-btn': 'Reset blink randomization limits.',
@@ -1488,6 +1683,7 @@ const viewport = document.getElementById('canvas-viewport');
                     offsetX: '0',
                     offsetY: PRESET_GRID_OFFSET_Y,
                     targetType: 'fill',
+                    blendMode: 'source-over',
                     mass: '1',
                     friction: '34',
                     speedLimit: '80',
@@ -1538,11 +1734,70 @@ const viewport = document.getElementById('canvas-viewport');
                 return ALL_DOT_LAYER_KEYS.find(layerKey => !DOT_LAYER_KEYS.includes(layerKey)) || '';
             }
 
+            function clampSvgMediaStackIndex(value = svgMediaStackIndex) {
+                const numeric = Number.isFinite(parseFloat(value)) ? Math.round(parseFloat(value)) : DOT_LAYER_KEYS.length;
+                return Math.max(0, Math.min(DOT_LAYER_KEYS.length, numeric));
+            }
+
+            function getVisualStackItems() {
+                svgMediaStackIndex = clampSvgMediaStackIndex();
+                const items = [];
+                DOT_LAYER_KEYS.forEach((layerKey, index) => {
+                    if (index === svgMediaStackIndex) items.push({ type: 'media' });
+                    items.push({ type: 'layer', layerKey });
+                });
+                if (svgMediaStackIndex >= DOT_LAYER_KEYS.length) items.push({ type: 'media' });
+                return items;
+            }
+
+            function applyVisualStackOrder() {
+                const items = getVisualStackItems();
+                const stackBaseZ = 20;
+                let mediaZ = stackBaseZ;
+                const activeLayerSet = new Set(DOT_LAYER_KEYS);
+                ALL_DOT_LAYER_KEYS.forEach(layerKey => {
+                    const canvas = dotLayerCanvases.get(layerKey);
+                    if (!canvas) return;
+                    canvas.style.visibility = activeLayerSet.has(layerKey) && !dotLayerStates[layerKey]?.hidden ? 'visible' : 'hidden';
+                    canvas.style.mixBlendMode = 'normal';
+                });
+                items.forEach((item, index) => {
+                    const zIndex = stackBaseZ + items.length - index;
+                    if (item.type === 'media') {
+                        mediaZ = zIndex;
+                        return;
+                    }
+                    const canvas = dotLayerCanvases.get(item.layerKey);
+                    if (canvas) canvas.style.zIndex = String(zIndex);
+                });
+                if (slideLayer) slideLayer.style.zIndex = String(mediaZ);
+                if (geometryCanvas) geometryCanvas.style.zIndex = String(mediaZ);
+                if (staticGridCanvas) staticGridCanvas.style.zIndex = String(Math.max(2, stackBaseZ - 2));
+            }
+
+            function moveSvgMediaStack(delta) {
+                const current = clampSvgMediaStackIndex();
+                const next = clampSvgMediaStackIndex(current + delta);
+                if (next === current) return;
+                svgMediaStackIndex = next;
+                syncLayerRegistryUi();
+                updateViewStatus();
+                if (typeof showUiToast === 'function') showUiToast('SVG/media stack order updated.');
+            }
+
             function syncLayerRegistryUi() {
-                const activeLabel = getLayerLabel(activeLayerKey);
+                const visualItems = getVisualStackItems();
+                const visualOrderByLayer = new Map();
+                visualItems.forEach((item, index) => {
+                    if (item.type === 'layer') visualOrderByLayer.set(item.layerKey, index + 1);
+                    else if (svgMediaStackControls.drawer) {
+                        svgMediaStackControls.drawer.hidden = false;
+                        svgMediaStackControls.drawer.style.order = String(index + 1);
+                    }
+                });
                 ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                     const active = DOT_LAYER_KEYS.includes(layerKey);
-                    const order = active ? DOT_LAYER_KEYS.indexOf(layerKey) + 1 : 99;
+                    const order = active ? (visualOrderByLayer.get(layerKey) || 99) : 99;
                     const label = getLayerLabel(layerKey);
                     const motionControls = motionLayerControls.layers[layerKey];
                     const gridLayerControls = gridControls.layers[layerKey];
@@ -1552,36 +1807,31 @@ const viewport = document.getElementById('canvas-viewport');
                     }
                     const triggerLabel = motionControls?.trigger?.querySelector('.motion-layer-name, span');
                     if (triggerLabel) triggerLabel.textContent = label;
-                    if (motionControls?.trigger) setNativeTooltip(motionControls.trigger, `${label} layer motion physics.`);
+                    if (motionControls?.trigger) setNativeTooltip(motionControls.trigger, `${label} motion physics.`);
                     if (gridLayerControls?.content) gridLayerControls.content.hidden = !active;
                 });
                 const canAdd = DOT_LAYER_KEYS.length < ALL_DOT_LAYER_KEYS.length;
-                setButtonActionable(motionLayerControls.addAbove, canAdd);
-                setButtonActionable(motionLayerControls.addBelow, canAdd);
-                if (motionLayerControls.addAbove) {
-                    motionLayerControls.addAbove.textContent = 'Copy Above';
-                    setNativeTooltip(motionLayerControls.addAbove, `Create a copy ABOVE ${activeLabel}`);
-                }
-                if (motionLayerControls.addBelow) {
-                    motionLayerControls.addBelow.textContent = 'Copy Below';
-                    setNativeTooltip(motionLayerControls.addBelow, `Create a copy BELOW ${activeLabel}`);
-                }
                 DOT_LAYER_KEYS.forEach((layerKey, index) => {
                     const controls = motionLayerControls.layers[layerKey];
                     setButtonActionable(controls?.moveUp, index > 0);
                     setButtonActionable(controls?.moveDown, index < DOT_LAYER_KEYS.length - 1);
+                    setButtonActionable(controls?.copyAbove, canAdd);
+                    setButtonActionable(controls?.copyBelow, canAdd);
                     setButtonActionable(controls?.deleteLayer, DOT_LAYER_KEYS.length > 1);
                 });
+                setButtonActionable(svgMediaStackControls.moveUp, svgMediaStackIndex > 0);
+                setButtonActionable(svgMediaStackControls.moveDown, svgMediaStackIndex < DOT_LAYER_KEYS.length);
+                applyVisualStackOrder();
                 if (motionLayerControls.status) {
-                    motionLayerControls.status.textContent = `${DOT_LAYER_KEYS.length} layer${DOT_LAYER_KEYS.length === 1 ? '' : 's'} active. Selected: ${getLayerLabel(activeLayerKey)}.`;
+                    motionLayerControls.status.textContent = `${DOT_LAYER_KEYS.length} grid layer${DOT_LAYER_KEYS.length === 1 ? '' : 's'} active. Selected: ${getLayerLabel(activeLayerKey)}.`;
                 }
             }
 
             function createLayerName() {
                 let index = DOT_LAYER_KEYS.length + 1;
                 const names = new Set(DOT_LAYER_KEYS.map(layerKey => dotLayerStates[layerKey]?.name).filter(Boolean));
-                while (names.has(`Layer ${index}`)) index += 1;
-                return `Layer ${index}`;
+                while (names.has(`Grid ${index}`)) index += 1;
+                return `Grid ${index}`;
             }
 
             function createLayerCopyName(sourceName) {
@@ -1594,17 +1844,17 @@ const viewport = document.getElementById('canvas-viewport');
                 return `${baseCopyName} ${index}`;
             }
 
-            function addLayerRelative(position = 'below') {
+            function addLayerRelative(position = 'below', sourceLayerKey = activeLayerKey) {
                 const layerKey = getUnusedLayerKey();
                 if (!layerKey) {
-                    if (typeof showUiToast === 'function') showUiToast('Layer limit reached for this build.', 'warning');
+                    if (typeof showUiToast === 'function') showUiToast('Grid layer limit reached for this build.', 'warning');
                     return;
                 }
-                persistGridLayerControls(activeLayerKey, { rebuildGrid: false, retarget: false });
-                persistMotionLayerControls(activeLayerKey, { retarget: false });
-                const activeIndex = Math.max(0, DOT_LAYER_KEYS.indexOf(activeLayerKey));
-                const insertIndex = position === 'above' ? activeIndex : activeIndex + 1;
-                const sourceLayerKey = activeLayerKey;
+                if (!DOT_LAYER_KEYS.includes(sourceLayerKey)) sourceLayerKey = activeLayerKey;
+                persistGridLayerControls(sourceLayerKey, { rebuildGrid: false, retarget: false });
+                persistMotionLayerControls(sourceLayerKey, { retarget: false });
+                const sourceIndex = Math.max(0, DOT_LAYER_KEYS.indexOf(sourceLayerKey));
+                const insertIndex = position === 'above' ? sourceIndex : sourceIndex + 1;
                 const sourceLabel = getLayerLabel(sourceLayerKey);
                 const sourceState = dotLayerStates[sourceLayerKey] || createDefaultLayerState(sourceLayerKey);
                 const copiedState = {
@@ -1618,6 +1868,7 @@ const viewport = document.getElementById('canvas-viewport');
                 dotLayerStates[layerKey] = coerceLayerStateForV12(dotLayerStates[layerKey], copiedState);
                 copyRandomRangeStateForLayer(sourceLayerKey, layerKey);
                 invalidateLayerRuntimeConfig(layerKey);
+                if (insertIndex <= svgMediaStackIndex) svgMediaStackIndex += 1;
                 DOT_LAYER_KEYS.splice(insertIndex, 0, layerKey);
                 activeLayerKey = layerKey;
                 dotGroups[layerKey]?.rebuildGrid();
@@ -1648,6 +1899,8 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!confirm(`Delete ${removedLabel}?`)) return false;
                 const removedIndex = DOT_LAYER_KEYS.indexOf(removedKey);
                 DOT_LAYER_KEYS = DOT_LAYER_KEYS.filter(layerKey => layerKey !== removedKey);
+                if (removedIndex < svgMediaStackIndex) svgMediaStackIndex -= 1;
+                svgMediaStackIndex = clampSvgMediaStackIndex();
                 if (activeLayerKey === removedKey) {
                     activeLayerKey = DOT_LAYER_KEYS[Math.min(removedIndex, DOT_LAYER_KEYS.length - 1)] || DOT_LAYER_KEYS[0];
                 } else if (!DOT_LAYER_KEYS.includes(activeLayerKey)) {
@@ -1706,16 +1959,17 @@ const viewport = document.getElementById('canvas-viewport');
                     offsetY: readStateFloat(state.offsetY, 110),
                     targetType,
                     targetTypes: [targetType],
+                    blendMode: BLEND_MODE_KEYS.includes(state.blendMode) ? state.blendMode : 'source-over',
                     mass: readStateFloat(state.mass, 1),
                     friction: readStateFloat(state.friction, 34),
                     speedLimit: readStateFloat(state.speedLimit, 80),
                     elasticity: readStateFloat(state.elasticity, 45),
                     capture: legacyCapture,
-                    returnPull: clamp(readStateFloat(state.returnPull, 0.38), 0.01, 0.6),
-                    pull: readStateFloat(state.pull, 0.7),
-                    svgRadius: readStateFloat(state.svgRadius, 320),
+                    returnPull: clamp(readStateFloat(state.returnPull, 0.38), 0.1, 1),
+                    pull: clamp(readStateFloat(state.pull, 0.7), 0.1, 1),
+                    svgRadius: clamp(readStateFloat(state.svgRadius, 320), 100, 1000),
                     svgRadiusMotion: readStateFloat(state.svgRadiusMotion, 0),
-                    gridRadius: readStateFloat(state.gridRadius, 1600),
+                    gridRadius: clamp(readStateFloat(state.gridRadius, 1000), 100, 1000),
                     gridRadiusMotion: readStateFloat(state.gridRadiusMotion, 0),
                     orbit: readStateFloat(state.orbit, 0),
                     shuffle: readStateFloat(state.shuffle, 0),
@@ -1748,6 +2002,49 @@ const viewport = document.getElementById('canvas-viewport');
                 };
                 layerRuntimeConfigCache[layerKey] = { source: state, config };
                 return config;
+            }
+
+            const GRID_ATTRACT_OVERRIDE_CONTROL_KEYS = [
+                ['returnPull', 'gridAttractReturnPull', 0.1, 1, 0.38],
+                ['gridRadius', 'gridAttractGridRadius', 100, 1000, 1000],
+                ['speedLimit', 'gridAttractSpeedLimit', 0.5, 120, 80],
+                ['mass', 'gridAttractMass', 1, 10, 1],
+                ['friction', 'gridAttractFriction', 0, 100, 34],
+                ['elasticity', 'gridAttractElasticity', 0, 100, 45],
+                ['orbit', 'gridAttractOrbit', -2, 2, 0],
+                ['shuffle', 'gridAttractShuffle', 0, 100, 0],
+                ['variation', 'gridAttractVariation', 0, 100, 0],
+                ['gridSize', 'gridAttractGridSize', 1, MAX_DOT_SIZE, 2.5],
+                ['midSize', 'gridAttractMidSize', 1, MAX_DOT_SIZE, 2.5],
+                ['targetSize', 'gridAttractTargetSize', 1, MAX_DOT_SIZE, 2.5],
+                ['speedSize', 'gridAttractSpeedSize', -10, 10, 0]
+            ];
+
+            function getGridAttractOverrideStateFromControls() {
+                return GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.reduce((acc, [stateKey, controlKey]) => {
+                    acc[stateKey] = autoControls[controlKey]?.value || '';
+                    return acc;
+                }, {});
+            }
+
+            function applyGridAttractOverrideState(state = {}) {
+                GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.forEach(([stateKey, controlKey, min, max, fallback]) => {
+                    const value = clamp(readStateFloat(state[stateKey], fallback), min, max);
+                    setControlValue(autoControls[controlKey], value);
+                });
+            }
+
+            function applyGridAttractRuntimeOverrides(config) {
+                if (!config) return config;
+                const next = { ...config };
+                GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.forEach(([stateKey, controlKey, min, max, fallback]) => {
+                    next[stateKey] = clamp(readStateFloat(autoControls[controlKey]?.value, fallback), min, max);
+                });
+                next.gridRgb = hexToRgb(next.gridColor);
+                next.midRgb = hexToRgb(next.midColor);
+                next.targetRgb = hexToRgb(next.targetColor);
+                next.sameColor = next.gridColor === next.midColor && next.midColor === next.targetColor;
+                return next;
             }
 
             function buildGridPoints(config) {
@@ -1791,7 +2088,8 @@ const viewport = document.getElementById('canvas-viewport');
             function isRandomizableRangeControl(control) {
                 return !!control?.id &&
                     control.type === 'range' &&
-                    !!control.closest('#motion-matrix-panel .motion-layer-content, #drawer-blink-mode, #drawer-auto-transition');
+                    (control.id === 'slide-grid-attract-time' ||
+                        !!control.closest('#motion-matrix-panel .motion-layer-content, #drawer-blink-mode, #drawer-auto-transition, #drawer-slide-grid-advanced'));
             }
 
             function getRangeBounds(control) {
@@ -1984,7 +2282,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setupRandomRangeUi() {
-                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"]').forEach(setupRandomRangeControl);
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"], #slide-grid-attract-time, #drawer-slide-grid-advanced .slider-group input[type="range"]').forEach(setupRandomRangeControl);
             }
 
             function getRandomRangeState() {
@@ -2093,6 +2391,8 @@ const viewport = document.getElementById('canvas-viewport');
                     autoControls.currentTime,
                     autoControls.travelTime,
                     autoControls.gridTime,
+                    autoControls.gridAttractTime,
+                    ...GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.map(([, controlKey]) => autoControls[controlKey]),
                     autoControls.flickerTime,
                     autoControls.flickerBias,
                     autoControls.flickerSpeed,
@@ -2152,7 +2452,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setupRandomLockUi() {
-                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"]').forEach(control => {
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"], #slide-grid-attract-time, #drawer-slide-grid-advanced .slider-group input[type="range"]').forEach(control => {
                     const label = control.closest('.slider-group')?.querySelector('span')?.textContent?.trim() || control.id;
                     addRandomLockButton(control, label);
                 });
@@ -2200,10 +2500,6 @@ const viewport = document.getElementById('canvas-viewport');
                 setButtonActionable(motionLayerControls.openAll, anyCollapsed);
                 setButtonActionable(motionLayerControls.collapseAll, anyOpen);
 
-                const hasAnyMotionLock = DOT_LAYER_KEYS.some(layerKey => hasLockedControls(getMotionRandomControls(layerKey)));
-                setButtonActionable(motionLayerControls.unlockAll, hasAnyMotionLock);
-                const hasAnyMotionCustomRange = DOT_LAYER_KEYS.some(layerKey => hasCustomRandomRangeControls(getMotionRandomControls(layerKey)));
-                setButtonActionable(motionLayerControls.resetAll, hasAnyMotionCustomRange);
                 DOT_LAYER_KEYS.forEach(layerKey => {
                     const randomControls = getMotionRandomControls(layerKey);
                     const controls = getMotionLayerControls(layerKey);
@@ -2262,11 +2558,6 @@ const viewport = document.getElementById('canvas-viewport');
                 if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} values unlocked.`;
             }
 
-            function unlockAllMotionLayers() {
-                DOT_LAYER_KEYS.forEach(unlockMotionLayer);
-                if (motionLayerControls.status) motionLayerControls.status.textContent = 'All layer values unlocked.';
-            }
-
             function unlockAllBlinkLayers() {
                 getBlinkRandomControls().forEach(control => setControlRandomLocked(control, false));
                 updateRandomLockButtons();
@@ -2276,15 +2567,6 @@ const viewport = document.getElementById('canvas-viewport');
             function resetMotionLayerRanges(layerKey) {
                 const count = resetRandomRangeControls(getMotionRandomControls(layerKey));
                 if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} randomization limits reset.`;
-                return count;
-            }
-
-            function resetAllMotionLayerRanges() {
-                let count = 0;
-                DOT_LAYER_KEYS.forEach(layerKey => {
-                    count += resetRandomRangeControls(getMotionRandomControls(layerKey));
-                });
-                if (motionLayerControls.status) motionLayerControls.status.textContent = `Randomization limits reset for ${DOT_LAYER_KEYS.length} active layer${DOT_LAYER_KEYS.length === 1 ? '' : 's'}.`;
                 return count;
             }
 
@@ -2400,6 +2682,7 @@ const viewport = document.getElementById('canvas-viewport');
                 return {
                     targetType,
                     targetTypes: [targetType],
+                    blendMode: BLEND_MODE_KEYS.includes(controls.blendMode?.value) ? controls.blendMode.value : (current.blendMode || 'source-over'),
                     mass: controls.mass?.value || current.mass,
                     friction: controls.friction?.value || current.friction,
                     speedLimit: controls.speedLimit?.value || current.speedLimit,
@@ -2432,6 +2715,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const state = dotLayerStates[layerKey] || createDefaultLayerState(layerKey);
                 const controls = getMotionLayerControls(layerKey);
                 if (controls.targetType) controls.targetType.value = normalizeTargetType(state.targetType || state.targetTypes);
+                if (controls.blendMode) controls.blendMode.value = BLEND_MODE_KEYS.includes(state.blendMode) ? state.blendMode : 'source-over';
                 setControlValue(controls.mass, state.mass);
                 setControlValue(controls.friction, state.friction);
                 setControlValue(controls.returnPull, state.returnPull);
@@ -2481,6 +2765,7 @@ const viewport = document.getElementById('canvas-viewport');
                 if (typeof scheduleMaskWarmup === 'function') scheduleMaskWarmup();
                 if (typeof scheduleTargetWarmup === 'function') scheduleTargetWarmup();
                 updateLayerSelectionUi();
+                applyVisualStackOrder();
             }
 
             function updateLayerSelectionUi() {

@@ -1910,7 +1910,10 @@
                 }
 
                 update(deltaTime, nowMs = performance.now()) {
-                    const cfg = getLayerRuntimeConfig(this.layerKey);
+                    const baseConfig = getLayerRuntimeConfig(this.layerKey);
+                    const cfg = autoTransition?.phase === 'gridAttract'
+                        ? applyGridAttractRuntimeOverrides(baseConfig)
+                        : baseConfig;
                     if (cfg.hidden) return;
                     const frameDt = Math.min(deltaTime * 60, 3);
                     const now = nowMs * 0.012;
@@ -2074,6 +2077,8 @@
                     currentTime: autoControls.currentTime.value,
                     travelTime: autoControls.travelTime.value,
                     gridTime: autoControls.gridTime.value,
+                    gridAttractTime: autoControls.gridAttractTime?.value || '0.6',
+                    gridAttractOverrides: getGridAttractOverrideStateFromControls(),
                     flickerTime: autoControls.flickerTime.value,
                     flickerBias: autoControls.flickerBias.value,
                     flickerSpeed: autoControls.flickerSpeed.value,
@@ -2134,6 +2139,8 @@
                 setControlValue(autoControls.currentTime, pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3'));
                 setControlValue(autoControls.travelTime, pickAutoStateValue(state.travelTime, state.nextTime, '2'));
                 setControlValue(autoControls.gridTime, pickAutoStateValue(state.gridTime, state.manualGridReturn, '3'));
+                setControlValue(autoControls.gridAttractTime, pickAutoStateValue(state.gridAttractTime, '0.6'));
+                applyGridAttractOverrideState(state.gridAttractOverrides || {});
                 setControlValue(autoControls.flickerTime, deriveFlickerTime(state));
                 setControlValue(autoControls.flickerBias, deriveFlickerBias(state));
                 setControlValue(autoControls.flickerSpeed, deriveFlickerSpeed(state));
@@ -2167,6 +2174,7 @@
                     currentTime: isMediaSlideType(slide?.type) ? mediaTime : baseCurrentTime,
                     travelTime: read(autoControls.travelTime),
                     gridTime: read(autoControls.gridTime),
+                    gridAttractTime: Math.max(0, read(autoControls.gridAttractTime)),
                     outFlicker: Math.max(0.05, flickerTime * (1 - flickerBias * 0.65)),
                     inFlicker: Math.max(0.05, flickerTime * (1 + flickerBias * 0.65)),
                     flickerOn: clamp(cycleMs * flickerBalance, 15, 900),
@@ -2396,6 +2404,33 @@
                 updateSlideControlStatus();
             }
 
+            function startAutoGridAttractStage() {
+                if (!autoTransition) return;
+                setSlideOpacity(0);
+                holdState = 'return';
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                resetDotMaskAlphas(1);
+                setForceState({ svgAlpha: 0, gridAlpha: 1, svgRadiusPhase: 0, gridRadiusPhase: 0 });
+                setAutoPhase('gridAttract');
+                setAutoStatus('Grid attracting before the next slide.');
+            }
+
+            function continueAutoAfterGridAttract() {
+                if (!autoTransition) return;
+                if (autoTransition.mediaTransitionMode === 'flicker') {
+                    revealAutoTargetSlide();
+                    setSlideOpacity(0);
+                    applyDeferredAutoMask(true);
+                    setAutoPhase('newFlicker');
+                    setAutoStatus('Media flicker to next slide.');
+                    return;
+                }
+                beginAutoDotTarget(autoTransition.targetIndex, `Dots traveling to slide ${autoTransition.targetIndex + 1}.`);
+                revealAutoTargetSlide();
+                setSlideOpacity(0);
+                setAutoPhase('travel');
+            }
+
             function phaseProgress(time, duration) {
                 return clamp(time / Math.max(0.001, duration), 0, 1);
             }
@@ -2430,6 +2465,10 @@
                     setSlideOpacity(sampleFlickerTimeline(autoTransition.timer, settings.outFlicker, autoTransition.outTimeline, 'out'));
                     setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
                     if (autoTransition.timer >= settings.outFlicker) {
+                        if (settings.gridAttractTime > 0) {
+                            startAutoGridAttractStage();
+                            return;
+                        }
                         if (autoTransition.mediaTransitionMode === 'flicker') {
                             revealAutoTargetSlide();
                             setSlideOpacity(0);
@@ -2442,6 +2481,16 @@
                         revealAutoTargetSlide();
                         setSlideOpacity(0);
                         setAutoPhase('travel');
+                    }
+                    return;
+                }
+
+                if (autoTransition.phase === 'gridAttract') {
+                    const progress = phaseProgress(autoTransition.timer, settings.gridAttractTime);
+                    setSlideOpacity(0);
+                    setForceState({ svgAlpha: 0, gridAlpha: 1, svgRadiusPhase: 0, gridRadiusPhase: smoothstep(0, 1, progress) });
+                    if (autoTransition.timer >= settings.gridAttractTime) {
+                        continueAutoAfterGridAttract();
                     }
                     return;
                 }
@@ -2531,6 +2580,8 @@
                         ? autoTransition.settings.currentTime
                         : autoTransition.phase === 'oldFlicker'
                         ? autoTransition.settings.outFlicker
+                        : autoTransition.phase === 'gridAttract'
+                        ? autoTransition.settings.gridAttractTime
                         : autoTransition.phase === 'travel'
                         ? autoTransition.settings.travelTime
                         : autoTransition.phase === 'newFlicker'
@@ -2684,36 +2735,54 @@
                 if (holdState === 'idle') flushDeferredWarmups();
             }
 
-            function drawMorphDots() {
-                resizeCanvas(morphCanvas, morphCtx);
-                morphCtx.save();
+            function drawDotLayer(layerKey) {
+                const canvas = dotLayerCanvases.get(layerKey);
+                const ctx = dotLayerContexts.get(layerKey);
+                if (!canvas || !ctx) return;
+                resizeCanvas(canvas, ctx);
+                const cfg = getLayerRuntimeConfig(layerKey);
+                if (cfg.hidden) return;
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-over';
                 let lastAlpha = null;
                 let lastFillStyle = null;
                 const twoPi = Math.PI * 2;
-                DOT_LAYER_KEYS.slice().reverse().forEach(layerKey => {
-                    const cfg = getLayerRuntimeConfig(layerKey);
-                    if (cfg.hidden) return;
-                    dotGroups[layerKey].dots.forEach(dot => {
-                        const maskAlpha = Number.isFinite(dot.maskAlpha) ? dot.maskAlpha : 1;
-                        const idleAlpha = Number.isFinite(dot.idleAlpha) ? dot.idleAlpha : 1;
-                        const alpha = maskAlpha * idleAlpha;
-                        if (alpha <= 0.01) return;
-                        const fillStyle = dot.color || cfg.gridColor;
-                        const scale = clamp(maskAlpha, 0, 1);
-                        const radius = dot.size * scale;
-                        if (radius <= 0.05) return;
-                        if (alpha !== lastAlpha) {
-                            morphCtx.globalAlpha = alpha;
-                            lastAlpha = alpha;
+                const blendBackdropRgb = cfg.blendMode === 'source-over'
+                    ? null
+                    : parseRgbColor(currentBackgroundColor, hexToRgb('#02006c'));
+                const frameBlendCache = cfg.blendMode === 'source-over' ? null : new Map();
+                dotGroups[layerKey].dots.forEach(dot => {
+                    const maskAlpha = Number.isFinite(dot.maskAlpha) ? dot.maskAlpha : 1;
+                    const idleAlpha = Number.isFinite(dot.idleAlpha) ? dot.idleAlpha : 1;
+                    const alpha = maskAlpha * idleAlpha;
+                    if (alpha <= 0.01) return;
+                    const sourceFillStyle = dot.color || cfg.gridColor;
+                    let fillStyle = sourceFillStyle;
+                    if (frameBlendCache) {
+                        fillStyle = frameBlendCache.get(sourceFillStyle);
+                        if (!fillStyle) {
+                            fillStyle = blendDotColorWithCanvas(sourceFillStyle, cfg.blendMode, blendBackdropRgb);
+                            frameBlendCache.set(sourceFillStyle, fillStyle);
                         }
-                        if (fillStyle !== lastFillStyle) {
-                            morphCtx.fillStyle = fillStyle;
-                            lastFillStyle = fillStyle;
-                        }
-                        morphCtx.beginPath();
-                        morphCtx.arc(dot.x, dot.y, Math.max(0.1, radius), 0, twoPi);
-                        morphCtx.fill();
-                    });
+                    }
+                    const scale = clamp(maskAlpha, 0, 1);
+                    const radius = dot.size * scale;
+                    if (radius <= 0.05) return;
+                    if (alpha !== lastAlpha) {
+                        ctx.globalAlpha = alpha;
+                        lastAlpha = alpha;
+                    }
+                    if (fillStyle !== lastFillStyle) {
+                        ctx.fillStyle = fillStyle;
+                        lastFillStyle = fillStyle;
+                    }
+                    ctx.beginPath();
+                    ctx.arc(dot.x, dot.y, Math.max(0.1, radius), 0, twoPi);
+                    ctx.fill();
                 });
-                morphCtx.restore();
+                ctx.restore();
+            }
+
+            function drawMorphDots() {
+                DOT_LAYER_KEYS.forEach(drawDotLayer);
             }

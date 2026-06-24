@@ -45,9 +45,9 @@
             </div>
         </div>
 
-        <!-- Layers Main Drawer -->
+        <!-- Grid Layers Drawer -->
         <div class="drawer" id="drawer-dot-matrix" data-left-panel="motion">
-            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Layers</button>
+            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Grid Layers</button>
             <div class="drawer-content">
                 <div class="matrix-action-row">
                     <button class="preset-action-btn" id="matrix-open-all" type="button">Expand</button>
@@ -56,15 +56,7 @@
                 <div class="matrix-action-row">
                     <button class="preset-action-btn pink-action matrix-full-action" id="matrix-randomize-all" type="button">Random</button>
                 </div>
-                <div class="matrix-action-row">
-                    <button class="preset-action-btn" id="matrix-unlock-all" type="button">Unlock</button>
-                    <button class="preset-action-btn" id="matrix-reset-all" type="button">Reset</button>
-                </div>
-                <div class="matrix-action-row">
-                    <button class="preset-action-btn" id="matrix-add-above" type="button">Copy Above</button>
-                    <button class="preset-action-btn" id="matrix-add-below" type="button">Copy Below</button>
-                </div>
-                <div class="geometry-status" id="matrix-status">Layer controls open beside this drawer.</div>
+                <div class="geometry-status" id="matrix-status">Grid layer controls open beside this drawer.</div>
             </div>
         </div>
 
@@ -95,7 +87,7 @@
 
         <!-- SVG Slides Drawer -->
         <div class="drawer" id="drawer-slides">
-            <button class="drawer-trigger" id="drawer-trigger-slides">SVG Setup</button>
+            <button class="drawer-trigger" id="drawer-trigger-slides">SVG</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
@@ -121,7 +113,7 @@
 
         <!-- Media Slides Drawer -->
         <div class="drawer collapsed" id="drawer-image-slides">
-            <button class="drawer-trigger" id="drawer-trigger-image-slides">Media Setup</button>
+            <button class="drawer-trigger" id="drawer-trigger-image-slides">Media</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
@@ -154,10 +146,10 @@
 
         <!-- Grid Drawer -->
         <div class="drawer" id="drawer-grid">
-            <button class="drawer-trigger" id="drawer-trigger-grid">Grid</button>
+            <button class="drawer-trigger" id="drawer-trigger-grid">Advanced</button>
             <div class="drawer-content">
                 <button class="preset-action-btn drawer-wide-action" id="grid-apply-all" type="button">Apply To All</button>
-                <div class="geometry-status" id="grid-layout-status">Top layout active.</div>
+                <div class="geometry-status" id="grid-layout-status">Grid setup active.</div>
             </div>
         </div>
 
@@ -261,12 +253,12 @@
                     <p>Left arrow or keyboard Left goes to the previous slide (SVG or Image). Right arrow or keyboard Right goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes every four seconds.</p>
                 </section>
                 <section>
-                    <h3>Layers</h3>
-                    <p>Layers controls the physics and appearance of active dot layers. Use the eye button to hide a layer, add layers above or below the selection, rename layers, delete layers, and reorder them. Target Type chooses whether that layer follows SVG fills, paths, anchors, or combined target data.</p>
+                    <h3>Grid Layers</h3>
+                    <p>Grid Layers controls the physics and appearance of active dot grids. Use the eye button to hide a grid layer, copy layers above or below the selection, rename layers, delete layers, and reorder them. Target chooses whether that grid follows SVG fills, paths, anchors, or combined target data.</p>
                 </section>
                 <section>
-                    <h3>Grid</h3>
-                    <p>Grid defines columns, rows, spacing, and X/Y offset for each layer. Select a layer, adjust its grid, or use Apply To All to copy the selected layout to every layer.</p>
+                    <h3>Advanced</h3>
+                    <p>Advanced defines columns, rows, spacing, and X/Y offset for each grid layer. Select a grid layer, adjust its setup, or use Apply To All to copy the selected setup to every active grid layer.</p>
                 </section>
                 <section>
                     <h3>Blink</h3>
@@ -321,15 +313,34 @@
 
         <!-- Slide Control Drawer -->
         <div class="drawer collapsed" id="drawer-slide-control">
-            <button class="drawer-trigger" id="drawer-trigger-slide-control" type="button">Slide Control</button>
+            <button class="drawer-trigger" id="drawer-trigger-slide-control" type="button">Slides</button>
             <div class="drawer-content">
                 <div class="slide-button-grid" id="slide-button-grid" aria-label="Slide navigation buttons"></div>
+                <div class="slider-group"><span>Grid Attract</span><input type="range" id="slide-grid-attract-time" min="0" max="8" value="0.6" step="0.05"><span class="val-indicator" id="val-slide-grid-attract-time">0.6</span></div>
+                <div class="drawer sub-drawer collapsed" id="drawer-slide-grid-advanced">
+                    <button class="drawer-trigger" id="drawer-trigger-slide-grid-advanced" type="button">Advanced</button>
+                    <div class="drawer-content slide-grid-advanced-controls">
+                        <div class="slider-group"><span>Grid Pull</span><input type="range" id="grid-attract-return-pull" min="0.1" max="1" value="0.38" step="0.01"><span class="val-indicator" id="val-grid-attract-return-pull">0.38</span></div>
+                        <div class="slider-group"><span>Grid Reach</span><input type="range" id="grid-attract-grid-radius" min="100" max="1000" value="1000" step="10"><span class="val-indicator" id="val-grid-attract-grid-radius">1000</span></div>
+                        <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
+                        <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
+                        <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
+                        <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
+                        <div class="slider-group"><span>Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
+                        <div class="slider-group"><span>Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
+                        <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
+                        <div class="slider-group"><span>Grid Size</span><input type="range" id="grid-attract-grid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-grid-size">2.5</span></div>
+                        <div class="slider-group"><span>Mid Size</span><input type="range" id="grid-attract-mid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-mid-size">2.5</span></div>
+                        <div class="slider-group"><span>Target Size</span><input type="range" id="grid-attract-target-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-target-size">2.5</span></div>
+                        <div class="slider-group"><span>Speed Size</span><input type="range" id="grid-attract-speed-size" min="-10" max="10" value="0" step="0.1" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- View Drawer -->
         <div class="drawer" id="drawer-view-options">
-            <button class="drawer-trigger" id="drawer-trigger-view-options">View Options</button>
+            <button class="drawer-trigger" id="drawer-trigger-view-options">View</button>
             <div class="drawer-content">
                 <div class="geometry-status view-status" id="view-status">Canvas 1280 x 720 · View 100%</div>
                 <div class="slider-group"><span>Zoom</span><input type="range" id="view-scale" min="25" max="200" value="100" step="1"><span class="val-indicator" id="val-view-scale">100</span></div>

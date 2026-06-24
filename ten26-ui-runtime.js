@@ -266,21 +266,13 @@ function bindEvents() {
                     event.stopPropagation();
                     randomizeAllMotionLayers();
                 });
-                motionLayerControls.unlockAll?.addEventListener('click', event => {
+                svgMediaStackControls.moveUp?.addEventListener('click', event => {
                     event.stopPropagation();
-                    unlockAllMotionLayers();
+                    moveSvgMediaStack(-1);
                 });
-                motionLayerControls.resetAll?.addEventListener('click', event => {
+                svgMediaStackControls.moveDown?.addEventListener('click', event => {
                     event.stopPropagation();
-                    resetAllMotionLayerRanges();
-                });
-                motionLayerControls.addAbove?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    addLayerRelative('above');
-                });
-                motionLayerControls.addBelow?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    addLayerRelative('below');
+                    moveSvgMediaStack(1);
                 });
                 blinkControls.enabled?.addEventListener('change', () => {
                     applyBlinkControlsToAllLayers();
@@ -350,6 +342,14 @@ function bindEvents() {
                         event.stopPropagation();
                         moveLayer(layerKey, 1);
                     });
+                    controls.copyAbove?.addEventListener('click', event => {
+                        event.stopPropagation();
+                        addLayerRelative('above', layerKey);
+                    });
+                    controls.copyBelow?.addEventListener('click', event => {
+                        event.stopPropagation();
+                        addLayerRelative('below', layerKey);
+                    });
                     controls.trigger?.addEventListener('dblclick', event => {
                         if (!event.target.closest('.motion-layer-name')) return;
                         event.stopPropagation();
@@ -360,6 +360,10 @@ function bindEvents() {
                     });
                     controls.targetType?.addEventListener('change', () => {
                         persistMotionLayerControls(layerKey, { retarget: true });
+                        if (activeLayerKey !== layerKey) switchActiveLayer(layerKey);
+                    });
+                    controls.blendMode?.addEventListener('change', () => {
+                        persistMotionLayerControls(layerKey, { retarget: false });
                         if (activeLayerKey !== layerKey) switchActiveLayer(layerKey);
                     });
                     [

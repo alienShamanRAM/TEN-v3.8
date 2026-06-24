@@ -13,6 +13,7 @@ function getActiveLayerStateFromControls() {
                     offsetY: gridState.offsetY,
                     targetType: motionState.targetType,
                     targetTypes: motionState.targetTypes,
+                    blendMode: motionState.blendMode,
                     mass: motionState.mass,
                     friction: motionState.friction,
                     speedLimit: motionState.speedLimit,
@@ -233,7 +234,7 @@ function getActiveLayerStateFromControls() {
                     const keepSourceName = sourceName && (!LEGACY_DOT_LAYER_KEYS.includes(sourceKey) || !/^Layer \d+$/i.test(sourceName));
                     dotLayers[targetKey] = {
                         ...source,
-                        name: keepSourceName ? sourceName : (DOT_LAYER_META[targetKey]?.label || `Layer ${layerOrder.length + 1}`)
+                        name: keepSourceName ? sourceName : (DOT_LAYER_META[targetKey]?.label || `Grid ${layerOrder.length + 1}`)
                     };
                     layerOrder.push(targetKey);
                 });
@@ -246,17 +247,21 @@ function getActiveLayerStateFromControls() {
                 const targetSeed = source.targetTypes !== undefined ? source.targetTypes : (source.targetType !== undefined ? source.targetType : layer.targetType);
                 layer.targetType = normalizeTargetType(targetSeed, source.targetType || layer.targetType || 'fill');
                 layer.targetTypes = [layer.targetType];
+                layer.blendMode = BLEND_MODE_KEYS.includes(source.blendMode || layer.blendMode) ? (source.blendMode || layer.blendMode) : 'source-over';
                 if (source.speedLimit === undefined) layer.speedLimit = String(readStateFloat(layer.speedLimit, 80));
                 if (source.friction === undefined) layer.friction = String(readStateFloat(layer.friction, 34));
                 if (source.svgRadius === undefined) layer.svgRadius = String(readStateFloat(layer.svgRadius, 320));
                 if (source.svgRadiusMotion === undefined) layer.svgRadiusMotion = String(readStateFloat(layer.svgRadiusMotion, 0));
-                if (source.gridRadius === undefined) layer.gridRadius = String(readStateFloat(layer.gridRadius, 1600));
+                if (source.gridRadius === undefined) layer.gridRadius = String(readStateFloat(layer.gridRadius, 1000));
                 if (source.gridRadiusMotion === undefined) layer.gridRadiusMotion = String(readStateFloat(layer.gridRadiusMotion, 0));
                 if (source.capture === undefined) layer.capture = String(source.stickiness === undefined ? readStateFloat(layer.capture, 25) : Math.round(clamp(legacyStickiness * 50, 0, 100)));
                 if (source.elasticity === undefined && source.friction !== undefined) {
                     layer.elasticity = String(Math.round(clamp(58 - readStateFloat(source.friction, 0.45) * 18, 0, 100)));
                 }
-                layer.returnPull = String(clamp(readStateFloat(source.returnPull, readStateFloat(layer.returnPull, 0.38)), 0.01, 0.6));
+                layer.returnPull = String(clamp(readStateFloat(source.returnPull, readStateFloat(layer.returnPull, 0.38)), 0.1, 1));
+                layer.pull = String(clamp(readStateFloat(source.pull, readStateFloat(layer.pull, 0.7)), 0.1, 1));
+                layer.svgRadius = String(clamp(readStateFloat(source.svgRadius, readStateFloat(layer.svgRadius, 320)), 100, 1000));
+                layer.gridRadius = String(clamp(readStateFloat(source.gridRadius, readStateFloat(layer.gridRadius, 1000)), 100, 1000));
                 if (source.shuffle === undefined) layer.shuffle = '0';
                 if (source.variation === undefined) layer.variation = '0';
                 if (source.midSize === undefined) layer.midSize = String(readStateFloat(layer.midSize, readStateFloat(layer.gridSize, 2.5)));
@@ -284,7 +289,7 @@ function getActiveLayerStateFromControls() {
                 layer.idleSpeed = '0';
                 layer.idleRandom = '0';
                 Object.keys(layer).forEach(key => {
-                    if (key.toLowerCase() === 'blendmode') delete layer[key];
+                    if (key !== 'blendMode' && key.toLowerCase() === 'blendmode') delete layer[key];
                 });
                 [
                     'motionStyle', 'motionEnergy', 'bounce', 'targetSpeed', 'gridSpeed',
@@ -365,6 +370,7 @@ function getActiveLayerStateFromControls() {
                 return {
                     activeLayerKey,
                     layerOrder: [...DOT_LAYER_KEYS],
+                    svgMediaStackIndex: clampSvgMediaStackIndex(),
                     timing: getTimingState(),
                     autoTransition: getAutoTransitionControlState(),
                     blink: forceBlinkRespawnState(getBlinkStateFromControls()),
@@ -460,6 +466,7 @@ function getActiveLayerStateFromControls() {
                 const incomingLayers = state.dotLayers || buildLegacyLayerState(state);
                 const normalizedLayers = normalizeLayerCollection(incomingLayers, state.layerOrder);
                 DOT_LAYER_KEYS = normalizedLayers.layerOrder.length ? normalizedLayers.layerOrder : [DEFAULT_LAYER_KEY];
+                svgMediaStackIndex = clampSvgMediaStackIndex(state.svgMediaStackIndex ?? DOT_LAYER_KEYS.length);
                 const blinkOverride = state.blink ? forceBlinkRespawnState(state.blink) : null;
                 dotLayerStates = ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
                     const incoming = {
@@ -716,11 +723,28 @@ function getActiveLayerStateFromControls() {
                 return {
                     activeLayerKey: DEFAULT_LAYER_KEY,
                     layerOrder: [DEFAULT_LAYER_KEY],
+                    svgMediaStackIndex: 1,
                     timing: {},
                     autoTransition: {
                         currentTime: '3',
                         travelTime: '2',
                         gridTime: '3',
+                        gridAttractTime: '0.6',
+                        gridAttractOverrides: {
+                            returnPull: '0.38',
+                            gridRadius: '1000',
+                            speedLimit: '80',
+                            mass: '1',
+                            friction: '34',
+                            elasticity: '45',
+                            orbit: '0',
+                            shuffle: '0',
+                            variation: '0',
+                            gridSize: '2.5',
+                            midSize: '2.5',
+                            targetSize: '2.5',
+                            speedSize: '0'
+                        },
                         flickerTime: '2',
                         flickerBias: '6',
                         flickerSpeed: '10',
@@ -733,7 +757,7 @@ function getActiveLayerStateFromControls() {
                         height: String(DEFAULT_STUDIO_HEIGHT)
                     },
                     dotLayers: {
-                        [DEFAULT_LAYER_KEY]: createDefaultLayerState(DEFAULT_LAYER_KEY, { name: 'Layer 1' })
+                        [DEFAULT_LAYER_KEY]: createDefaultLayerState(DEFAULT_LAYER_KEY, { name: 'Grid 1' })
                     },
                     blink: getDefaultBlinkState(true),
                     imageLayer: cloneDefaultImageLayerState(),
@@ -1113,6 +1137,23 @@ function getActiveLayerStateFromControls() {
                     currentTime: '0.9',
                     travelTime: '1.35',
                     gridTime: '0.95',
+                    gridAttractTime: '0.55',
+                    gridAttractOverrides: {
+                        ...state.autoTransition.gridAttractOverrides,
+                        returnPull: '0.48',
+                        gridRadius: '1000',
+                        speedLimit: '72',
+                        mass: '1.2',
+                        friction: '38',
+                        elasticity: '42',
+                        orbit: '0',
+                        shuffle: '0',
+                        variation: '8',
+                        gridSize: '3',
+                        midSize: '3.2',
+                        targetSize: '3.2',
+                        speedSize: '0'
+                    },
                     flickerTime: '0.62',
                     flickerBias: '8',
                     flickerSpeed: '8',
