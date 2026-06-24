@@ -327,11 +327,19 @@ function bindEvents() {
                 });
 
                 Object.entries(motionLayerControls.layers).forEach(([layerKey, controls]) => {
-                    controls.trigger?.addEventListener('click', () => {
+                    const toggleLayerDrawer = () => {
                         controls.drawer?.classList.toggle('collapsed');
                         syncLeftPanels();
                         updateActionAvailability();
                         if (activeLayerKey !== layerKey) switchActiveLayer(layerKey);
+                    };
+                    controls.trigger?.addEventListener('click', event => {
+                        event.stopPropagation();
+                        toggleLayerDrawer();
+                    });
+                    controls.drawer?.querySelector('.motion-layer-header')?.addEventListener('click', event => {
+                        if (event.target.closest('button, input, select, textarea, label')) return;
+                        toggleLayerDrawer();
                     });
                     controls.toggle?.addEventListener('click', () => {
                         setLayerVisibility(layerKey, !dotLayerStates[layerKey].hidden);
