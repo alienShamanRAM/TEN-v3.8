@@ -572,7 +572,7 @@
                         if (!slide.videoElement) {
                             video.src = slide.videoSrc;
                             video.muted = true;
-                            video.preload = 'auto';
+                            video.preload = 'metadata';
                             video.playsInline = true;
                             video.controls = false;
                             slide.videoElement = video;
@@ -1186,7 +1186,7 @@
                     const video = document.createElement('video');
                     video.src = objectURL;
                     video.muted = true;
-                    video.preload = 'auto';
+                    video.preload = 'metadata';
                     video.playsInline = true;
                     video.controls = false;
                     video.addEventListener('loadedmetadata', () => {
@@ -1325,6 +1325,7 @@
                     if (reset) video.currentTime = 0;
                     video.muted = true;
                     video.playsInline = true;
+                    video.preload = 'auto';
                     const playPromise = video.play();
                     if (playPromise && typeof playPromise.catch === 'function') {
                         playPromise.catch(() => {});

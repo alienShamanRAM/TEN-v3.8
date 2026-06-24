@@ -15,8 +15,7 @@ const viewport = document.getElementById('canvas-viewport');
             const TEN26_DOT_RANDOM_COLORS = [
                 '#02006c',
                 '#ffffff',
-                '#ffc5f4',
-                '#00aeef'
+                '#ffc5f4'
             ];
             let headerAutoplayActive = false;
 
@@ -952,6 +951,7 @@ const viewport = document.getElementById('canvas-viewport');
             let overlayFrameSampleCount = 0;
             let overlayWorstFrameMs = 0;
             let overlayFrameStats = { fps: '-', worst: '-' };
+            const OVERLAY_RUNTIME_REFRESH_INTERVAL = 0.5;
 
             function updateOverlayRuntimeTick(deltaTime) {
                 if (!viewControls.overlay || readOverlayOpacity() <= 0) {
@@ -966,7 +966,7 @@ const viewport = document.getElementById('canvas-viewport');
                 overlayFrameSampleCount += 1;
                 overlayWorstFrameMs = Math.max(overlayWorstFrameMs, frameMs);
                 overlayRuntimeRefreshElapsed += deltaTime;
-                if (overlayRuntimeRefreshElapsed < 0.25) return;
+                if (overlayRuntimeRefreshElapsed < OVERLAY_RUNTIME_REFRESH_INTERVAL) return;
                 overlayFrameStats = {
                     fps: overlayFrameSampleElapsed > 0 ? Math.round(overlayFrameSampleCount / overlayFrameSampleElapsed) : '-',
                     worst: overlayFrameSampleCount ? `${Math.round(overlayWorstFrameMs)}ms` : '-'

@@ -1943,7 +1943,7 @@ select:hover {
 }
 
 .dot-color-swatch-row {
-    grid-template-columns: repeat(4, 12px);
+    grid-template-columns: repeat(3, 12px);
     gap: 8px;
 }
 
@@ -1965,6 +1965,7 @@ input[type="range"]::-webkit-slider-thumb {
     width: 11px;
     height: 11px;
     background: var(--slider-thumb-color, #ffc5f4);
+    border: 1px solid rgba(255,255,255,0.78);
 }
 
 input[type="range"]::-moz-range-thumb {
@@ -1977,9 +1978,85 @@ input[type="range"]::-moz-range-thumb {
     width: 11px;
     height: 11px;
     background: var(--slider-thumb-color, #ffc5f4);
+    border: 1px solid rgba(255,255,255,0.78);
 }
 
 .slider-group:has(input[id$="-speed-size"]),
 .slider-group:has(input[id$="-speed-limit"]) {
     --slider-thumb-color: #ffffff;
+}
+
+/* V4 final layer palette spacing */
+.compact-color.dot-palette-control,
+.motion-layer-top-row .compact-color.dot-palette-control {
+    grid-template-columns: 42px 56px 58px 20px;
+    gap: 8px;
+    align-items: center;
+    justify-self: end;
+    column-gap: 9px;
+}
+
+.dot-color-swatch-row {
+    grid-template-columns: repeat(3, 12px);
+    gap: 9px;
+    justify-content: start;
+}
+
+.dot-palette-control input[type="text"] {
+    width: 58px;
+    justify-self: start;
+}
+
+.motion-layer-top-row .compact-color.dot-palette-control + .compact-color.dot-palette-control {
+    margin-left: 12px;
+}
+
+.motion-layer-top-row .compact-color-label {
+    min-width: 42px;
+}
+
+/* V4 slide control button states */
+.slide-jump-button {
+    background: rgba(255,255,255,0.035);
+}
+
+.slide-jump-button-svg {
+    background: rgba(255,255,255,0.035);
+}
+
+.slide-jump-button-media {
+    background: rgba(255,197,244,0.105);
+    color: rgba(255,197,244,0.88);
+}
+
+.slide-jump-button:not(:disabled):hover {
+    background: rgba(255,197,244,0.18);
+}
+
+.active-slide-jump-button,
+.active-slide-jump-button.slide-jump-button-svg,
+.active-slide-jump-button.slide-jump-button-media {
+    background: rgba(255,255,255,0.22);
+    color: #ffffff;
+}
+
+.active-slide-jump-button.slide-jump-button-media {
+    color: rgba(255,197,244,0.92);
+}
+
+/* V4 random buttons */
+#matrix-randomize-all,
+#blink-randomize-btn,
+#flicker-randomize-btn,
+[id^="motion-randomize-text-"] {
+    background: rgba(255,197,244,0.14);
+    color: rgba(255,255,255,0.92);
+}
+
+#matrix-randomize-all:not(:disabled):hover,
+#blink-randomize-btn:not(:disabled):hover,
+#flicker-randomize-btn:not(:disabled):hover,
+[id^="motion-randomize-text-"]:not(:disabled):hover {
+    background: rgba(255,197,244,0.24);
+    color: #ffffff;
 }
