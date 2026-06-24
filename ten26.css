@@ -1817,3 +1817,94 @@ select:hover {
     background: rgba(255,197,244,0.12);
     color: var(--ui-pink);
 }
+
+/* V4 transport and layer header alignment */
+.panel-header {
+    grid-template-columns: auto minmax(18px, 1fr) auto;
+    gap: 16px;
+}
+
+.header-transport {
+    grid-column: 1;
+    grid-template-columns: repeat(4, 36px);
+    gap: 8px;
+    height: 32px;
+}
+
+.header-utility {
+    grid-column: 3;
+    justify-self: end;
+    justify-content: flex-end;
+    width: auto;
+    height: 32px;
+}
+
+.header-nav-btn,
+.header-auto-btn {
+    width: 36px;
+    min-width: 36px;
+    height: 32px;
+    padding: 0;
+}
+
+.transport-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.header-auto-btn .transport-icon-forward {
+    width: 17px;
+    height: 17px;
+}
+
+.minimize-btn {
+    width: 24px;
+    height: 32px;
+    margin-right: -2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.motion-layer-reorder-actions {
+    order: 3;
+    margin-left: auto;
+}
+
+.motion-layer-actions {
+    order: 4;
+    margin-left: 0;
+}
+
+.motion-layer-text-action {
+    height: 24px;
+    padding: 0 6px;
+    font-size: 10px;
+}
+
+.motion-layer-reorder-btn {
+    width: 20px;
+    height: 24px;
+}
+
+#drawer-grid .drawer-content {
+    display: flex;
+    flex-direction: column;
+}
+
+#drawer-grid.collapsed .drawer-content {
+    display: none;
+}
+
+#drawer-grid .grid-layer-content {
+    order: 1;
+}
+
+#grid-apply-all.drawer-wide-action {
+    order: 2;
+    margin-top: 12px;
+}
+
+#grid-layout-status {
+    order: 3;
+}
