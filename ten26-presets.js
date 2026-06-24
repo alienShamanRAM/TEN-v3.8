@@ -68,7 +68,7 @@ function getActiveLayerStateFromControls() {
                 return {
                     enabled: true,
                     expansion: maskControls.expansion.value,
-                    scaleTime: maskControls.scaleTime?.value || '2',
+                    scaleTime: maskControls.scaleTime?.value || '5',
                     samples: maskControls.samples.value,
                     speedThreshold: maskControls.speedThreshold.value,
                     gridThreshold: maskControls.gridThreshold.value
@@ -78,7 +78,7 @@ function getActiveLayerStateFromControls() {
             function applyMaskControlState(state = {}) {
                 maskControls.enabled.checked = true;
                 setControlValue(maskControls.expansion, state.expansion || '32');
-                setControlValue(maskControls.scaleTime, state.scaleTime || '2');
+                setControlValue(maskControls.scaleTime, state.scaleTime || '5');
                 setControlValue(maskControls.samples, state.samples || '18');
                 setControlValue(maskControls.speedThreshold, state.speedThreshold || '0.18');
                 setControlValue(maskControls.gridThreshold, state.gridThreshold || '4');
@@ -112,14 +112,14 @@ function getActiveLayerStateFromControls() {
                 return {
                     enabled: true,
                     expansion: imageMaskControls.expansion?.value || '32',
-                    scaleTime: imageMaskControls.scaleTime?.value || '2'
+                    scaleTime: imageMaskControls.scaleTime?.value || '5'
                 };
             }
 
             function applyImageMaskControlState(state = {}) {
                 if (imageMaskControls.enabled) imageMaskControls.enabled.checked = true;
                 setControlValue(imageMaskControls.expansion, state.expansion || '32');
-                setControlValue(imageMaskControls.scaleTime, state.scaleTime || '2');
+                setControlValue(imageMaskControls.scaleTime, state.scaleTime || '5');
                 clearMaskCache();
                 if (typeof updateImageMaskStatus === 'function') updateImageMaskStatus();
             }
@@ -671,7 +671,7 @@ function getActiveLayerStateFromControls() {
                 return {
                     enabled: mask.enabled !== false,
                     expansion: mask.expansion || '32',
-                    scaleTime: mask.scaleTime || '2',
+                    scaleTime: mask.scaleTime || '5',
                     samples: mask.samples || '18',
                     speedThreshold: mask.speedThreshold || '0.18',
                     gridThreshold: mask.gridThreshold || '4'
@@ -693,7 +693,7 @@ function getActiveLayerStateFromControls() {
                 return {
                     enabled: imageMask.enabled !== false,
                     expansion: imageMask.expansion || '32',
-                    scaleTime: imageMask.scaleTime || '2'
+                    scaleTime: imageMask.scaleTime || '5'
                 };
             }
 

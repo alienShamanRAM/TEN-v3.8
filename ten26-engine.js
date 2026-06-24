@@ -10,7 +10,7 @@
             function getMaskScaleDuration(slideType = 'svg') {
                 const controls = getMaskControlsForType(slideType);
                 const value = parseFloat(controls.scaleTime?.value);
-                return clamp(Number.isFinite(value) ? value : 2, 0, 7);
+                return clamp(Number.isFinite(value) ? value : 5, 0, 10);
             }
 
             function getMaskCacheKey(slide, mask, slideIndex = currentSlideIndex) {

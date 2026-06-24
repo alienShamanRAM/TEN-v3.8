@@ -13,9 +13,9 @@ const viewport = document.getElementById('canvas-viewport');
             let uiToastTimer = null;
             let overlayStatusText = '';
             const TEN26_DOT_RANDOM_COLORS = [
+                '#02006c',
                 '#ffffff',
-                '#ffc5f4',
-                '#02006c'
+                '#ffc5f4'
             ];
             let headerAutoplayActive = false;
 
@@ -390,8 +390,8 @@ const viewport = document.getElementById('canvas-viewport');
                     const content = drawer?.querySelector('.motion-layer-content');
                     if (!drawer || !header || !content || content.querySelector('.motion-layer-top-row')) return;
 
-                    const actions = document.createElement('div');
-                    actions.className = 'motion-layer-actions';
+                    const reorderActions = document.createElement('div');
+                    reorderActions.className = 'motion-layer-reorder-actions';
                     ['up', 'down'].forEach(direction => {
                         const button = document.createElement('button');
                         button.type = 'button';
@@ -399,8 +399,12 @@ const viewport = document.getElementById('canvas-viewport');
                         button.className = 'motion-layer-icon-btn motion-layer-reorder-btn';
                         button.textContent = direction === 'up' ? '▲' : '▼';
                         setNativeTooltip(button, `${direction === 'up' ? 'Move layer up' : 'Move layer down'}.`);
-                        actions.appendChild(button);
+                        reorderActions.appendChild(button);
                     });
+                    if (reorderActions.children.length) header.appendChild(reorderActions);
+
+                    const actions = document.createElement('div');
+                    actions.className = 'motion-layer-actions';
                     ['randomize-text', 'unlock', 'reset'].forEach(actionKey => {
                         let button = document.getElementById(`motion-${actionKey}-${layerKey}`);
                         if (!button && actionKey === 'reset') {
@@ -545,8 +549,6 @@ const viewport = document.getElementById('canvas-viewport');
                 resetAll: document.getElementById('matrix-reset-all'),
                 addAbove: document.getElementById('matrix-add-above'),
                 addBelow: document.getElementById('matrix-add-below'),
-                rename: document.getElementById('matrix-rename-layer'),
-                delete: document.getElementById('matrix-delete-layer'),
                 status: document.getElementById('matrix-status'),
                 layers: ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
                     acc[layerKey] = {
@@ -896,7 +898,7 @@ const viewport = document.getElementById('canvas-viewport');
 
             function updateViewStatus() {
                 const scale = Math.round((parseFloat(viewControls.scale?.value) || 100));
-                const frameCap = clamp(parseInt(viewControls.frameRate?.value, 10) || 120, 30, 120);
+                const frameCap = clamp(parseInt(viewControls.frameRate?.value, 10) || 60, 5, 60);
                 const dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100;
                 const text = `Canvas ${STUDIO_WIDTH} x ${STUDIO_HEIGHT} · Window ${window.innerWidth} x ${window.innerHeight} · View ${scale}% · Browser ${browserZoomPercent}% · Frame cap ${frameCap} fps · Device pixel ratio ${dpr}`;
                 if (viewControls.status) viewControls.status.textContent = text;
@@ -1178,8 +1180,6 @@ const viewport = document.getElementById('canvas-viewport');
                 'matrix-randomize-all': 'Randomize unlocked values across all grid layers.',
                 'matrix-unlock-all': 'Unlock every locked grid-layer value.',
                 'matrix-reset-all': 'Reset randomization limits for every grid-layer slider.',
-                'matrix-rename-layer': 'Rename the selected grid layer.',
-                'matrix-delete-layer': 'Delete the selected grid layer.',
                 'blink-randomize-btn': 'Randomize unlocked blink timing values.',
                 'blink-unlock-btn': 'Unlock all blink timing values.',
                 'blink-reset-btn': 'Reset blink randomization limits.',

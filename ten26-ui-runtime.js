@@ -512,10 +512,10 @@ function bindEvents() {
             }
 
             let lastFrameTime = null;
-            let cachedFrameIntervalMs = 1000 / 120;
+            let cachedFrameIntervalMs = 1000 / 60;
 
             function syncFrameInterval() {
-                const cap = clamp(parseInt(viewControls.frameRate?.value, 10) || 120, 30, 120);
+                const cap = clamp(parseInt(viewControls.frameRate?.value, 10) || 60, 5, 60);
                 cachedFrameIntervalMs = 1000 / cap;
                 lastFrameTime = null;
             }
@@ -545,7 +545,6 @@ function bindEvents() {
             syncFrameInterval();
             updateDrawerTitleStates();
             updateFullscreenUi();
-            setBrowserZoom(80);
             setViewScale(100, 'manual');
             staticGridCanvas.classList.add('hidden-ui-node');
             geometryCanvas.classList.add('hidden-ui-node');

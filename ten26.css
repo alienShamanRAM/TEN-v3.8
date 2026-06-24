@@ -1240,3 +1240,330 @@ input:disabled {
     font-weight: 850;
     letter-spacing: 0;
 }
+
+/* Compact V4 UI polish */
+#control-panel,
+#grid-control-panel {
+    bottom: 0;
+    max-height: none;
+    z-index: 13;
+}
+
+.motion-matrix-panel {
+    bottom: 0;
+    max-height: none;
+    z-index: 13;
+}
+
+.panel-header h2 {
+    letter-spacing: 0;
+}
+
+.drawer-trigger.inactive-title {
+    color: var(--ui-cyan);
+    opacity: 0.92;
+}
+
+#drawer-trigger-dot-matrix {
+    justify-content: flex-end;
+    gap: 7px;
+    padding-right: 12px;
+    text-align: right;
+    color: rgba(255,197,244,0.82);
+}
+
+#drawer-dot-matrix > #drawer-trigger-dot-matrix::before {
+    order: 0;
+    color: rgba(255,197,244,0.68);
+}
+
+.drawer-title-icon-btn,
+.motion-layer-icon-btn,
+.value-lock-btn,
+.action-btn,
+.header-nav-btn,
+.header-auto-btn,
+.minimize-btn,
+.preset-delete-btn {
+    border-color: transparent;
+    background: rgba(255,255,255,0.018);
+    box-shadow: none;
+}
+
+.drawer-title-icon-btn:not(:disabled):hover,
+.motion-layer-icon-btn:not(:disabled):hover,
+.value-lock-btn:not(:disabled):hover,
+.minimize-btn:not(:disabled):hover {
+    border-color: transparent;
+    background: rgba(0,174,239,0.16);
+    color: rgba(222,250,255,0.98);
+}
+
+.header-nav-btn:not(:disabled):hover,
+.header-auto-btn:not(:disabled):hover,
+.header-nav-btn.active,
+.header-auto-btn.active {
+    border-color: transparent;
+    background: rgba(255,197,244,0.16);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+.header-nav-btn:not(:disabled):hover .transport-icon,
+.header-auto-btn:not(:disabled):hover .transport-icon,
+.header-nav-btn.active .transport-icon {
+    color: var(--ui-pink);
+}
+
+.action-btn:not(:disabled):hover {
+    border-color: transparent;
+    background: rgba(0,174,239,0.16);
+    color: rgba(222,250,255,0.98);
+}
+
+.action-btn.delete-btn,
+.motion-layer-delete-btn,
+.preset-delete-btn {
+    color: var(--ui-cyan);
+    opacity: 0.72;
+}
+
+.action-btn.delete-btn:not(:disabled):hover,
+.motion-layer-delete-btn:not(:disabled):hover,
+.preset-delete-btn:not(:disabled):hover {
+    border-color: transparent;
+    background: rgba(0,174,239,0.20);
+    color: var(--ui-cyan);
+    opacity: 1;
+}
+
+.value-lock-btn.locked {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ui-pink);
+    opacity: 1;
+}
+
+.preset-row button,
+.preset-action-btn,
+.view-scale-btn,
+.slide-jump-button,
+.layer-tab {
+    border-color: transparent;
+    background: rgba(255,197,244,0.09);
+    box-shadow: none;
+}
+
+.preset-row button:not(:disabled):hover,
+.preset-action-btn:not(:disabled):hover,
+.view-scale-btn:not(:disabled):hover,
+.slide-jump-button:not(:disabled):hover,
+.layer-tab:not(:disabled):hover {
+    border-color: transparent;
+    background: rgba(255,197,244,0.18);
+    color: #ffffff;
+}
+
+.preset-row button.pink-action,
+.preset-action-btn.pink-action,
+button.pink-action,
+#grid-apply-all,
+#preset-apply-btn,
+#preset-add-btn {
+    border-color: transparent;
+    background: rgba(255,197,244,0.14);
+    color: #ffffff;
+}
+
+.preset-row button.pink-action:not(:disabled):hover,
+.preset-action-btn.pink-action:not(:disabled):hover,
+button.pink-action:not(:disabled):hover,
+#grid-apply-all:not(:disabled):hover,
+#preset-apply-btn:not(:disabled):hover,
+#preset-add-btn:not(:disabled):hover {
+    border-color: transparent;
+    background: rgba(255,197,244,0.24);
+    color: var(--ui-pink);
+}
+
+.preset-action-btn.is-muted-action,
+.preset-action-btn:disabled,
+button.pink-action:disabled {
+    border-color: transparent;
+    background: rgba(255,255,255,0.025);
+    opacity: 0.36;
+}
+
+.help-tooltip-toggle {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.help-tooltip-toggle .checkbox-switch {
+    border: 0;
+    box-shadow: none;
+}
+
+.help-tooltip-toggle input[type="checkbox"]:checked + .checkbox-switch {
+    border: 0;
+    box-shadow: none;
+}
+
+.dot-color-swatch-row {
+    grid-template-columns: repeat(3, 12px);
+    gap: 9px;
+}
+
+.dot-color-swatch {
+    width: 12px;
+    height: 12px;
+    border: 1px solid rgba(255,255,255,0.48);
+    border-radius: 50%;
+    box-shadow: none;
+}
+
+.dot-color-swatch:hover {
+    border-color: rgba(255,255,255,0.86);
+    box-shadow: none;
+}
+
+.dot-color-swatch.active {
+    border-color: #ffffff;
+    border-radius: 2px;
+    box-shadow: none;
+    transform: scale(1.08);
+}
+
+.compact-color.dot-palette-control,
+.motion-layer-top-row .compact-color.dot-palette-control {
+    gap: 10px;
+}
+
+.random-limit-thumb {
+    width: 4px;
+    height: 4px;
+    border: 0;
+    background: var(--ui-cyan);
+    box-shadow: 0 0 0 1px rgba(0,174,239,0.55);
+}
+
+.slider-group.random-range-locked .random-limit-thumb {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.slider-group.random-range-locked .random-range-wrap::before {
+    opacity: 0.28;
+}
+
+.slider-group:has(#slide-auto-duration),
+#media-duration-row,
+.slider-group:has(#image-slide-offset-y) {
+    margin-bottom: 14px;
+}
+
+#grid-apply-all.drawer-wide-action {
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+.motion-layer-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.motion-layer-drawer.collapsed .motion-layer-header {
+    display: flex;
+    justify-content: initial;
+    padding-right: 6px;
+}
+
+.motion-layer-trigger {
+    width: auto;
+    min-width: 70px;
+    max-width: 152px;
+    flex: 0 1 auto;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 0 4px;
+}
+
+.motion-layer-drawer.collapsed .motion-layer-trigger {
+    width: auto;
+    min-height: 32px;
+    justify-content: flex-start;
+    padding: 0 4px;
+}
+
+.motion-layer-trigger::after {
+    content: '▼';
+    display: inline-block;
+    flex: 0 0 auto;
+    margin-left: 0;
+    color: rgba(255,197,244,0.62);
+    font-size: 7px;
+    opacity: 0.75;
+    transition: transform 0.2s ease;
+}
+
+.motion-layer-drawer.collapsed .motion-layer-trigger::after {
+    display: inline-block;
+    transform: rotate(-90deg);
+}
+
+.motion-layer-name {
+    max-width: 116px;
+}
+
+.motion-layer-reorder-actions,
+.motion-layer-actions {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.motion-layer-reorder-actions {
+    flex: 0 0 auto;
+    margin-left: -2px;
+}
+
+.motion-layer-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.motion-layer-reorder-btn {
+    width: 18px;
+    height: 22px;
+    font-size: 8px;
+}
+
+.motion-layer-header .motion-layer-reorder-btn {
+    width: 18px;
+    height: 22px;
+}
+
+.motion-layer-text-action {
+    height: 22px;
+    padding: 0 5px;
+    font-size: 9px;
+}
+
+.motion-layer-delete-btn {
+    width: 20px;
+    height: 22px;
+    margin-left: 2px;
+}
+
+.motion-layer-header .motion-layer-delete-btn {
+    width: 20px;
+    height: 22px;
+}
+
+.motion-layer-icon-btn.layer-visibility-btn {
+    border-color: transparent;
+    background: rgba(255,255,255,0.018);
+}
