@@ -13,7 +13,6 @@ function getActiveLayerStateFromControls() {
                     offsetY: gridState.offsetY,
                     targetType: motionState.targetType,
                     targetTypes: motionState.targetTypes,
-                    blendMode: motionState.blendMode,
                     mass: motionState.mass,
                     friction: motionState.friction,
                     speedLimit: motionState.speedLimit,
@@ -44,7 +43,7 @@ function getActiveLayerStateFromControls() {
                     gridColor: motionState.gridColor,
                     midColor: motionState.midColor,
                     targetColor: motionState.targetColor,
-                    colorMidpoint: '0.5'
+                    colorMidpoint: motionState.colorMidpoint || motionState.sizeMidpoint || '0.5'
                 };
             }
 
@@ -247,7 +246,6 @@ function getActiveLayerStateFromControls() {
                 const targetSeed = source.targetTypes !== undefined ? source.targetTypes : (source.targetType !== undefined ? source.targetType : layer.targetType);
                 layer.targetType = normalizeTargetType(targetSeed, source.targetType || layer.targetType || 'fill');
                 layer.targetTypes = [layer.targetType];
-                layer.blendMode = BLEND_MODE_KEYS.includes(source.blendMode || layer.blendMode) ? (source.blendMode || layer.blendMode) : 'source-over';
                 if (source.speedLimit === undefined) layer.speedLimit = String(readStateFloat(layer.speedLimit, 80));
                 if (source.friction === undefined) layer.friction = String(readStateFloat(layer.friction, 34));
                 if (source.svgRadius === undefined) layer.svgRadius = String(readStateFloat(layer.svgRadius, 320));
@@ -265,7 +263,9 @@ function getActiveLayerStateFromControls() {
                 if (source.shuffle === undefined) layer.shuffle = '0';
                 if (source.variation === undefined) layer.variation = '0';
                 if (source.midSize === undefined) layer.midSize = String(readStateFloat(layer.midSize, readStateFloat(layer.gridSize, 2.5)));
-                if (source.sizeMidpoint === undefined) layer.sizeMidpoint = '0.5';
+                if (source.sizeMidpoint === undefined) {
+                    layer.sizeMidpoint = String(clamp(readStateFloat(source.colorMidpoint, 0.5), 0.05, 0.95));
+                }
                 if (source.speedSize === undefined) layer.speedSize = '0';
                 if (source.visibilityEnabled === undefined) layer.visibilityEnabled = true;
                 if (source.visibilityOn === undefined) layer.visibilityOn = '7';
@@ -278,7 +278,7 @@ function getActiveLayerStateFromControls() {
                 layer.gridColor = normalizeHexColor(source.gridColor || source.dotColor || layer.gridColor, fallbackColor);
                 layer.midColor = normalizeHexColor(source.midColor || source.dotColor || layer.midColor, layer.gridColor);
                 layer.targetColor = normalizeHexColor(source.targetColor || source.dotColor || layer.targetColor, layer.midColor);
-                layer.colorMidpoint = '0.5';
+                layer.colorMidpoint = String(clamp(readStateFloat(source.colorMidpoint, readStateFloat(source.sizeMidpoint, readStateFloat(layer.sizeMidpoint, 0.5))), 0.05, 0.95));
                 layer.motionStyle = 'direct';
                 layer.motionEnergy = '0';
                 layer.flickerAmount = '0';
@@ -289,7 +289,7 @@ function getActiveLayerStateFromControls() {
                 layer.idleSpeed = '0';
                 layer.idleRandom = '0';
                 Object.keys(layer).forEach(key => {
-                    if (key !== 'blendMode' && key.toLowerCase() === 'blendmode') delete layer[key];
+                    if (key.toLowerCase() === 'blendmode') delete layer[key];
                 });
                 [
                     'motionStyle', 'motionEnergy', 'bounce', 'targetSpeed', 'gridSpeed',

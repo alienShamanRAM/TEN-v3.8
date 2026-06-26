@@ -84,6 +84,41 @@
                         fail(`Missing nodes: ${missing.join(', ')}`);
                         return;
                     }
+                    const nestedGroups = [
+                        ['#drawer-upload-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-masks']],
+                        ['#drawer-advanced-options', ['#drawer-grid', '#drawer-auto-transition', '#drawer-blink-mode']]
+                    ];
+                    const brokenGroup = nestedGroups.find(([parentSelector, childSelectors]) => {
+                        const parent = doc.querySelector(parentSelector);
+                        return !parent || childSelectors.some(childSelector => !parent.querySelector(childSelector));
+                    });
+                    if (brokenGroup) {
+                        fail(`Nested drawer group failed: ${brokenGroup[0]}`);
+                        return;
+                    }
+                    const labelChecks = [
+                        ['#drawer-trigger-view-options', 'View Options'],
+                        ['#drawer-trigger-masks', 'Grid Masking'],
+                        ['#drawer-trigger-upload-media', 'Upload Media'],
+                        ['#drawer-trigger-advanced-options', 'Advanced Options']
+                    ];
+                    const brokenLabel = labelChecks.find(([selector, expected]) => {
+                        const node = doc.querySelector(selector);
+                        return !node || node.textContent.trim() !== expected;
+                    });
+                    if (brokenLabel) {
+                        fail(`Drawer label mismatch: ${brokenLabel[0]}`);
+                        return;
+                    }
+                    if (doc.querySelector('#drawer-slide-grid-advanced')) {
+                        fail('Old Grid advanced drawer still exists.');
+                        return;
+                    }
+                    const attractTimeLabel = doc.querySelector('#slide-grid-attract-time')?.closest('.slider-group')?.querySelector('span')?.textContent?.trim();
+                    if (attractTimeLabel !== 'Attract Time') {
+                        fail('Grid attract label did not update.');
+                        return;
+                    }
                     const canvas = doc.querySelector('#morph-canvas');
                     const presetCount = doc.querySelector('#preset-select')?.options.length || 0;
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;

@@ -381,14 +381,10 @@ function bindEvents() {
                         persistMotionLayerControls(layerKey, { retarget: true });
                         if (activeLayerKey !== layerKey) switchActiveLayer(layerKey);
                     });
-                    controls.blendMode?.addEventListener('change', () => {
-                        persistMotionLayerControls(layerKey, { retarget: false });
-                        if (activeLayerKey !== layerKey) switchActiveLayer(layerKey);
-                    });
                     [
                         controls.mass, controls.friction, controls.returnPull, controls.pull, controls.svgRadius, controls.gridRadius,
                         controls.speedLimit, controls.elasticity, controls.orbit, controls.shuffle, controls.variation,
-                        controls.gridSize, controls.midSize, controls.targetSize, controls.speedSize
+                        controls.gridSize, controls.midSize, controls.targetSize, controls.sizeMidpoint, controls.speedSize
                     ].forEach(control => {
                         control?.addEventListener('input', () => {
                             persistMotionLayerControls(layerKey, { retarget: false });

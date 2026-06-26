@@ -1839,7 +1839,7 @@
                     dot.displayInfluence = clamp(dot.targetInfluence, 0, 1);
                     dot.color = cfg.sameColor
                         ? cfg.gridColor
-                        : interpolateMidRgbColor(cfg.gridRgb, cfg.midRgb, cfg.targetRgb, dot.displayInfluence);
+                        : interpolateMidRgbColor(cfg.gridRgb, cfg.midRgb, cfg.targetRgb, dot.displayInfluence, cfg.colorMidpoint ?? cfg.sizeMidpoint);
                     const midPoint = clamp(cfg.sizeMidpoint, 0.05, 0.95);
                     const t = clamp(dot.displayInfluence, 0, 1);
                     const firstLeg = t <= midPoint;
@@ -2789,24 +2789,12 @@
                 let lastAlpha = null;
                 let lastFillStyle = null;
                 const twoPi = Math.PI * 2;
-                const blendBackdropRgb = cfg.blendMode === 'source-over'
-                    ? null
-                    : parseRgbColor(currentBackgroundColor, hexToRgb('#02006c'));
-                const frameBlendCache = cfg.blendMode === 'source-over' ? null : new Map();
                 dotGroups[layerKey].dots.forEach(dot => {
                     const maskAlpha = Number.isFinite(dot.maskAlpha) ? dot.maskAlpha : 1;
                     const idleAlpha = Number.isFinite(dot.idleAlpha) ? dot.idleAlpha : 1;
                     const alpha = maskAlpha * idleAlpha;
                     if (alpha <= 0.01) return;
-                    const sourceFillStyle = dot.color || cfg.gridColor;
-                    let fillStyle = sourceFillStyle;
-                    if (frameBlendCache) {
-                        fillStyle = frameBlendCache.get(sourceFillStyle);
-                        if (!fillStyle) {
-                            fillStyle = blendDotColorWithCanvas(sourceFillStyle, cfg.blendMode, blendBackdropRgb);
-                            frameBlendCache.set(sourceFillStyle, fillStyle);
-                        }
-                    }
+                    const fillStyle = dot.color || cfg.gridColor;
                     const scale = clamp(maskAlpha, 0, 1);
                     const radius = dot.size * scale;
                     if (radius <= 0.05) return;

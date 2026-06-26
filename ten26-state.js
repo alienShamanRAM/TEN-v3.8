@@ -70,33 +70,6 @@ const viewport = document.getElementById('canvas-viewport');
                 return group;
             }
 
-            function createBlendModeControl(layerKey) {
-                const wrap = document.createElement('label');
-                wrap.className = 'motion-blend-control';
-                const label = document.createElement('span');
-                label.textContent = 'Blend';
-                const select = document.createElement('select');
-                select.id = `dot-${layerKey}-blend-mode`;
-                setNativeTooltip(select, 'Blend this grid layer with the canvas color without blending dots into other dots.');
-                [
-                    ['source-over', 'Normal'],
-                    ['screen', 'Screen'],
-                    ['multiply', 'Multiply'],
-                    ['overlay', 'Overlay'],
-                    ['lighten', 'Lighten'],
-                    ['darken', 'Darken'],
-                    ['difference', 'Difference'],
-                    ['exclusion', 'Exclusion']
-                ].forEach(([value, text]) => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = text;
-                    select.appendChild(option);
-                });
-                wrap.append(label, select);
-                return wrap;
-            }
-
             function createCompactColorControl(layerKey, label, suffix, value = '#ffffff') {
                 const wrap = document.createElement('div');
                 wrap.className = 'compact-color';
@@ -186,10 +159,11 @@ const viewport = document.getElementById('canvas-viewport');
                 colorRow.className = 'color-pair-row';
                 colorRow.append(
                     createCompactColorControl(layerKey, 'Grid', 'grid'),
+                    createCompactColorControl(layerKey, 'Mid', 'mid'),
                     createCompactColorControl(layerKey, 'Target', 'target')
                 );
                 content.appendChild(colorRow);
-                content.appendChild(createBlendModeControl(layerKey));
+                content.appendChild(createRangeGroup('Mid Point', `dot-${layerKey}-size-midpoint`, '0.05', '0.95', '0.5', '0.01'));
 
                 const actions = document.createElement('div');
                 actions.className = 'drawer-bottom-actions';
@@ -290,8 +264,66 @@ const viewport = document.getElementById('canvas-viewport');
                 return null;
             }
 
+            function buildDrawerGroup(drawerId, triggerId, label, childDrawerIds) {
+                if (!controlPanel) return null;
+                let drawer = document.getElementById(drawerId);
+                if (!drawer) {
+                    drawer = document.createElement('div');
+                    drawer.className = 'drawer drawer-group';
+                    drawer.id = drawerId;
+                    const trigger = document.createElement('button');
+                    trigger.className = 'drawer-trigger';
+                    trigger.id = triggerId;
+                    trigger.type = 'button';
+                    trigger.textContent = label;
+                    const content = document.createElement('div');
+                    content.className = 'drawer-content drawer-group-content';
+                    drawer.append(trigger, content);
+                }
+                drawer.classList.add('drawer-group');
+                const trigger = drawer.querySelector('.drawer-trigger');
+                if (trigger) {
+                    trigger.id = triggerId;
+                    trigger.type = 'button';
+                    trigger.textContent = label;
+                }
+                let content = drawer.querySelector('.drawer-group-content');
+                if (!content) {
+                    content = drawer.querySelector('.drawer-content');
+                    if (!content) {
+                        content = document.createElement('div');
+                        content.className = 'drawer-content';
+                        drawer.appendChild(content);
+                    }
+                    content.classList.add('drawer-group-content');
+                }
+                const firstChildDrawer = childDrawerIds
+                    .map(childId => document.getElementById(childId))
+                    .find(Boolean);
+                if (!drawer.isConnected && firstChildDrawer?.parentElement) {
+                    firstChildDrawer.parentElement.insertBefore(drawer, firstChildDrawer);
+                }
+                childDrawerIds.forEach(childId => {
+                    const childDrawer = document.getElementById(childId);
+                    if (!childDrawer || childDrawer.parentElement === content) return;
+                    childDrawer.classList.add('nested-drawer');
+                    content.appendChild(childDrawer);
+                });
+                return drawer;
+            }
+
             function installRightPanelDrawers() {
                 gridControlPanel?.classList.add('minimized', 'retired-panel');
+                buildDrawerGroup('drawer-upload-media', 'drawer-trigger-upload-media', 'Upload Media', [
+                    'drawer-slides',
+                    'drawer-image-slides',
+                    'drawer-masks'
+                ]);
+                buildDrawerGroup('drawer-advanced-options', 'drawer-trigger-advanced-options', 'Advanced Options', [
+                    'drawer-grid',
+                    'drawer-auto-transition',
+                    'drawer-blink-mode'
+                ]);
             }
 
             function collapseLeftPanelDrawers(drawerId) {
@@ -378,7 +410,6 @@ const viewport = document.getElementById('canvas-viewport');
             let DOT_LAYER_KEYS = [DEFAULT_LAYER_KEY];
             let svgMediaStackIndex = DOT_LAYER_KEYS.length;
             const TARGET_TYPE_KEYS = ['anchor', 'path', 'fill'];
-            const BLEND_MODE_KEYS = ['source-over', 'screen', 'multiply', 'overlay', 'lighten', 'darken', 'difference', 'exclusion'];
             const DOT_LAYER_META = ALL_DOT_LAYER_KEYS.reduce((acc, layerKey, index) => {
                 acc[layerKey] = { label: `Grid ${index + 1}`, defaultOffsetY: '110', defaultColor: '#ffffff' };
                 return acc;
@@ -527,27 +558,10 @@ const viewport = document.getElementById('canvas-viewport');
                         topRow.appendChild(targetWrap);
                     }
 
-                    const blendControl = document.getElementById(`dot-${layerKey}-blend-mode`)?.closest('.motion-blend-control');
-                    if (blendControl) topRow.appendChild(blendControl);
-
                     const colorRow = content.querySelector('.color-pair-row');
-                    const gridColorControl = document.getElementById(`dot-${layerKey}-grid-color`)?.closest('.compact-color');
-                    if (gridColorControl && !document.getElementById(`dot-${layerKey}-mid-color`)) {
-                        const midColorControl = gridColorControl.cloneNode(true);
-                        midColorControl.querySelector('.compact-color-label').textContent = 'Mid';
-                        const picker = midColorControl.querySelector('input[type="color"]');
-                        const hex = midColorControl.querySelector('input[type="text"]');
-                        if (picker) {
-                            picker.id = `dot-${layerKey}-mid-color`;
-                            picker.value = '#ffffff';
-                        }
-                        if (hex) {
-                            hex.id = `dot-${layerKey}-mid-color-hex`;
-                            hex.value = '#ffffff';
-                        }
-                        gridColorControl.insertAdjacentElement('afterend', midColorControl);
-                    }
                     colorRow?.querySelectorAll('.compact-color').forEach(colorControl => topRow.appendChild(colorControl));
+                    const midpointControl = document.getElementById(`dot-${layerKey}-size-midpoint`)?.closest('.slider-group');
+                    if (midpointControl) topRow.appendChild(midpointControl);
 
                     content.prepend(topRow);
 
@@ -643,7 +657,6 @@ const viewport = document.getElementById('canvas-viewport');
                         moveDown: document.getElementById(`motion-move-down-${layerKey}`),
                         status: document.getElementById(`motion-status-${layerKey}`),
                         targetType: document.getElementById(`dot-${layerKey}-target-type`),
-                        blendMode: document.getElementById(`dot-${layerKey}-blend-mode`),
                         mass: document.getElementById(`dot-${layerKey}-mass`),
                         friction: document.getElementById(`dot-${layerKey}-friction`),
                         returnPull: document.getElementById(`dot-${layerKey}-return-pull`),
@@ -1149,48 +1162,6 @@ const viewport = document.getElementById('canvas-viewport');
                 };
             }
 
-            function parseRgbColor(value, fallback = null) {
-                const text = String(value || '').trim();
-                if (/^#[0-9a-f]{6}$/i.test(text)) return hexToRgb(text);
-                const match = text.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-                if (!match) return fallback;
-                return {
-                    r: clamp(Math.round(parseFloat(match[1])), 0, 255),
-                    g: clamp(Math.round(parseFloat(match[2])), 0, 255),
-                    b: clamp(Math.round(parseFloat(match[3])), 0, 255)
-                };
-            }
-
-            function rgbToCss({ r, g, b }) {
-                return `rgb(${Math.round(clamp(r, 0, 255))},${Math.round(clamp(g, 0, 255))},${Math.round(clamp(b, 0, 255))})`;
-            }
-
-            function blendColorChannel(source, backdrop, mode) {
-                if (mode === 'multiply') return source * backdrop / 255;
-                if (mode === 'screen') return 255 - (255 - source) * (255 - backdrop) / 255;
-                if (mode === 'overlay') {
-                    return backdrop < 128
-                        ? 2 * source * backdrop / 255
-                        : 255 - 2 * (255 - source) * (255 - backdrop) / 255;
-                }
-                if (mode === 'lighten') return Math.max(source, backdrop);
-                if (mode === 'darken') return Math.min(source, backdrop);
-                if (mode === 'difference') return Math.abs(backdrop - source);
-                if (mode === 'exclusion') return backdrop + source - 2 * backdrop * source / 255;
-                return source;
-            }
-
-            function blendDotColorWithCanvas(fillStyle, blendMode, backdropRgb) {
-                if (!blendMode || blendMode === 'source-over') return fillStyle;
-                const sourceRgb = parseRgbColor(fillStyle);
-                if (!sourceRgb || !backdropRgb) return fillStyle;
-                return rgbToCss({
-                    r: blendColorChannel(sourceRgb.r, backdropRgb.r, blendMode),
-                    g: blendColorChannel(sourceRgb.g, backdropRgb.g, blendMode),
-                    b: blendColorChannel(sourceRgb.b, backdropRgb.b, blendMode)
-                });
-            }
-
             function interpolateRgbColor(start, end, amount) {
                 const t = clamp(amount, 0, 1);
                 const r = Math.round(start.r + (end.r - start.r) * t);
@@ -1199,10 +1170,11 @@ const viewport = document.getElementById('canvas-viewport');
                 return `rgb(${r},${g},${b})`;
             }
 
-            function interpolateMidRgbColor(start, mid, end, amount) {
+            function interpolateMidRgbColor(start, mid, end, amount, midpoint = 0.5) {
                 const t = clamp(amount, 0, 1);
-                if (t <= 0.5) return interpolateRgbColor(start, mid, smoothstep(0, 1, t / 0.5));
-                return interpolateRgbColor(mid, end, smoothstep(0, 1, (t - 0.5) / 0.5));
+                const split = clamp(midpoint, 0.05, 0.95);
+                if (t <= split) return interpolateRgbColor(start, mid, smoothstep(0, 1, t / split));
+                return interpolateRgbColor(mid, end, smoothstep(0, 1, (t - split) / (1 - split)));
             }
 
             function getAppBackdropState() {
@@ -1331,14 +1303,15 @@ const viewport = document.getElementById('canvas-viewport');
             };
 
             const MODULE_TOOLTIPS = {
-                'drawer-trigger-dot-matrix': 'Layered dot motion, size, and color.',
+                'drawer-trigger-dot-matrix': 'Per-layer target, colors, midpoint, and motion settings.',
+                'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
+                'drawer-trigger-advanced-options': 'Grid layout, flicker timing, and shared blink behavior.',
                 'drawer-trigger-grid': 'Dot count, spacing, layer offsets, and grid-attract behavior.',
-                'drawer-trigger-masks': 'Vector and raster mask expansion and timing.',
+                'drawer-trigger-masks': 'Vector and raster grid-mask expansion and timing.',
                 'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
-                'drawer-trigger-slides': 'SVG artwork used as dot targets.',
-                'drawer-trigger-image-slides': 'Media slides used as rectangular dot targets.',
+                'drawer-trigger-slides': 'Vector SVG artwork used as dot targets.',
+                'drawer-trigger-image-slides': 'Raster images and videos used as rectangular dot targets.',
                 'drawer-trigger-slide-control': 'Direct slide navigation and current slide inspection.',
-                'drawer-trigger-slide-grid-advanced': 'Override dot physics during the grid-attract stage between slides.',
                 'drawer-trigger-flicker': 'Glitch timing between slides.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
@@ -1386,7 +1359,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'header-auto-btn': 'Automatically advance to the next slide every 4 seconds.',
                 'matrix-open-all': 'Expand all grid-layer drawers.',
                 'matrix-collapse-all': 'Collapse all grid-layer drawers.',
-                'matrix-randomize-all': 'Randomize unlocked grid-layer, grid-attract, flicker, and blink values together.',
+                'matrix-randomize-all': 'Randomize only unlocked values inside the grid-layer stack.',
                 'matrix-copy-above': 'Copy the selected grid layer above its current position.',
                 'matrix-copy-below': 'Copy the selected grid layer below its current position.',
                 'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
@@ -1430,6 +1403,7 @@ const viewport = document.getElementById('canvas-viewport');
                     'grid-size': 'Size at grid rest.',
                     'mid-size': 'Size mid-transition.',
                     'target-size': 'Size on SVG targets.',
+                    'size-midpoint': 'Where the mid color and mid size sit between grid and target.',
                     'speed-size': 'Size added by speed.'
                 }).forEach(([suffix, tip]) => {
                     SLIDER_TOOLTIPS[`dot-${layerKey}-${suffix}`] = `${label}: ${tip}`;
@@ -1437,11 +1411,11 @@ const viewport = document.getElementById('canvas-viewport');
                 CONTROL_TOOLTIPS[`dot-${layerKey}-target-type`] = `${label}: SVG points this layer follows.`;
                 CONTROL_TOOLTIPS[`motion-trigger-${layerKey}`] = `${label} layer motion physics.`;
                 CONTROL_TOOLTIPS[`motion-toggle-layer-${layerKey}`] = `Show or hide the ${label} grid layer.`;
-                CONTROL_TOOLTIPS[`motion-randomize-${layerKey}`] = `${label}: randomize unlocked motion values.`;
-                CONTROL_TOOLTIPS[`motion-randomize-text-${layerKey}`] = `${label}: randomize unlocked motion values.`;
-                CONTROL_TOOLTIPS[`motion-lock-${layerKey}`] = `${label}: lock all motion values for randomize.`;
-                CONTROL_TOOLTIPS[`motion-unlock-${layerKey}`] = `${label}: unlock all motion values.`;
-                CONTROL_TOOLTIPS[`motion-reset-${layerKey}`] = `${label}: reset randomization limits.`;
+                CONTROL_TOOLTIPS[`motion-randomize-${layerKey}`] = `${label}: randomize unlocked layer-stack values.`;
+                CONTROL_TOOLTIPS[`motion-randomize-text-${layerKey}`] = `${label}: randomize unlocked layer-stack values.`;
+                CONTROL_TOOLTIPS[`motion-lock-${layerKey}`] = `${label}: lock all layer-stack values for randomize.`;
+                CONTROL_TOOLTIPS[`motion-unlock-${layerKey}`] = `${label}: unlock all layer-stack values.`;
+                CONTROL_TOOLTIPS[`motion-reset-${layerKey}`] = `${label}: reset layer randomization limits.`;
                 CONTROL_TOOLTIPS[`motion-delete-${layerKey}`] = `${label}: delete this layer.`;
             });
 
@@ -1728,7 +1702,6 @@ const viewport = document.getElementById('canvas-viewport');
                     offsetX: '0',
                     offsetY: PRESET_GRID_OFFSET_Y,
                     targetType: 'fill',
-                    blendMode: 'source-over',
                     mass: '1',
                     friction: '34',
                     speedLimit: '80',
@@ -2004,7 +1977,6 @@ const viewport = document.getElementById('canvas-viewport');
                     offsetY: readStateFloat(state.offsetY, 110),
                     targetType,
                     targetTypes: [targetType],
-                    blendMode: BLEND_MODE_KEYS.includes(state.blendMode) ? state.blendMode : 'source-over',
                     mass: readStateFloat(state.mass, 1),
                     friction: readStateFloat(state.friction, 34),
                     speedLimit: readStateFloat(state.speedLimit, 80),
@@ -2026,6 +1998,7 @@ const viewport = document.getElementById('canvas-viewport');
                     midSize: clamp(readStateFloat(state.midSize, readStateFloat(state.gridSize, 2.5)), 0.5, MAX_DOT_SIZE),
                     targetSize: clamp(readStateFloat(state.targetSize, 2.5), 0.5, MAX_DOT_SIZE),
                     sizeMidpoint: clamp(readStateFloat(state.sizeMidpoint, 0.5), 0.05, 0.95),
+                    colorMidpoint: clamp(readStateFloat(state.colorMidpoint, readStateFloat(state.sizeMidpoint, 0.5)), 0.05, 0.95),
                     speedSize: readStateFloat(state.speedSize, 0),
                     snapDistance: readStateFloat(state.snapDistance, 1.5),
                     gridColor,
@@ -2132,7 +2105,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'pull', 'svgRadius', 'returnPull', 'gridRadius', 'speedLimit',
                 'mass', 'friction', 'elasticity',
                 'orbit', 'shuffle', 'variation',
-                'gridSize', 'midSize', 'targetSize', 'speedSize'
+                'gridSize', 'midSize', 'targetSize', 'sizeMidpoint', 'speedSize'
             ];
             const BLINK_RANDOM_CONTROL_KEYS = [
                 'visibilityOn', 'visibilityOff', 'visibilityRandomness', 'visibilityProbability',
@@ -2455,26 +2428,6 @@ const viewport = document.getElementById('canvas-viewport');
                 return BLINK_RANDOM_CONTROL_KEYS.map(key => blinkControls[key]).filter(Boolean);
             }
 
-            function getGridAttractRandomControls() {
-                return [
-                    autoControls.gridAttractTime,
-                    ...GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.map(([, controlKey]) => autoControls[controlKey])
-                ].filter(Boolean);
-            }
-
-            function getFlickerRandomControls() {
-                return [
-                    autoControls.currentTime,
-                    autoControls.travelTime,
-                    autoControls.gridTime,
-                    autoControls.flickerTime,
-                    autoControls.flickerBias,
-                    autoControls.flickerSpeed,
-                    autoControls.flickerBalance,
-                    autoControls.flickerWildness
-                ].filter(Boolean);
-            }
-
             function updateRandomLockButtons() {
                 document.querySelectorAll('.value-lock-btn[data-lock-control]').forEach(button => {
                     const control = document.getElementById(button.dataset.lockControl);
@@ -2486,18 +2439,18 @@ const viewport = document.getElementById('canvas-viewport');
                 });
                 Object.entries(motionLayerControls.layers).forEach(([layerKey, controls]) => {
                     const label = getLayerLabel(layerKey);
-                    if (controls.randomize) setIconButton(controls.randomize, 'dice', 'Randomize motion layer');
+                    if (controls.randomize) setIconButton(controls.randomize, 'dice', 'Randomize unlocked layer-stack values');
                     if (controls.randomizeText) {
                         controls.randomizeText.textContent = 'Random';
-                        setNativeTooltip(controls.randomizeText, `Randomize ${label}`);
+                        setNativeTooltip(controls.randomizeText, `Randomize unlocked ${label} layer-stack values`);
                     }
                     if (controls.lock) {
                         controls.lock.textContent = 'Lock';
-                        setNativeTooltip(controls.lock, `Lock ${label}`);
+                        setNativeTooltip(controls.lock, `Lock all ${label} layer-stack values for randomize`);
                     }
                     if (controls.unlock) {
                         controls.unlock.textContent = 'Unlock';
-                        setNativeTooltip(controls.unlock, `Unlock ${label}`);
+                        setNativeTooltip(controls.unlock, `Unlock all ${label} layer-stack values`);
                     }
                     if (controls.reset) {
                         controls.reset.textContent = 'Reset';
@@ -2619,12 +2572,8 @@ const viewport = document.getElementById('canvas-viewport');
 
             function randomizeAllMotionLayers() {
                 DOT_LAYER_KEYS.forEach(layerKey => randomizeMotionLayer(layerKey, { retarget: false }));
-                getGridAttractRandomControls().forEach(randomizeSliderControl);
-                getFlickerRandomControls().forEach(randomizeSliderControl);
-                getBlinkRandomControls().forEach(randomizeSliderControl);
-                applyBlinkControlsToAllLayers();
                 refreshAttractorTargetsIfNeeded();
-                if (motionLayerControls.status) motionLayerControls.status.textContent = 'Layers, grid advanced, flicker, and blink randomized together. Locked values were skipped.';
+                if (motionLayerControls.status) motionLayerControls.status.textContent = 'All active layer-stack values randomized together. Locked values were skipped.';
             }
 
             function randomizeAllBlinkLayers() {
@@ -2751,10 +2700,10 @@ const viewport = document.getElementById('canvas-viewport');
                 const targetType = normalizeTargetType(controls.targetType?.value || current.targetType);
                 const blinkState = getBlinkStateFromControls();
                 const elasticity = controls.elasticity?.value || current.elasticity;
+                const sizeMidpoint = controls.sizeMidpoint?.value || current.sizeMidpoint;
                 return {
                     targetType,
                     targetTypes: [targetType],
-                    blendMode: BLEND_MODE_KEYS.includes(controls.blendMode?.value) ? controls.blendMode.value : (current.blendMode || 'source-over'),
                     mass: controls.mass?.value || current.mass,
                     friction: controls.friction?.value || current.friction,
                     speedLimit: controls.speedLimit?.value || current.speedLimit,
@@ -2772,9 +2721,9 @@ const viewport = document.getElementById('canvas-viewport');
                     gridSize: getControlValue(controls.gridSize) || current.gridSize,
                     midSize: getControlValue(controls.midSize) || current.midSize,
                     targetSize: getControlValue(controls.targetSize) || current.targetSize,
-                    sizeMidpoint: controls.sizeMidpoint?.value || current.sizeMidpoint,
+                    sizeMidpoint,
                     speedSize: controls.speedSize?.value || current.speedSize,
-                    colorMidpoint: '0.5',
+                    colorMidpoint: sizeMidpoint,
                     ...blinkState,
                     snapDistance: current.snapDistance || '1.5',
                     gridColor: normalizeHexColor(controls.gridColor?.value || current.gridColor, '#ffffff'),
@@ -2787,7 +2736,6 @@ const viewport = document.getElementById('canvas-viewport');
                 const state = dotLayerStates[layerKey] || createDefaultLayerState(layerKey);
                 const controls = getMotionLayerControls(layerKey);
                 if (controls.targetType) controls.targetType.value = normalizeTargetType(state.targetType || state.targetTypes);
-                if (controls.blendMode) controls.blendMode.value = BLEND_MODE_KEYS.includes(state.blendMode) ? state.blendMode : 'source-over';
                 setControlValue(controls.mass, state.mass);
                 setControlValue(controls.friction, state.friction);
                 setControlValue(controls.returnPull, state.returnPull);

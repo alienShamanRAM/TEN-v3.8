@@ -145,7 +145,7 @@
 
         <!-- Masks Drawer -->
         <div class="drawer collapsed" id="drawer-masks">
-            <button class="drawer-trigger" id="drawer-trigger-masks">Masks</button>
+            <button class="drawer-trigger" id="drawer-trigger-masks">Grid Masking</button>
             <div class="drawer-content">
                 <div class="drawer-section-title">Vector</div>
                 <div class="slider-group"><span>Mask Expand</span><input type="range" id="mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-mask-expansion">32</span></div>
@@ -162,22 +162,17 @@
             <div class="drawer-content">
                 <button class="preset-action-btn drawer-wide-action" id="grid-apply-all" type="button">Apply To All</button>
                 <div class="grid-attract-controls" id="grid-attract-controls">
-                    <div class="slider-group"><span>Grid Attract</span><input type="range" id="slide-grid-attract-time" min="0" max="8" value="0.6" step="0.05"><span class="val-indicator" id="val-slide-grid-attract-time">0.6</span></div>
-                    <div class="drawer sub-drawer collapsed" id="drawer-slide-grid-advanced">
-                        <button class="drawer-trigger" id="drawer-trigger-slide-grid-advanced" type="button">Advanced</button>
-                        <div class="drawer-content slide-grid-advanced-controls">
-                            <div class="slider-group"><span>Grid Pull</span><input type="range" id="grid-attract-return-pull" min="0.1" max="1" value="0.38" step="0.01"><span class="val-indicator" id="val-grid-attract-return-pull">0.38</span></div>
-                            <div class="slider-group"><span>Grid Reach</span><input type="range" id="grid-attract-grid-radius" min="100" max="1000" value="1000" step="10"><span class="val-indicator" id="val-grid-attract-grid-radius">1000</span></div>
-                            <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
-                            <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
-                            <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
-                            <div class="slider-group"><span>Grid Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
-                            <div class="slider-group"><span>Grid Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
-                            <div class="slider-group"><span>Grid Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
-                            <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
-                            <div class="slider-group"><span>Size Speed</span><input type="range" id="grid-attract-speed-size" min="-40" max="40" value="0" step="0.5" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
-                        </div>
-                    </div>
+                    <div class="slider-group"><span>Attract Time</span><input type="range" id="slide-grid-attract-time" min="0" max="8" value="0.6" step="0.05"><span class="val-indicator" id="val-slide-grid-attract-time">0.6</span></div>
+                    <div class="slider-group"><span>Grid Pull</span><input type="range" id="grid-attract-return-pull" min="0.1" max="1" value="0.38" step="0.01"><span class="val-indicator" id="val-grid-attract-return-pull">0.38</span></div>
+                    <div class="slider-group"><span>Grid Reach</span><input type="range" id="grid-attract-grid-radius" min="100" max="1000" value="1000" step="10"><span class="val-indicator" id="val-grid-attract-grid-radius">1000</span></div>
+                    <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
+                    <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
+                    <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
+                    <div class="slider-group"><span>Grid Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
+                    <div class="slider-group"><span>Grid Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
+                    <div class="slider-group"><span>Grid Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
+                    <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
+                    <div class="slider-group"><span>Size Speed</span><input type="range" id="grid-attract-speed-size" min="-40" max="40" value="0" step="0.5" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
                 </div>
                 <div class="geometry-status" id="grid-layout-status">Grid setup active.</div>
             </div>
@@ -271,7 +266,7 @@
                 </section>
                 <section>
                     <h3>Overview</h3>
-                    <p>SLIDES displays SVG and Image slides on a fixed canvas and animates active dot-grid layers between grid positions and slide target positions. The canvas, background image layer, slides, masks, and grid coordinates share the same center-based stage coordinate system.</p>
+                    <p>TEN26 animates active grid layers between grid homes and slide targets on one shared stage. Upload Media supplies vector and raster sources, Grid Masking shapes how grid-home dots hide and return, and Advanced Options controls grid return, flicker, and blink behavior.</p>
                 </section>
                 <section>
                     <h3>Header Controls</h3>
@@ -279,27 +274,43 @@
                 </section>
                 <section>
                     <h3>Grid Layers</h3>
-                    <p>Grid Layers controls the physics and appearance of active dot grids. Use the eye button to hide a grid layer, copy layers above or below the selection, rename layers, delete layers, and reorder them. Target chooses whether that grid follows SVG fills, paths, anchors, or combined target data.</p>
+                    <p>Grid Layers controls each active grid layer. Use the eye button to hide a layer, copy layers above or below the selection, rename layers, delete layers, and reorder them. Target chooses whether that layer follows SVG fills, paths, or anchors. The three color groups set Grid, Mid, and Target color, and Mid Point shifts where the mid color and mid size happen between grid and target. The main Random button here only randomizes unlocked values inside the layer stack.</p>
                 </section>
                 <section>
-                    <h3>Advanced</h3>
-                    <p>Advanced defines columns, rows, spacing, and X/Y offset for each grid layer. Select a grid layer, adjust its setup, or use Apply To All to copy the selected setup to every active grid layer.</p>
+                    <h3>View Options</h3>
+                    <p>View Options changes preview zoom, frame cap, fullscreen, and the info overlay. It does not resize the stage or move grid or slide coordinates.</p>
+                </section>
+                <section>
+                    <h3>Upload Media</h3>
+                    <p>Upload Media groups Vector, Raster, and Grid Masking. Use it to load slide sources, position them on the canvas, and control how grid-home dots react to those sources.</p>
+                </section>
+                <section>
+                    <h3>Vector</h3>
+                    <p>Vector loads SVG artwork as dot targets. Scale and offset position the SVG on the canvas. Vector slides share the same slide order and transition system as raster media.</p>
+                </section>
+                <section>
+                    <h3>Raster</h3>
+                    <p>Raster loads PNG, JPG, or video files as rectangular dot targets. Each media file becomes a rectangle with corner anchors, edge paths, and a filled interior. Scale and offset position the media on the canvas.</p>
+                </section>
+                <section>
+                    <h3>Grid Masking</h3>
+                    <p>Grid Masking holds the vector and raster mask timing controls. Mask Expand grows the mask area outward, and Mask Scale Time controls how quickly masked dots shrink out or grow back during slide changes.</p>
+                </section>
+                <section>
+                    <h3>Advanced Options</h3>
+                    <p>Advanced Options groups Grid, Flicker, and Blink. Grid handles layout and grid-attract return behavior, Flicker shapes slide swaps, and Blink applies shared visibility timing across layers.</p>
+                </section>
+                <section>
+                    <h3>Grid</h3>
+                    <p>Grid sets columns, rows, spacing, and X/Y offset for the selected layer. Apply To All copies that layout to every active layer. Attract Time controls the between-slide return stage, and the remaining sliders shape how dots pull back into their grid homes before the next slide comes in.</p>
+                </section>
+                <section>
+                    <h3>Flicker</h3>
+                    <p>Flicker controls transition timing for both vector and raster slides. Hold Current pulls dots into the current slide, Move To Next sends dots toward the next slide, Return To Grid settles dots back into the grid, Duration controls flicker length, Old/New biases the swap, Speed controls flicker rate, On/Off controls visible ratio, and Wildness adds timing variation.</p>
                 </section>
                 <section>
                     <h3>Blink</h3>
                     <p>Blink applies shared visibility timing to the dot layers. On Period is visible time, Off Period is hidden time, Randomness varies the timing, and Probability selects how many dots participate.</p>
-                </section>
-                <section>
-                    <h3>SVG Slides</h3>
-                    <p>SVG Slides loads SVG artwork as dot targets. Scale and offset position the SVG on the canvas. SVG Mask hides dots whose grid homes sit inside or near painted SVG artwork. Mask Scale Time controls how masked dots scale down or back up during slide changes.</p>
-                </section>
-                <section>
-                    <h3>Media Slides</h3>
-                    <p>Media Slides loads PNG or JPG images, or a video sequence, as rectangular dot targets. Each media file becomes a rectangle with corner anchors, edge paths, and a filled interior. Scale and offset position the media on the canvas. Media Mask hides dots inside the media rectangle. Media slides and SVG slides share the same transition sequence and flicker timing.</p>
-                </section>
-                <section>
-                    <h3>Flicker</h3>
-                    <p>Flicker controls transition timing for both SVG and Image slides. Hold Current pulls dots into the current slide, Move To Next sends dots toward the next slide, Return To Grid settles dots back into the grid, Duration controls flicker length, Old/New biases the swap, Speed controls flicker rate, On/Off controls visible ratio, and Wildness adds timing variation.</p>
                 </section>
                 <section>
                     <h3>Background</h3>
@@ -308,10 +319,6 @@
                 <section>
                     <h3>Presets</h3>
                     <p>Add Preset saves the current settings and adds them to the preset list. The X removes the selected preset unless it is the last one. Export writes all presets to JSON. Import loads a saved preset file and replaces the current list.</p>
-                </section>
-                <section>
-                    <h3>View</h3>
-                    <p>View Scale changes preview zoom only. It does not resize the canvas or move grid/slide coordinates. Frame Cap limits animation FPS. Info Overlay shows live canvas and runtime data at the bottom of the screen.</p>
                 </section>
                 <div class="help-signature">R|||</div>
             </div>
@@ -338,7 +345,7 @@
 
         <!-- View Drawer -->
         <div class="drawer" id="drawer-view-options">
-            <button class="drawer-trigger" id="drawer-trigger-view-options">View</button>
+            <button class="drawer-trigger" id="drawer-trigger-view-options">View Options</button>
             <div class="drawer-content">
                 <div class="geometry-status view-status" id="view-status">Canvas 1280 x 720 · View 100%</div>
                 <div class="slider-group"><span>Zoom</span><input type="range" id="view-scale" min="25" max="200" value="100" step="1"><span class="val-indicator" id="val-view-scale">100</span></div>
