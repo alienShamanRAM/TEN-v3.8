@@ -1,6 +1,7 @@
 window.installTen26Hardening?.();
 // TEN26 UI event binding and render-loop startup.
 function bindEvents() {
+                setupDenseSizeSliders();
                 bindAllRangeDisplays();
                 setupRandomLockUi();
                 setupRandomRangeUi();
@@ -8,6 +9,19 @@ function bindEvents() {
                 applySliderTooltips();
                 applyNativeTooltips();
                 enableSliderValueEditing();
+                const headerLoadingSpinner = document.getElementById('header-loading-spinner');
+                let rightPanelLoadingCount = 0;
+                const syncRightPanelLoading = () => {
+                    headerLoadingSpinner?.classList.toggle('hidden-ui-node', rightPanelLoadingCount <= 0);
+                };
+                const setRightPanelLoading = active => {
+                    rightPanelLoadingCount = Math.max(0, rightPanelLoadingCount + (active ? 1 : -1));
+                    syncRightPanelLoading();
+                };
+                const trackRightPanelLoading = promise => {
+                    setRightPanelLoading(true);
+                    return Promise.resolve(promise).finally(() => setRightPanelLoading(false));
+                };
                 fullscreenEnterBtn.addEventListener('click', async () => {
                     try {
                         await document.documentElement.requestFullscreen();
@@ -164,7 +178,7 @@ function bindEvents() {
                     const selectedFiles = Array.from(event.target.files || []);
                     const selectedCount = selectedFiles.length;
                     const svgCount = selectedFiles.filter(file => file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)).length;
-                    loadSlideFiles(event.target.files).then(() => {
+                    trackRightPanelLoading(loadSlideFiles(event.target.files)).then(() => {
                         if (!selectedCount || typeof showUiToast !== 'function') return;
                         if (!svgCount || !slides.length) {
                             showUiToast('No slides loaded. Choose one or more SVG files.', 'warning');
@@ -184,7 +198,7 @@ function bindEvents() {
                     const selectedFiles = Array.from(event.target.files || []);
                     const imageCount = selectedFiles.filter(isSupportedImageFile).length;
                     const videoCount = selectedFiles.filter(isSupportedVideoFile).length;
-                    loadMediaSlideFiles(event.target.files).then(() => {
+                    trackRightPanelLoading(loadMediaSlideFiles(event.target.files)).then(() => {
                         if (!selectedFiles.length || typeof showUiToast !== 'function') return;
                         if (!imageCount && !videoCount) {
                             showUiToast('No supported media. Choose PNG, JPG, MP4, WebM, or MOV files.', 'warning');
@@ -266,6 +280,14 @@ function bindEvents() {
                     event.stopPropagation();
                     randomizeAllMotionLayers();
                 });
+                motionLayerControls.copyAbove?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    addLayerRelative('above', activeLayerKey);
+                });
+                motionLayerControls.copyBelow?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    addLayerRelative('below', activeLayerKey);
+                });
                 svgMediaStackControls.moveUp?.addEventListener('click', event => {
                     event.stopPropagation();
                     moveSvgMediaStack(-1);
@@ -309,7 +331,8 @@ function bindEvents() {
                         if (event.target.closest('button, input, select, textarea, label')) return;
                         toggleLayerDrawer();
                     });
-                    controls.toggle?.addEventListener('click', () => {
+                    controls.toggle?.addEventListener('click', event => {
+                        event.stopPropagation();
                         setLayerVisibility(layerKey, !dotLayerStates[layerKey].hidden);
                     });
                     controls.randomize?.addEventListener('click', event => {
@@ -326,6 +349,10 @@ function bindEvents() {
                         event.stopPropagation();
                         unlockMotionLayer(layerKey);
                     });
+                    controls.lock?.addEventListener('click', event => {
+                        event.stopPropagation();
+                        lockMotionLayer(layerKey);
+                    });
                     controls.reset?.addEventListener('click', event => {
                         event.stopPropagation();
                         resetMotionLayerRanges(layerKey);
@@ -341,14 +368,6 @@ function bindEvents() {
                     controls.moveDown?.addEventListener('click', event => {
                         event.stopPropagation();
                         moveLayer(layerKey, 1);
-                    });
-                    controls.copyAbove?.addEventListener('click', event => {
-                        event.stopPropagation();
-                        addLayerRelative('above', layerKey);
-                    });
-                    controls.copyBelow?.addEventListener('click', event => {
-                        event.stopPropagation();
-                        addLayerRelative('below', layerKey);
                     });
                     controls.trigger?.addEventListener('dblclick', event => {
                         if (!event.target.closest('.motion-layer-name')) return;
@@ -376,19 +395,6 @@ function bindEvents() {
                             if (activeLayerKey !== layerKey) switchActiveLayer(layerKey);
                         });
                     });
-                });
-
-                autoControls.randomize?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    randomizeFlickerMorph();
-                });
-                autoControls.unlock?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    unlockFlickerMorph();
-                });
-                autoControls.reset?.addEventListener('click', event => {
-                    event.stopPropagation();
-                    resetFlickerRandomRanges();
                 });
 
                 maskControls.enabled.addEventListener('change', () => {
@@ -426,6 +432,10 @@ function bindEvents() {
 
                 imageControls.file.addEventListener('change', event => {
                     const file = event.target.files[0];
+                    if (file) {
+                        setRightPanelLoading(true);
+                        window.setTimeout(() => setRightPanelLoading(false), 180);
+                    }
                     loadImageFile(file);
                     if (file && typeof showUiToast === 'function') {
                         const supported = /^image\/(png|jpeg)$/.test(file.type) || /\.(png|jpe?g)$/i.test(file.name);

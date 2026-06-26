@@ -198,6 +198,11 @@ const viewport = document.getElementById('canvas-viewport');
                 randomize.id = `motion-randomize-text-${layerKey}`;
                 randomize.type = 'button';
                 randomize.textContent = 'Random';
+                const lock = document.createElement('button');
+                lock.className = 'preset-action-btn';
+                lock.id = `motion-lock-${layerKey}`;
+                lock.type = 'button';
+                lock.textContent = 'Lock';
                 const unlock = document.createElement('button');
                 unlock.className = 'preset-action-btn';
                 unlock.id = `motion-unlock-${layerKey}`;
@@ -208,7 +213,7 @@ const viewport = document.getElementById('canvas-viewport');
                 reset.id = `motion-reset-${layerKey}`;
                 reset.type = 'button';
                 reset.textContent = 'Reset';
-                actions.append(randomize, unlock, reset);
+                actions.append(randomize, lock, unlock, reset);
                 content.appendChild(actions);
 
                 drawer.append(header, content);
@@ -286,13 +291,6 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function installRightPanelDrawers() {
-                const advancedDrawer = document.getElementById('drawer-grid');
-                const advancedContent = advancedDrawer?.querySelector('.drawer-content');
-                const blinkDrawer = document.getElementById('drawer-blink-mode');
-                if (advancedContent && blinkDrawer && blinkDrawer.parentElement !== advancedContent) {
-                    advancedContent.appendChild(blinkDrawer);
-                    blinkDrawer.classList.add('sub-drawer');
-                }
                 gridControlPanel?.classList.add('minimized', 'retired-panel');
             }
 
@@ -482,25 +480,9 @@ const viewport = document.getElementById('canvas-viewport');
                     });
                     if (reorderActions.children.length) header.appendChild(reorderActions);
 
-                    const copyActions = document.createElement('div');
-                    copyActions.className = 'motion-layer-copy-actions';
-                    [
-                        ['above', 'Copy above this grid layer', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12v2H6V5Zm6 3 6 9H6l6-9Z"/></svg>'],
-                        ['below', 'Copy below this grid layer', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6 6 15h12l-6-9Zm-6 11h12v2H6v-2Z"/></svg>']
-                    ].forEach(([position, title, icon]) => {
-                        const button = document.createElement('button');
-                        button.type = 'button';
-                        button.id = `motion-copy-${position}-${layerKey}`;
-                        button.className = 'motion-layer-icon-btn motion-layer-copy-btn';
-                        button.innerHTML = icon;
-                        setNativeTooltip(button, title);
-                        copyActions.appendChild(button);
-                    });
-                    header.appendChild(copyActions);
-
                     const actions = document.createElement('div');
                     actions.className = 'motion-layer-actions';
-                    ['randomize-text', 'unlock', 'reset'].forEach(actionKey => {
+                    ['randomize-text', 'lock', 'unlock', 'reset'].forEach(actionKey => {
                         let button = document.getElementById(`motion-${actionKey}-${layerKey}`);
                         if (!button && actionKey === 'reset') {
                             button = document.createElement('button');
@@ -512,7 +494,11 @@ const viewport = document.getElementById('canvas-viewport');
                         if (!button) return;
                         button.classList.add('preset-action-btn', 'motion-layer-text-action');
                         button.classList.remove('pink-action');
-                        button.textContent = actionKey === 'randomize-text' ? 'Random' : (actionKey === 'unlock' ? 'Unlock' : 'Reset');
+                        button.textContent = actionKey === 'randomize-text'
+                            ? 'Random'
+                            : (actionKey === 'lock'
+                                ? 'Lock'
+                                : (actionKey === 'unlock' ? 'Unlock' : 'Reset'));
                         actions.appendChild(button);
                     });
                     const deleteButton = document.createElement('button');
@@ -521,8 +507,8 @@ const viewport = document.getElementById('canvas-viewport');
                     deleteButton.className = 'motion-layer-icon-btn motion-layer-delete-btn';
                     deleteButton.textContent = 'X';
                     setNativeTooltip(deleteButton, 'Delete layer.');
-                    actions.appendChild(deleteButton);
                     if (actions.children.length) header.appendChild(actions);
+                    header.appendChild(deleteButton);
 
                     content.querySelectorAll('.drawer-bottom-actions').forEach(node => {
                         if (!node.children.length) node.remove();
@@ -639,6 +625,8 @@ const viewport = document.getElementById('canvas-viewport');
                 openAll: document.getElementById('matrix-open-all'),
                 collapseAll: document.getElementById('matrix-collapse-all'),
                 randomizeAll: document.getElementById('matrix-randomize-all'),
+                copyAbove: document.getElementById('matrix-copy-above'),
+                copyBelow: document.getElementById('matrix-copy-below'),
                 status: document.getElementById('matrix-status'),
                 layers: ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
                     acc[layerKey] = {
@@ -647,13 +635,12 @@ const viewport = document.getElementById('canvas-viewport');
                         toggle: document.getElementById(`motion-toggle-layer-${layerKey}`),
                         randomize: document.getElementById(`motion-randomize-${layerKey}`),
                         randomizeText: document.getElementById(`motion-randomize-text-${layerKey}`),
+                        lock: document.getElementById(`motion-lock-${layerKey}`),
                         unlock: document.getElementById(`motion-unlock-${layerKey}`),
                         reset: document.getElementById(`motion-reset-${layerKey}`),
                         deleteLayer: document.getElementById(`motion-delete-${layerKey}`),
                         moveUp: document.getElementById(`motion-move-up-${layerKey}`),
                         moveDown: document.getElementById(`motion-move-down-${layerKey}`),
-                        copyAbove: document.getElementById(`motion-copy-above-${layerKey}`),
-                        copyBelow: document.getElementById(`motion-copy-below-${layerKey}`),
                         status: document.getElementById(`motion-status-${layerKey}`),
                         targetType: document.getElementById(`dot-${layerKey}-target-type`),
                         blendMode: document.getElementById(`dot-${layerKey}-blend-mode`),
@@ -695,9 +682,6 @@ const viewport = document.getElementById('canvas-viewport');
                 visibilityRandomness: document.getElementById('blink-visibility-randomness'),
                 visibilityProbability: document.getElementById('blink-visibility-probability'),
                 gridProximity: document.getElementById('blink-grid-proximity'),
-                randomize: document.getElementById('blink-randomize-btn'),
-                unlock: document.getElementById('blink-unlock-btn'),
-                reset: document.getElementById('blink-reset-btn'),
                 status: document.getElementById('blink-status')
             };
             let morphControls = motionLayerControls.layers[DEFAULT_LAYER_KEY];
@@ -817,9 +801,6 @@ const viewport = document.getElementById('canvas-viewport');
 
             const autoControls = {
                 status: document.getElementById('auto-transition-status'),
-                randomize: document.getElementById('flicker-randomize-btn'),
-                unlock: document.getElementById('flicker-unlock-btn'),
-                reset: document.getElementById('flicker-reset-btn'),
                 currentTime: document.getElementById('transition-current-time'),
                 travelTime: document.getElementById('transition-travel-time'),
                 gridTime: document.getElementById('transition-grid-time'),
@@ -874,7 +855,82 @@ const viewport = document.getElementById('canvas-viewport');
             ));
 
             const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-            const read = input => parseFloat(input.value);
+            const DENSE_SIZE_MIN = 1;
+            const DENSE_SIZE_CENTER = 4;
+            const DENSE_SIZE_MAX = 100;
+            const DENSE_SIZE_UI_CENTER = 50;
+
+            function isDenseSizeSlider(control) {
+                const id = control?.id || '';
+                return control?.type === 'range' &&
+                    (/^dot-.+-(grid|mid|target)-size$/.test(id) || /^grid-attract-(grid|mid|target)-size$/.test(id));
+            }
+
+            function denseSizeActualToUi(value) {
+                const numeric = clamp(parseFloat(value), DENSE_SIZE_MIN, DENSE_SIZE_MAX);
+                if (numeric <= DENSE_SIZE_CENTER) {
+                    return ((numeric - DENSE_SIZE_MIN) / (DENSE_SIZE_CENTER - DENSE_SIZE_MIN)) * DENSE_SIZE_UI_CENTER;
+                }
+                return DENSE_SIZE_UI_CENTER +
+                    ((numeric - DENSE_SIZE_CENTER) / (DENSE_SIZE_MAX - DENSE_SIZE_CENTER)) * DENSE_SIZE_UI_CENTER;
+            }
+
+            function denseSizeUiToActual(value) {
+                const numeric = clamp(parseFloat(value), 0, 100);
+                if (numeric <= DENSE_SIZE_UI_CENTER) {
+                    return DENSE_SIZE_MIN +
+                        (numeric / DENSE_SIZE_UI_CENTER) * (DENSE_SIZE_CENTER - DENSE_SIZE_MIN);
+                }
+                return DENSE_SIZE_CENTER +
+                    ((numeric - DENSE_SIZE_UI_CENTER) / DENSE_SIZE_UI_CENTER) * (DENSE_SIZE_MAX - DENSE_SIZE_CENTER);
+            }
+
+            function formatDenseSizeValue(value) {
+                const numeric = clamp(parseFloat(value), DENSE_SIZE_MIN, DENSE_SIZE_MAX);
+                const precision = numeric < 10 ? 1 : 0;
+                return String(Number(numeric.toFixed(precision)));
+            }
+
+            function getControlValue(control) {
+                if (!control) return '';
+                if (isDenseSizeSlider(control) && control.dataset.denseSizeScale === 'true') {
+                    const stored = parseFloat(control.dataset.actualValue);
+                    if (Number.isFinite(stored)) return formatDenseSizeValue(stored);
+                    return formatDenseSizeValue(denseSizeUiToActual(control.value));
+                }
+                return control.value;
+            }
+
+            function setDenseSizeControlValue(control, value) {
+                if (!control) return;
+                const actual = clamp(readStateFloat(value, DENSE_SIZE_CENTER), DENSE_SIZE_MIN, DENSE_SIZE_MAX);
+                control.dataset.actualValue = formatDenseSizeValue(actual);
+                control.value = String(Number(denseSizeActualToUi(actual).toFixed(3)));
+                control.setAttribute('aria-valuemin', String(DENSE_SIZE_MIN));
+                control.setAttribute('aria-valuemax', String(DENSE_SIZE_MAX));
+                control.setAttribute('aria-valuenow', control.dataset.actualValue);
+            }
+
+            function setupDenseSizeSliders() {
+                document.querySelectorAll('input[type="range"]').forEach(control => {
+                    if (!isDenseSizeSlider(control) || control.dataset.denseSizeScale === 'true') return;
+                    const actual = control.value || control.getAttribute('value') || String(DENSE_SIZE_CENTER);
+                    control.dataset.denseSizeScale = 'true';
+                    control.dataset.actualMin = String(DENSE_SIZE_MIN);
+                    control.dataset.actualCenter = String(DENSE_SIZE_CENTER);
+                    control.dataset.actualMax = String(DENSE_SIZE_MAX);
+                    control.min = '0';
+                    control.max = '100';
+                    control.step = '0.5';
+                    setDenseSizeControlValue(control, actual);
+                    control.addEventListener('input', () => {
+                        control.dataset.actualValue = formatDenseSizeValue(denseSizeUiToActual(control.value));
+                        control.setAttribute('aria-valuenow', control.dataset.actualValue);
+                    });
+                });
+            }
+
+            const read = input => parseFloat(getControlValue(input));
             const readInt = input => parseInt(input.value, 10);
             const readStateFloat = (value, fallback) => {
                 const parsed = parseFloat(value);
@@ -1200,7 +1256,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const indicator = document.getElementById(valueIdAliases[slider.id] || `val-${slider.id}`);
                 if (!indicator) return;
                 const suffix = slider.id.includes('opacity') || slider.id === 'slide-scale' || slider.id === 'image-slide-scale' || slider.id === 'view-scale' ? '%' : '';
-                indicator.textContent = slider.value + suffix;
+                indicator.textContent = getControlValue(slider) + suffix;
                 indicator.dataset.prevValue = indicator.textContent;
             }
 
@@ -1336,14 +1392,10 @@ const viewport = document.getElementById('canvas-viewport');
                 'matrix-open-all': 'Expand all grid-layer drawers.',
                 'matrix-collapse-all': 'Collapse all grid-layer drawers.',
                 'matrix-randomize-all': 'Randomize unlocked values across all grid layers.',
+                'matrix-copy-above': 'Copy the selected grid layer above its current position.',
+                'matrix-copy-below': 'Copy the selected grid layer below its current position.',
                 'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
                 'svg-media-stack-down': 'Move SVG/media below the next grid layer.',
-                'blink-randomize-btn': 'Randomize unlocked blink timing values.',
-                'blink-unlock-btn': 'Unlock all blink timing values.',
-                'blink-reset-btn': 'Reset blink randomization limits.',
-                'flicker-randomize-btn': 'Randomize unlocked flicker values.',
-                'flicker-unlock-btn': 'Unlock all flicker values.',
-                'flicker-reset-btn': 'Reset flicker randomization limits.',
                 'grid-apply-all': 'Apply the selected grid layout to every active layer.',
                 'preset-apply-btn': 'Apply the selected full-scene preset to the canvas.',
                 'preset-add-btn': 'Save the current settings as a new preset.',
@@ -1392,6 +1444,7 @@ const viewport = document.getElementById('canvas-viewport');
                 CONTROL_TOOLTIPS[`motion-toggle-layer-${layerKey}`] = `Show or hide the ${label} grid layer.`;
                 CONTROL_TOOLTIPS[`motion-randomize-${layerKey}`] = `${label}: randomize unlocked motion values.`;
                 CONTROL_TOOLTIPS[`motion-randomize-text-${layerKey}`] = `${label}: randomize unlocked motion values.`;
+                CONTROL_TOOLTIPS[`motion-lock-${layerKey}`] = `${label}: lock all motion values for randomize.`;
                 CONTROL_TOOLTIPS[`motion-unlock-${layerKey}`] = `${label}: unlock all motion values.`;
                 CONTROL_TOOLTIPS[`motion-reset-${layerKey}`] = `${label}: reset randomization limits.`;
                 CONTROL_TOOLTIPS[`motion-delete-${layerKey}`] = `${label}: delete this layer.`;
@@ -1646,13 +1699,10 @@ const viewport = document.getElementById('canvas-viewport');
                         const raw = indicator.textContent.replace(/[^0-9.\-]/g, '').trim();
                         let value = parseFloat(raw);
                         if (Number.isNaN(value)) {
-                            indicator.textContent = indicator.dataset.prevValue || slider.value;
+                            indicator.textContent = indicator.dataset.prevValue || getControlValue(slider);
                         } else {
-                            const min = parseFloat(slider.min);
-                            const max = parseFloat(slider.max);
-                            const step = parseFloat(slider.step) || 1;
-                            value = Math.round(value / step) * step;
-                            slider.value = clamp(value, min, max);
+                            value = snapControlNumber(slider, value);
+                            setControlValue(slider, value);
                             slider.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                         indicator.contentEditable = 'false';
@@ -1815,10 +1865,10 @@ const viewport = document.getElementById('canvas-viewport');
                     const controls = motionLayerControls.layers[layerKey];
                     setButtonActionable(controls?.moveUp, index > 0);
                     setButtonActionable(controls?.moveDown, index < DOT_LAYER_KEYS.length - 1);
-                    setButtonActionable(controls?.copyAbove, canAdd);
-                    setButtonActionable(controls?.copyBelow, canAdd);
                     setButtonActionable(controls?.deleteLayer, DOT_LAYER_KEYS.length > 1);
                 });
+                setButtonActionable(motionLayerControls.copyAbove, canAdd);
+                setButtonActionable(motionLayerControls.copyBelow, canAdd);
                 setButtonActionable(svgMediaStackControls.moveUp, svgMediaStackIndex > 0);
                 setButtonActionable(svgMediaStackControls.moveDown, svgMediaStackIndex < DOT_LAYER_KEYS.length);
                 applyVisualStackOrder();
@@ -2022,7 +2072,7 @@ const viewport = document.getElementById('canvas-viewport');
 
             function getGridAttractOverrideStateFromControls() {
                 return GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.reduce((acc, [stateKey, controlKey]) => {
-                    acc[stateKey] = autoControls[controlKey]?.value || '';
+                    acc[stateKey] = getControlValue(autoControls[controlKey]) || '';
                     return acc;
                 }, {});
             }
@@ -2038,7 +2088,7 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!config) return config;
                 const next = { ...config };
                 GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.forEach(([stateKey, controlKey, min, max, fallback]) => {
-                    next[stateKey] = clamp(readStateFloat(autoControls[controlKey]?.value, fallback), min, max);
+                    next[stateKey] = clamp(readStateFloat(getControlValue(autoControls[controlKey]), fallback), min, max);
                 });
                 next.gridRgb = hexToRgb(next.gridColor);
                 next.midRgb = hexToRgb(next.midColor);
@@ -2068,7 +2118,11 @@ const viewport = document.getElementById('canvas-viewport');
 
             function setControlValue(control, value) {
                 if (!control) return;
-                control.value = value;
+                if (isDenseSizeSlider(control) && control.dataset.denseSizeScale === 'true') {
+                    setDenseSizeControlValue(control, value);
+                } else {
+                    control.value = value;
+                }
                 if (control.type === 'range') updateRangeIndicator(control);
                 if (control.type === 'range') syncRandomRangeVisual(control);
             }
@@ -2088,11 +2142,17 @@ const viewport = document.getElementById('canvas-viewport');
             function isRandomizableRangeControl(control) {
                 return !!control?.id &&
                     control.type === 'range' &&
-                    (control.id === 'slide-grid-attract-time' ||
-                        !!control.closest('#motion-matrix-panel .motion-layer-content, #drawer-blink-mode, #drawer-auto-transition, #drawer-slide-grid-advanced'));
+                    !!control.closest('#motion-matrix-panel .motion-layer-content, #grid-attract-controls');
             }
 
             function getRangeBounds(control) {
+                if (isDenseSizeSlider(control) && control.dataset.denseSizeScale === 'true') {
+                    return {
+                        min: DENSE_SIZE_MIN,
+                        max: DENSE_SIZE_MAX,
+                        step: 0.1
+                    };
+                }
                 const min = parseFloat(control.min);
                 const max = parseFloat(control.max);
                 const step = parseFloat(control.step) || 1;
@@ -2129,7 +2189,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const id = getRandomRangeId(control);
                 const { min, max } = getRangeBounds(control);
                 const stored = randomRangeControlState[id] || getDefaultRandomRange(control);
-                let value = snapControlNumber(control, control.value);
+                let value = snapControlNumber(control, getControlValue(control));
                 let randomMin = snapControlNumber(control, stored.randomMin);
                 let randomMax = snapControlNumber(control, stored.randomMax);
                 randomMin = clamp(randomMin, min, max);
@@ -2141,7 +2201,7 @@ const viewport = document.getElementById('canvas-viewport');
                 }
                 if (clampValue) {
                     value = snapControlNumber(control, clamp(value, randomMin, randomMax));
-                    control.value = formatControlNumber(control, value);
+                    setControlValue(control, formatControlNumber(control, value));
                     updateRangeIndicator(control);
                 } else {
                     value = snapControlNumber(control, clamp(value, min, max));
@@ -2157,6 +2217,13 @@ const viewport = document.getElementById('canvas-viewport');
                 return clamp(((value - min) / (max - min)) * 100, 0, 100);
             }
 
+            function getControlRangePercent(control, value, min, max) {
+                if (isDenseSizeSlider(control) && control.dataset.denseSizeScale === 'true') {
+                    return denseSizeActualToUi(value);
+                }
+                return getRangePercent(value, min, max);
+            }
+
             function syncRandomRangeVisual(control) {
                 if (!isRandomizableRangeControl(control) || !control.dataset.randomRangeInstalled) return;
                 const range = normalizeRandomRangeControl(control);
@@ -2164,9 +2231,9 @@ const viewport = document.getElementById('canvas-viewport');
                 const wrap = control.closest('.random-range-wrap');
                 const group = control.closest('.slider-group');
                 if (!wrap) return;
-                const minPct = getRangePercent(range.randomMin, range.min, range.max);
-                const valuePct = getRangePercent(range.value, range.min, range.max);
-                const maxPct = getRangePercent(range.randomMax, range.min, range.max);
+                const minPct = getControlRangePercent(control, range.randomMin, range.min, range.max);
+                const valuePct = getControlRangePercent(control, range.value, range.min, range.max);
+                const maxPct = getControlRangePercent(control, range.randomMax, range.min, range.max);
                 wrap.style.setProperty('--random-min-pct', `${minPct}%`);
                 wrap.style.setProperty('--random-value-pct', `${valuePct}%`);
                 wrap.style.setProperty('--random-max-pct', `${maxPct}%`);
@@ -2178,7 +2245,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setRandomRangeLimit(control, side, value) {
-                const current = snapControlNumber(control, control.value);
+                const current = snapControlNumber(control, getControlValue(control));
                 const existing = normalizeRandomRangeControl(control) || getDefaultRandomRange(control);
                 const { min, max } = getRangeBounds(control);
                 const nextValue = snapControlNumber(control, value);
@@ -2200,6 +2267,9 @@ const viewport = document.getElementById('canvas-viewport');
                 const rect = wrap.getBoundingClientRect();
                 const { min, max } = getRangeBounds(control);
                 const percent = rect.width ? clamp((event.clientX - rect.left) / rect.width, 0, 1) : 0;
+                if (isDenseSizeSlider(control) && control.dataset.denseSizeScale === 'true') {
+                    return snapControlNumber(control, denseSizeUiToActual(percent * 100));
+                }
                 return snapControlNumber(control, min + percent * (max - min));
             }
 
@@ -2282,7 +2352,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setupRandomRangeUi() {
-                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"], #slide-grid-attract-time, #drawer-slide-grid-advanced .slider-group input[type="range"]').forEach(setupRandomRangeControl);
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #grid-attract-controls .slider-group input[type="range"]').forEach(setupRandomRangeControl);
             }
 
             function getRandomRangeState() {
@@ -2386,21 +2456,6 @@ const viewport = document.getElementById('canvas-viewport');
                 return BLINK_RANDOM_CONTROL_KEYS.map(key => blinkControls[key]).filter(Boolean);
             }
 
-            function getFlickerRandomControls() {
-                return [
-                    autoControls.currentTime,
-                    autoControls.travelTime,
-                    autoControls.gridTime,
-                    autoControls.gridAttractTime,
-                    ...GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.map(([, controlKey]) => autoControls[controlKey]),
-                    autoControls.flickerTime,
-                    autoControls.flickerBias,
-                    autoControls.flickerSpeed,
-                    autoControls.flickerBalance,
-                    autoControls.flickerWildness
-                ].filter(Boolean);
-            }
-
             function updateRandomLockButtons() {
                 document.querySelectorAll('.value-lock-btn[data-lock-control]').forEach(button => {
                     const control = document.getElementById(button.dataset.lockControl);
@@ -2416,6 +2471,10 @@ const viewport = document.getElementById('canvas-viewport');
                     if (controls.randomizeText) {
                         controls.randomizeText.textContent = 'Random';
                         setNativeTooltip(controls.randomizeText, `Randomize ${label}`);
+                    }
+                    if (controls.lock) {
+                        controls.lock.textContent = 'Lock';
+                        setNativeTooltip(controls.lock, `Lock ${label}`);
                     }
                     if (controls.unlock) {
                         controls.unlock.textContent = 'Unlock';
@@ -2452,7 +2511,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setupRandomLockUi() {
-                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #drawer-blink-mode .slider-group input[type="range"], #drawer-auto-transition .slider-group input[type="range"], #slide-grid-attract-time, #drawer-slide-grid-advanced .slider-group input[type="range"]').forEach(control => {
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #grid-attract-controls .slider-group input[type="range"]').forEach(control => {
                     const label = control.closest('.slider-group')?.querySelector('span')?.textContent?.trim() || control.id;
                     addRandomLockButton(control, label);
                 });
@@ -2503,14 +2562,14 @@ const viewport = document.getElementById('canvas-viewport');
                 DOT_LAYER_KEYS.forEach(layerKey => {
                     const randomControls = getMotionRandomControls(layerKey);
                     const controls = getMotionLayerControls(layerKey);
+                    setButtonActionable(controls.lock, randomControls.some(control => !isControlRandomLocked(control)));
                     setButtonActionable(controls.unlock, hasLockedControls(randomControls));
                     setButtonActionable(controls.reset, hasCustomRandomRangeControls(randomControls));
                 });
-                setButtonActionable(blinkControls.unlock, hasLockedControls(getBlinkRandomControls()));
-                setButtonActionable(blinkControls.reset, hasCustomRandomRangeControls(getBlinkRandomControls()));
-                setButtonActionable(autoControls.unlock, hasLockedControls(getFlickerRandomControls()));
-                setButtonActionable(autoControls.reset, hasCustomRandomRangeControls(getFlickerRandomControls()));
 
+                const canAdd = DOT_LAYER_KEYS.length < ALL_DOT_LAYER_KEYS.length;
+                setButtonActionable(motionLayerControls.copyAbove, canAdd);
+                setButtonActionable(motionLayerControls.copyBelow, canAdd);
                 const activeLayout = dotLayerStates[activeLayerKey] || {};
                 const needsGridCopy = DOT_LAYER_KEYS.some(layerKey => layerKey !== activeLayerKey && !sameGridLayout(activeLayout, dotLayerStates[layerKey]));
                 setButtonActionable(gridControls.applyAll, needsGridCopy);
@@ -2552,6 +2611,12 @@ const viewport = document.getElementById('canvas-viewport');
                 if (blinkControls.status) blinkControls.status.textContent = 'Blink randomized for all visible grid layers. Locked values were skipped.';
             }
 
+            function lockMotionLayer(layerKey) {
+                getMotionRandomControls(layerKey).forEach(control => setControlRandomLocked(control, true));
+                updateRandomLockButtons();
+                if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} values locked.`;
+            }
+
             function unlockMotionLayer(layerKey) {
                 getMotionRandomControls(layerKey).forEach(control => setControlRandomLocked(control, false));
                 updateRandomLockButtons();
@@ -2573,22 +2638,6 @@ const viewport = document.getElementById('canvas-viewport');
             function resetBlinkRandomRanges() {
                 resetRandomRangeControls(getBlinkRandomControls());
                 if (blinkControls.status) blinkControls.status.textContent = 'Blink randomization limits reset.';
-            }
-
-            function randomizeFlickerMorph() {
-                getFlickerRandomControls().forEach(randomizeSliderControl);
-                if (autoControls.status) autoControls.status.textContent = 'Flicker randomized. Locked values were skipped.';
-            }
-
-            function unlockFlickerMorph() {
-                getFlickerRandomControls().forEach(control => setControlRandomLocked(control, false));
-                updateRandomLockButtons();
-                if (autoControls.status) autoControls.status.textContent = 'Flicker values unlocked.';
-            }
-
-            function resetFlickerRandomRanges() {
-                resetRandomRangeControls(getFlickerRandomControls());
-                if (autoControls.status) autoControls.status.textContent = 'Flicker randomization limits reset.';
             }
 
             function getGridLayerStateFromControls(layerKey) {
@@ -2697,9 +2746,9 @@ const viewport = document.getElementById('canvas-viewport');
                     orbit: controls.orbit?.value || current.orbit,
                     shuffle: controls.shuffle?.value || current.shuffle,
                     variation: controls.variation?.value || current.variation,
-                    gridSize: controls.gridSize?.value || current.gridSize,
-                    midSize: controls.midSize?.value || current.midSize,
-                    targetSize: controls.targetSize?.value || current.targetSize,
+                    gridSize: getControlValue(controls.gridSize) || current.gridSize,
+                    midSize: getControlValue(controls.midSize) || current.midSize,
+                    targetSize: getControlValue(controls.targetSize) || current.targetSize,
                     sizeMidpoint: controls.sizeMidpoint?.value || current.sizeMidpoint,
                     speedSize: controls.speedSize?.value || current.speedSize,
                     colorMidpoint: '0.5',

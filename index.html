@@ -41,13 +41,17 @@
                 </button>
             </div>
             <div class="header-utility">
+                <span class="header-loading-spinner hidden-ui-node" id="header-loading-spinner" aria-hidden="true"></span>
                 <button class="minimize-btn" id="minimize-btn" title="Hide controls">✕</button>
             </div>
+        </div>
+        <div class="panel-slide-strip" id="panel-slide-strip">
+            <div class="slide-button-grid" id="slide-button-grid" aria-label="Slide navigation buttons"></div>
         </div>
 
         <!-- Grid Layers Drawer -->
         <div class="drawer" id="drawer-dot-matrix" data-left-panel="motion">
-            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Grid Layers</button>
+            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Layers</button>
             <div class="drawer-content">
                 <div class="matrix-action-row">
                     <button class="preset-action-btn" id="matrix-open-all" type="button">Expand</button>
@@ -55,6 +59,10 @@
                 </div>
                 <div class="matrix-action-row">
                     <button class="preset-action-btn pink-action matrix-full-action" id="matrix-randomize-all" type="button">Random</button>
+                </div>
+                <div class="matrix-action-row">
+                    <button class="preset-action-btn" id="matrix-copy-above" type="button">Copy Above</button>
+                    <button class="preset-action-btn" id="matrix-copy-below" type="button">Copy Below</button>
                 </div>
                 <div class="geometry-status" id="matrix-status">Grid layer controls open beside this drawer.</div>
             </div>
@@ -76,18 +84,13 @@
                 <div class="slider-group"><span>Randomness</span><input type="range" id="blink-visibility-randomness" min="0" max="100" value="100" step="1"><span class="val-indicator" id="val-blink-visibility-randomness">100</span></div>
                 <div class="slider-group"><span>Probability</span><input type="range" id="blink-visibility-probability" min="0" max="100" value="70" step="1"><span class="val-indicator" id="val-blink-visibility-probability">70</span></div>
                 <div class="slider-group"><span>Grid Start</span><input type="range" id="blink-grid-proximity" min="0" max="240" value="0" step="1"><span class="val-indicator" id="val-blink-grid-proximity">0</span></div>
-                <div class="drawer-bottom-actions">
-                    <button class="preset-action-btn pink-action" id="blink-randomize-btn" type="button">Random</button>
-                    <button class="preset-action-btn" id="blink-unlock-btn" type="button">Unlock</button>
-                    <button class="preset-action-btn" id="blink-reset-btn" type="button">Reset</button>
-                </div>
                 <div class="geometry-status" id="blink-status">Blink hides and reveals the same dot index across all visible grid layers.</div>
             </div>
         </div>
 
         <!-- SVG Slides Drawer -->
         <div class="drawer" id="drawer-slides">
-            <button class="drawer-trigger" id="drawer-trigger-slides">SVG</button>
+            <button class="drawer-trigger" id="drawer-trigger-slides">Vector</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
@@ -113,7 +116,7 @@
 
         <!-- Media Slides Drawer -->
         <div class="drawer collapsed" id="drawer-image-slides">
-            <button class="drawer-trigger" id="drawer-trigger-image-slides">Media</button>
+            <button class="drawer-trigger" id="drawer-trigger-image-slides">Raster</button>
             <div class="drawer-content">
                 <div class="layer-control-row">
                     <div class="file-upload-wrapper">
@@ -146,9 +149,30 @@
 
         <!-- Grid Drawer -->
         <div class="drawer" id="drawer-grid">
-            <button class="drawer-trigger" id="drawer-trigger-grid">Advanced</button>
+            <button class="drawer-trigger" id="drawer-trigger-grid">Grid</button>
             <div class="drawer-content">
                 <button class="preset-action-btn drawer-wide-action" id="grid-apply-all" type="button">Apply To All</button>
+                <div class="grid-attract-controls" id="grid-attract-controls">
+                    <div class="slider-group"><span>Grid Attract</span><input type="range" id="slide-grid-attract-time" min="0" max="8" value="0.6" step="0.05"><span class="val-indicator" id="val-slide-grid-attract-time">0.6</span></div>
+                    <div class="drawer sub-drawer collapsed" id="drawer-slide-grid-advanced">
+                        <button class="drawer-trigger" id="drawer-trigger-slide-grid-advanced" type="button">Advanced</button>
+                        <div class="drawer-content slide-grid-advanced-controls">
+                            <div class="slider-group"><span>Grid Pull</span><input type="range" id="grid-attract-return-pull" min="0.1" max="1" value="0.38" step="0.01"><span class="val-indicator" id="val-grid-attract-return-pull">0.38</span></div>
+                            <div class="slider-group"><span>Grid Reach</span><input type="range" id="grid-attract-grid-radius" min="100" max="1000" value="1000" step="10"><span class="val-indicator" id="val-grid-attract-grid-radius">1000</span></div>
+                            <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
+                            <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
+                            <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
+                            <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
+                            <div class="slider-group"><span>Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
+                            <div class="slider-group"><span>Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
+                            <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
+                            <div class="slider-group"><span>Grid Size</span><input type="range" id="grid-attract-grid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-grid-size">2.5</span></div>
+                            <div class="slider-group"><span>Mid Size</span><input type="range" id="grid-attract-mid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-mid-size">2.5</span></div>
+                            <div class="slider-group"><span>Target Size</span><input type="range" id="grid-attract-target-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-target-size">2.5</span></div>
+                            <div class="slider-group"><span>Speed Size</span><input type="range" id="grid-attract-speed-size" min="-10" max="10" value="0" step="0.1" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="geometry-status" id="grid-layout-status">Grid setup active.</div>
             </div>
         </div>
@@ -166,11 +190,6 @@
                 <div class="slider-group"><span>Speed</span><input type="range" id="transition-flicker-speed" min="1" max="30" value="10" step="0.5"><span class="val-indicator" id="val-transition-flicker-speed">10</span></div>
                 <div class="slider-group"><span>On/Off</span><input type="range" id="transition-flicker-balance" min="10" max="90" value="75" step="1"><span class="val-indicator" id="val-transition-flicker-balance">75</span></div>
                 <div class="slider-group"><span>Wildness</span><input type="range" id="transition-flicker-wildness" min="0" max="100" value="100" step="1"><span class="val-indicator" id="val-transition-flicker-wildness">100</span></div>
-                <div class="drawer-bottom-actions">
-                    <button class="preset-action-btn pink-action" id="flicker-randomize-btn" type="button">Random</button>
-                    <button class="preset-action-btn" id="flicker-unlock-btn" type="button">Unlock</button>
-                    <button class="preset-action-btn" id="flicker-reset-btn" type="button">Reset</button>
-                </div>
             </div>
         </div>
 
@@ -308,33 +327,6 @@
                     <input type="file" class="file-input" id="preset-import-file" accept=".json,application/json">
                 </div>
                 <div class="geometry-status" id="preset-status">Presets loaded. Add, export, import, or remove any preset except the last one.</div>
-            </div>
-        </div>
-
-        <!-- Slide Control Drawer -->
-        <div class="drawer collapsed" id="drawer-slide-control">
-            <button class="drawer-trigger" id="drawer-trigger-slide-control" type="button">Slides</button>
-            <div class="drawer-content">
-                <div class="slide-button-grid" id="slide-button-grid" aria-label="Slide navigation buttons"></div>
-                <div class="slider-group"><span>Grid Attract</span><input type="range" id="slide-grid-attract-time" min="0" max="8" value="0.6" step="0.05"><span class="val-indicator" id="val-slide-grid-attract-time">0.6</span></div>
-                <div class="drawer sub-drawer collapsed" id="drawer-slide-grid-advanced">
-                    <button class="drawer-trigger" id="drawer-trigger-slide-grid-advanced" type="button">Advanced</button>
-                    <div class="drawer-content slide-grid-advanced-controls">
-                        <div class="slider-group"><span>Grid Pull</span><input type="range" id="grid-attract-return-pull" min="0.1" max="1" value="0.38" step="0.01"><span class="val-indicator" id="val-grid-attract-return-pull">0.38</span></div>
-                        <div class="slider-group"><span>Grid Reach</span><input type="range" id="grid-attract-grid-radius" min="100" max="1000" value="1000" step="10"><span class="val-indicator" id="val-grid-attract-grid-radius">1000</span></div>
-                        <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
-                        <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
-                        <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
-                        <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
-                        <div class="slider-group"><span>Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
-                        <div class="slider-group"><span>Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
-                        <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
-                        <div class="slider-group"><span>Grid Size</span><input type="range" id="grid-attract-grid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-grid-size">2.5</span></div>
-                        <div class="slider-group"><span>Mid Size</span><input type="range" id="grid-attract-mid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-mid-size">2.5</span></div>
-                        <div class="slider-group"><span>Target Size</span><input type="range" id="grid-attract-target-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-target-size">2.5</span></div>
-                        <div class="slider-group"><span>Speed Size</span><input type="range" id="grid-attract-speed-size" min="-10" max="10" value="0" step="0.1" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
-                    </div>
-                </div>
             </div>
         </div>
 
