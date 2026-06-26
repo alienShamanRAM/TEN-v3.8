@@ -1774,6 +1774,8 @@
                             idleAlpha: old ? old.idleAlpha : 1,
                             targetSlot: old && Number.isFinite(old.targetSlot) ? old.targetSlot : index,
                             shuffleAt: old ? old.shuffleAt : 0,
+                            gridSlot: old && Number.isFinite(old.gridSlot) ? old.gridSlot : index,
+                            gridShuffleAt: old ? old.gridShuffleAt : 0,
                             seed: old ? old.seed : Math.random() * 1000
                         };
                     });
@@ -1878,6 +1880,26 @@
                     return Math.abs(Math.floor(dot.targetSlot)) % targetCount;
                 }
 
+                getDotGridHome(dot, index, cfg, nowSeconds) {
+                    const dotCount = this.dots.length;
+                    if (!dotCount) return { x: dot.gridX, y: dot.gridY };
+                    const shuffleAmount = clamp(cfg.gridShuffle ?? 0, 0, 100) / 100;
+                    if (shuffleAmount > 0 && pseudoRandom(dot.seed + 433) < shuffleAmount) {
+                        if (!Number.isFinite(dot.gridSlot)) dot.gridSlot = index % dotCount;
+                        const swapsPerSecond = 0.12 + shuffleAmount * 1.35;
+                        if (!dot.gridShuffleAt) dot.gridShuffleAt = nowSeconds + pseudoRandom(dot.seed + 149) / swapsPerSecond;
+                        if (nowSeconds >= dot.gridShuffleAt) {
+                            dot.gridSlot = Math.floor(pseudoRandom(nowSeconds * 11.9 + dot.seed * 23.17) * dotCount);
+                            dot.gridShuffleAt = nowSeconds + (0.28 + pseudoRandom(nowSeconds + dot.seed * 7.41) * 1.8) / swapsPerSecond;
+                        }
+                    } else {
+                        dot.gridSlot = index % dotCount;
+                        dot.gridShuffleAt = 0;
+                    }
+                    const homeDot = this.dots[Math.abs(Math.floor(dot.gridSlot)) % dotCount] || dot;
+                    return { x: homeDot.gridX, y: homeDot.gridY };
+                }
+
                 returnToGrid() {
                     this.mode = 'grid';
                 }
@@ -1918,7 +1940,10 @@
                     const frameDt = Math.min(deltaTime * 60, 3);
                     const now = nowMs * 0.012;
                     const nowSeconds = nowMs / 1000;
-                    const elasticity = clamp(cfg.elasticity, 0, 100) / 100;
+                    const boundaryElasticity = clamp(cfg.elasticity, 0, 100) / 100;
+                    const gridElasticity = clamp(cfg.gridElasticity ?? cfg.elasticity, 0, 100) / 100;
+                    const gridCapture = 1 - gridElasticity;
+                    const gridOrbit = cfg.gridOrbit ?? 0;
                     const variation = clamp(cfg.variation, 0, 100) / 100;
                     const hasVariation = variation > 0.001;
                     const svgAlpha = clamp(forceState.svgAlpha, 0, 1);
@@ -1936,6 +1961,8 @@
                         let pullScale = 1;
                         let massScale = 1;
                         let speedScale = 1;
+                        let gridHomeX = dot.gridX;
+                        let gridHomeY = dot.gridY;
                         if (hasVariation) {
                             pullScale += (pseudoRandom(dot.seed + 11) - 0.5) * 1.2 * variation;
                             massScale += (pseudoRandom(dot.seed + 17) - 0.5) * 1.4 * variation;
@@ -1965,7 +1992,7 @@
 
                                 if (cfg.capture > 0) {
                                     const capture = clamp(cfg.capture, 0, 100) / 100;
-                                    const stickyDamp = Math.max(0, 1 - capture * near * near * svgAlpha * (0.2 - elasticity * 0.08) * frameDt);
+                                    const stickyDamp = Math.max(0, 1 - capture * near * near * svgAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
                                     dot.vx *= stickyDamp;
                                     dot.vy *= stickyDamp;
                                 }
@@ -1975,17 +2002,32 @@
                         }
 
                         if (gridAlpha > 0) {
+                            const shuffledHome = this.getDotGridHome(dot, index, cfg, nowSeconds);
                             const idleOffset = this.getIdleGridOffset(dot, index, cfg, now);
-                            const homeX = dot.gridX + idleOffset.x;
-                            const homeY = dot.gridY + idleOffset.y;
+                            const homeX = shuffledHome.x + idleOffset.x;
+                            const homeY = shuffledHome.y + idleOffset.y;
+                            gridHomeX = homeX;
+                            gridHomeY = homeY;
                             const dx = homeX - dot.x;
                             const dy = homeY - dot.y;
                             const distance = Math.max(0.0001, Math.hypot(dx, dy));
+                            const nx = dx / distance;
+                            const ny = dy / distance;
                             const near = clamp(1 - distance / animatedGridRadius, 0, 1);
                             const catchInfluence = distance > animatedGridRadius ? 0.18 : 0.08;
                             const influence = (catchInfluence + smoothstep(0, 1, near) * (1 - catchInfluence)) * gridAlpha;
                             fx += dx * cfg.returnPull * 0.065 * influence * Math.max(0.15, pullScale);
                             fy += dy * cfg.returnPull * 0.065 * influence * Math.max(0.15, pullScale);
+                            if (gridOrbit !== 0) {
+                                const orbitForce = gridOrbit * (0.16 + near * 0.42) * gridAlpha;
+                                fx += -ny * orbitForce;
+                                fy += nx * orbitForce;
+                            }
+                            if (gridCapture > 0) {
+                                const stickyDamp = Math.max(0, 1 - gridCapture * near * near * gridAlpha * (0.2 - gridElasticity * 0.08) * frameDt);
+                                dot.vx *= stickyDamp;
+                                dot.vy *= stickyDamp;
+                            }
                         }
 
                         const invMass = 1 / Math.max(0.1, cfg.mass * Math.max(0.2, massScale));
@@ -2005,20 +2047,20 @@
 
                         if (dot.x < 0 || dot.x > STUDIO_WIDTH) {
                             dot.x = clamp(dot.x, 0, STUDIO_WIDTH);
-                            dot.vx *= -elasticity * 0.55;
+                            dot.vx *= -boundaryElasticity * 0.55;
                         }
                         if (dot.y < 0 || dot.y > STUDIO_HEIGHT) {
                             dot.y = clamp(dot.y, 0, STUDIO_HEIGHT);
-                            dot.vy *= -elasticity * 0.55;
+                            dot.vy *= -boundaryElasticity * 0.55;
                         }
 
                         if (this.mode === 'grid') {
-                            const gridDx = dot.x - dot.gridX;
-                            const gridDy = dot.y - dot.gridY;
+                            const gridDx = dot.x - gridHomeX;
+                            const gridDy = dot.y - gridHomeY;
                             const velocitySq = dot.vx * dot.vx + dot.vy * dot.vy;
                             if (gridDx * gridDx + gridDy * gridDy <= snapDistanceSq && velocitySq <= 0.0064) {
-                                dot.x = dot.gridX;
-                                dot.y = dot.gridY;
+                                dot.x = gridHomeX;
+                                dot.y = gridHomeY;
                                 dot.vx = 0;
                                 dot.vy = 0;
                             }

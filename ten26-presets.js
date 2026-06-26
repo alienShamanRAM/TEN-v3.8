@@ -740,9 +740,6 @@ function getActiveLayerStateFromControls() {
                             orbit: '0',
                             shuffle: '0',
                             variation: '0',
-                            gridSize: '2.5',
-                            midSize: '2.5',
-                            targetSize: '2.5',
                             speedSize: '0'
                         },
                         flickerTime: '2',
@@ -1149,9 +1146,6 @@ function getActiveLayerStateFromControls() {
                         orbit: '0',
                         shuffle: '0',
                         variation: '8',
-                        gridSize: '3',
-                        midSize: '3.2',
-                        targetSize: '3.2',
                         speedSize: '0'
                     },
                     flickerTime: '0.62',

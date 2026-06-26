@@ -51,7 +51,7 @@
 
         <!-- Grid Layers Drawer -->
         <div class="drawer" id="drawer-dot-matrix" data-left-panel="motion">
-            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Layers</button>
+            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Grid Layers</button>
             <div class="drawer-content">
                 <div class="matrix-action-row">
                     <button class="preset-action-btn" id="matrix-open-all" type="button">Expand</button>
@@ -106,8 +106,6 @@
                 <div class="slider-group auto-duration-row"><span>Auto Duration</span><input type="range" id="slide-auto-duration" min="1" max="8" value="4" step="0.5"><span class="val-indicator" id="val-slide-auto-duration">4</span></div>
                 <input type="checkbox" id="mask-enabled" class="hidden-ui-node" checked>
                 <div class="geometry-status" id="mask-status">Mask hides dots whose grid homes sit inside or near painted slide artwork.</div>
-                <div class="slider-group"><span>Mask Expand</span><input type="range" id="mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-mask-expansion">32</span></div>
-                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="mask-scale-time" min="0" max="10" value="5" step="0.05"><span class="val-indicator" id="val-mask-scale-time">5</span></div>
                 <div class="slider-group hidden-ui-node"><span>Edge Samples</span><input type="range" id="mask-samples" min="4" max="36" value="18" step="1"><span class="val-indicator" id="val-mask-samples">18</span></div>
                 <div class="slider-group hidden-ui-node"><span>Act Speed</span><input type="range" id="mask-speed-threshold" min="0" max="2" value="0.18" step="0.01"><span class="val-indicator" id="val-mask-speed-threshold">0.18</span></div>
                 <div class="slider-group hidden-ui-node"><span>Act Grid Dist</span><input type="range" id="mask-grid-threshold" min="0" max="80" value="4" step="0.1"><span class="val-indicator" id="val-mask-grid-threshold">4</span></div>
@@ -142,6 +140,17 @@
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="image-slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-image-slide-offset-y">0</span></div>
                 <input type="checkbox" id="image-mask-enabled" class="hidden-ui-node" checked>
                 <div class="geometry-status" id="image-mask-status">Mask hides dots whose grid homes sit inside the media rectangle.</div>
+            </div>
+        </div>
+
+        <!-- Masks Drawer -->
+        <div class="drawer collapsed" id="drawer-masks">
+            <button class="drawer-trigger" id="drawer-trigger-masks">Masks</button>
+            <div class="drawer-content">
+                <div class="drawer-section-title">Vector</div>
+                <div class="slider-group"><span>Mask Expand</span><input type="range" id="mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-mask-expansion">32</span></div>
+                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="mask-scale-time" min="0" max="10" value="5" step="0.05"><span class="val-indicator" id="val-mask-scale-time">5</span></div>
+                <div class="drawer-section-title">Raster</div>
                 <div class="slider-group"><span>Mask Expand</span><input type="range" id="image-mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-image-mask-expansion">32</span></div>
                 <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="image-mask-scale-time" min="0" max="10" value="5" step="0.05"><span class="val-indicator" id="val-image-mask-scale-time">5</span></div>
             </div>
@@ -162,14 +171,11 @@
                             <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
                             <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
                             <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
-                            <div class="slider-group"><span>Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
-                            <div class="slider-group"><span>Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
-                            <div class="slider-group"><span>Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
+                            <div class="slider-group"><span>Grid Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
+                            <div class="slider-group"><span>Grid Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
+                            <div class="slider-group"><span>Grid Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
                             <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
-                            <div class="slider-group"><span>Grid Size</span><input type="range" id="grid-attract-grid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-grid-size">2.5</span></div>
-                            <div class="slider-group"><span>Mid Size</span><input type="range" id="grid-attract-mid-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-mid-size">2.5</span></div>
-                            <div class="slider-group"><span>Target Size</span><input type="range" id="grid-attract-target-size" min="1" max="100" value="2.5" step="0.1"><span class="val-indicator" id="val-grid-attract-target-size">2.5</span></div>
-                            <div class="slider-group"><span>Speed Size</span><input type="range" id="grid-attract-speed-size" min="-10" max="10" value="0" step="0.1" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
+                            <div class="slider-group"><span>Size Speed</span><input type="range" id="grid-attract-speed-size" min="-40" max="40" value="0" step="0.5" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
                         </div>
                     </div>
                 </div>

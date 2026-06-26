@@ -814,9 +814,6 @@ const viewport = document.getElementById('canvas-viewport');
                 gridAttractOrbit: document.getElementById('grid-attract-orbit'),
                 gridAttractShuffle: document.getElementById('grid-attract-shuffle'),
                 gridAttractVariation: document.getElementById('grid-attract-variation'),
-                gridAttractGridSize: document.getElementById('grid-attract-grid-size'),
-                gridAttractMidSize: document.getElementById('grid-attract-mid-size'),
-                gridAttractTargetSize: document.getElementById('grid-attract-target-size'),
                 gridAttractSpeedSize: document.getElementById('grid-attract-speed-size'),
                 flickerTime: document.getElementById('transition-flicker-time'),
                 flickerBias: document.getElementById('transition-flicker-bias'),
@@ -863,7 +860,7 @@ const viewport = document.getElementById('canvas-viewport');
             function isDenseSizeSlider(control) {
                 const id = control?.id || '';
                 return control?.type === 'range' &&
-                    (/^dot-.+-(grid|mid|target)-size$/.test(id) || /^grid-attract-(grid|mid|target)-size$/.test(id));
+                    /^dot-.+-(grid|mid|target)-size$/.test(id);
             }
 
             function denseSizeActualToUi(value) {
@@ -1311,13 +1308,10 @@ const viewport = document.getElementById('canvas-viewport');
                 'grid-attract-speed-limit': 'Temporary speed cap used during the inter-slide grid-attract stage.',
                 'grid-attract-mass': 'Temporary dot weight used during the inter-slide grid-attract stage.',
                 'grid-attract-friction': 'Temporary damping used during the inter-slide grid-attract stage.',
-                'grid-attract-elasticity': 'Temporary stick/fly-by response used during the inter-slide grid-attract stage.',
-                'grid-attract-orbit': 'Temporary swirl used during the inter-slide grid-attract stage.',
-                'grid-attract-shuffle': 'Temporary target shuffle used during the inter-slide grid-attract stage.',
+                'grid-attract-elasticity': 'Temporary grid stick/fly-by response used during the inter-slide grid-attract stage.',
+                'grid-attract-orbit': 'Temporary grid swirl used during the inter-slide grid-attract stage.',
+                'grid-attract-shuffle': 'Temporary grid-home shuffle used during the inter-slide grid-attract stage.',
                 'grid-attract-variation': 'Temporary per-dot variation used during the inter-slide grid-attract stage.',
-                'grid-attract-grid-size': 'Temporary grid-rest dot size used during the inter-slide grid-attract stage.',
-                'grid-attract-mid-size': 'Temporary mid-transition dot size used during the inter-slide grid-attract stage.',
-                'grid-attract-target-size': 'Temporary target dot size used during the inter-slide grid-attract stage.',
                 'grid-attract-speed-size': 'Temporary speed-based size change used during the inter-slide grid-attract stage.',
                 'transition-flicker-time': 'Length of flicker phase.',
                 'transition-flicker-bias': 'Favor old-out or new-in.',
@@ -1338,7 +1332,8 @@ const viewport = document.getElementById('canvas-viewport');
 
             const MODULE_TOOLTIPS = {
                 'drawer-trigger-dot-matrix': 'Layered dot motion, size, and color.',
-                'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',
+                'drawer-trigger-grid': 'Dot count, spacing, layer offsets, and grid-attract behavior.',
+                'drawer-trigger-masks': 'Vector and raster mask expansion and timing.',
                 'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
                 'drawer-trigger-slides': 'SVG artwork used as dot targets.',
                 'drawer-trigger-image-slides': 'Media slides used as rectangular dot targets.',
@@ -1391,7 +1386,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'header-auto-btn': 'Automatically advance to the next slide every 4 seconds.',
                 'matrix-open-all': 'Expand all grid-layer drawers.',
                 'matrix-collapse-all': 'Collapse all grid-layer drawers.',
-                'matrix-randomize-all': 'Randomize unlocked values across all grid layers.',
+                'matrix-randomize-all': 'Randomize unlocked grid-layer, grid-attract, flicker, and blink values together.',
                 'matrix-copy-above': 'Copy the selected grid layer above its current position.',
                 'matrix-copy-below': 'Copy the selected grid layer below its current position.',
                 'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
@@ -2023,6 +2018,9 @@ const viewport = document.getElementById('canvas-viewport');
                     gridRadiusMotion: readStateFloat(state.gridRadiusMotion, 0),
                     orbit: readStateFloat(state.orbit, 0),
                     shuffle: readStateFloat(state.shuffle, 0),
+                    gridElasticity: readStateFloat(state.elasticity, 45),
+                    gridOrbit: 0,
+                    gridShuffle: 0,
                     variation: readStateFloat(state.variation, 0),
                     gridSize: clamp(readStateFloat(state.gridSize, 2.5), 0.5, MAX_DOT_SIZE),
                     midSize: clamp(readStateFloat(state.midSize, readStateFloat(state.gridSize, 2.5)), 0.5, MAX_DOT_SIZE),
@@ -2064,10 +2062,7 @@ const viewport = document.getElementById('canvas-viewport');
                 ['orbit', 'gridAttractOrbit', -2, 2, 0],
                 ['shuffle', 'gridAttractShuffle', 0, 100, 0],
                 ['variation', 'gridAttractVariation', 0, 100, 0],
-                ['gridSize', 'gridAttractGridSize', 1, MAX_DOT_SIZE, 2.5],
-                ['midSize', 'gridAttractMidSize', 1, MAX_DOT_SIZE, 2.5],
-                ['targetSize', 'gridAttractTargetSize', 1, MAX_DOT_SIZE, 2.5],
-                ['speedSize', 'gridAttractSpeedSize', -10, 10, 0]
+                ['speedSize', 'gridAttractSpeedSize', -40, 40, 0]
             ];
 
             function getGridAttractOverrideStateFromControls() {
@@ -2088,7 +2083,11 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!config) return config;
                 const next = { ...config };
                 GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.forEach(([stateKey, controlKey, min, max, fallback]) => {
-                    next[stateKey] = clamp(readStateFloat(getControlValue(autoControls[controlKey]), fallback), min, max);
+                    const value = clamp(readStateFloat(getControlValue(autoControls[controlKey]), fallback), min, max);
+                    if (stateKey === 'elasticity') next.gridElasticity = value;
+                    else if (stateKey === 'orbit') next.gridOrbit = value;
+                    else if (stateKey === 'shuffle') next.gridShuffle = value;
+                    else next[stateKey] = value;
                 });
                 next.gridRgb = hexToRgb(next.gridColor);
                 next.midRgb = hexToRgb(next.midColor);
@@ -2142,7 +2141,7 @@ const viewport = document.getElementById('canvas-viewport');
             function isRandomizableRangeControl(control) {
                 return !!control?.id &&
                     control.type === 'range' &&
-                    !!control.closest('#motion-matrix-panel .motion-layer-content, #grid-attract-controls');
+                    !!control.closest('#motion-matrix-panel .motion-layer-content');
             }
 
             function getRangeBounds(control) {
@@ -2352,7 +2351,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setupRandomRangeUi() {
-                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #grid-attract-controls .slider-group input[type="range"]').forEach(setupRandomRangeControl);
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"]').forEach(setupRandomRangeControl);
             }
 
             function getRandomRangeState() {
@@ -2456,6 +2455,26 @@ const viewport = document.getElementById('canvas-viewport');
                 return BLINK_RANDOM_CONTROL_KEYS.map(key => blinkControls[key]).filter(Boolean);
             }
 
+            function getGridAttractRandomControls() {
+                return [
+                    autoControls.gridAttractTime,
+                    ...GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.map(([, controlKey]) => autoControls[controlKey])
+                ].filter(Boolean);
+            }
+
+            function getFlickerRandomControls() {
+                return [
+                    autoControls.currentTime,
+                    autoControls.travelTime,
+                    autoControls.gridTime,
+                    autoControls.flickerTime,
+                    autoControls.flickerBias,
+                    autoControls.flickerSpeed,
+                    autoControls.flickerBalance,
+                    autoControls.flickerWildness
+                ].filter(Boolean);
+            }
+
             function updateRandomLockButtons() {
                 document.querySelectorAll('.value-lock-btn[data-lock-control]').forEach(button => {
                     const control = document.getElementById(button.dataset.lockControl);
@@ -2511,7 +2530,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function setupRandomLockUi() {
-                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"], #grid-attract-controls .slider-group input[type="range"]').forEach(control => {
+                document.querySelectorAll('#motion-matrix-panel .motion-layer-content .slider-group input[type="range"]').forEach(control => {
                     const label = control.closest('.slider-group')?.querySelector('span')?.textContent?.trim() || control.id;
                     addRandomLockButton(control, label);
                 });
@@ -2600,8 +2619,12 @@ const viewport = document.getElementById('canvas-viewport');
 
             function randomizeAllMotionLayers() {
                 DOT_LAYER_KEYS.forEach(layerKey => randomizeMotionLayer(layerKey, { retarget: false }));
+                getGridAttractRandomControls().forEach(randomizeSliderControl);
+                getFlickerRandomControls().forEach(randomizeSliderControl);
+                getBlinkRandomControls().forEach(randomizeSliderControl);
+                applyBlinkControlsToAllLayers();
                 refreshAttractorTargetsIfNeeded();
-                if (motionLayerControls.status) motionLayerControls.status.textContent = 'All active layers randomized together. Locked values were skipped.';
+                if (motionLayerControls.status) motionLayerControls.status.textContent = 'Layers, grid advanced, flicker, and blink randomized together. Locked values were skipped.';
             }
 
             function randomizeAllBlinkLayers() {
