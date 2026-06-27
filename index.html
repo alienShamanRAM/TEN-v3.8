@@ -162,6 +162,26 @@
             </div>
         </div>
 
+        <!-- Mouse Interaction Drawer -->
+        <div class="drawer" id="drawer-mouse-interaction">
+            <button class="drawer-trigger" id="drawer-trigger-mouse-interaction">Mouse Interaction</button>
+            <div class="drawer-content">
+                <div class="sub-toggle-container compact-toggle">
+                    <span>Enable Mouse</span>
+                    <label>
+                        <input type="checkbox" id="mouse-interaction-enabled" class="hidden-ui-node">
+                        <span class="checkbox-switch"></span>
+                    </label>
+                </div>
+                <div class="geometry-status" id="mouse-interaction-status">Mouse forces off.</div>
+                <div class="slider-group"><span>Attract</span><input type="range" id="mouse-attract-strength" min="0" max="100" value="42" step="1"><span class="val-indicator" id="val-mouse-attract-strength">42</span></div>
+                <div class="slider-group"><span>Repel</span><input type="range" id="mouse-repel-strength" min="0" max="100" value="72" step="1"><span class="val-indicator" id="val-mouse-repel-strength">72</span></div>
+                <div class="slider-group"><span>Radius</span><input type="range" id="mouse-interaction-radius" min="40" max="520" value="220" step="5"><span class="val-indicator" id="val-mouse-interaction-radius">220</span></div>
+                <div class="slider-group"><span>Softness</span><input type="range" id="mouse-interaction-softness" min="0.4" max="3" value="1.2" step="0.05"><span class="val-indicator" id="val-mouse-interaction-softness">1.2</span></div>
+                <div class="slider-group"><span>Scroll Step</span><input type="range" id="mouse-scroll-step" min="1" max="20" value="5" step="1"><span class="val-indicator" id="val-mouse-scroll-step">5</span></div>
+            </div>
+        </div>
+
         <!-- Grid Drawer -->
         <div class="drawer" id="drawer-grid">
             <button class="drawer-trigger" id="drawer-trigger-grid">Grid</button>

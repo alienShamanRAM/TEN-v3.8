@@ -4,6 +4,7 @@ function bindEvents() {
                 setupDenseSizeSliders();
                 bindAllRangeDisplays();
                 syncTimingControlRanges();
+                bindMouseInteractionEvents();
                 setupRandomLockUi();
                 setupRandomRangeUi();
                 installDotColorPaletteUi();
@@ -534,7 +535,8 @@ function bindEvents() {
                 updateHoldMachine(deltaTime);
                 updateAutoTransition(deltaTime);
                 updateMaskAlphaTransitions(deltaTime);
-                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp));
+                const mouseFrameState = getMouseInteractionFrameState(timestamp);
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp, mouseFrameState));
                 updateOverlayRuntimeTick(deltaTime);
                 drawMorphDots();
             }

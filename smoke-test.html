@@ -137,6 +137,22 @@
                         fail(`Transition control missing or malformed: ${missingTransitionControl[0]}`);
                         return;
                     }
+                    const mouseControls = [
+                        '#drawer-mouse-interaction',
+                        '#mouse-interaction-enabled',
+                        '#mouse-attract-strength',
+                        '#mouse-repel-strength',
+                        '#mouse-interaction-radius',
+                        '#mouse-interaction-softness',
+                        '#mouse-scroll-step'
+                    ];
+                    const missingMouseControl = mouseControls.find(selector => !doc.querySelector(selector));
+                    const mouseRuntimeReady = typeof win.getMouseInteractionFrameState === 'function' &&
+                        typeof win.getMouseInteractionControlState === 'function';
+                    if (missingMouseControl || !mouseRuntimeReady) {
+                        fail(`Mouse interaction missing or malformed: ${missingMouseControl || 'runtime'}`);
+                        return;
+                    }
                     const maskState = typeof win.getMaskState === 'function' ? win.getMaskState('svg') : null;
                     const imageMaskState = typeof win.getMaskState === 'function' ? win.getMaskState('image') : null;
                     if (!maskState?.enabled || !imageMaskState?.enabled) {

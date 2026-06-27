@@ -818,6 +818,22 @@ const viewport = document.getElementById('canvas-viewport');
                 flickerBalance: document.getElementById('transition-flicker-balance'),
                 flickerWildness: document.getElementById('transition-flicker-wildness')
             };
+            const mouseControls = {
+                enabled: document.getElementById('mouse-interaction-enabled'),
+                status: document.getElementById('mouse-interaction-status'),
+                attractStrength: document.getElementById('mouse-attract-strength'),
+                repelStrength: document.getElementById('mouse-repel-strength'),
+                radius: document.getElementById('mouse-interaction-radius'),
+                softness: document.getElementById('mouse-interaction-softness'),
+                scrollStep: document.getElementById('mouse-scroll-step')
+            };
+            const mouseInteractionState = {
+                pointerInside: false,
+                x: 0,
+                y: 0,
+                repelHeld: false,
+                lastMoveAt: 0
+            };
 
             const presetSelect = document.getElementById('preset-select');
             const presetApplyBtn = document.getElementById('preset-apply-btn');
@@ -932,6 +948,166 @@ const viewport = document.getElementById('canvas-viewport');
                 return Number.isFinite(parsed) ? parsed : fallback;
             };
             const isTypingTarget = el => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+
+            function getMouseInteractionControlState() {
+                return {
+                    enabled: mouseControls.enabled?.checked === true,
+                    attractStrength: getControlValue(mouseControls.attractStrength) || '42',
+                    repelStrength: getControlValue(mouseControls.repelStrength) || '72',
+                    radius: getControlValue(mouseControls.radius) || '220',
+                    softness: getControlValue(mouseControls.softness) || '1.2',
+                    scrollStep: getControlValue(mouseControls.scrollStep) || '5'
+                };
+            }
+
+            function applyMouseInteractionControlState(state = {}) {
+                if (mouseControls.enabled) mouseControls.enabled.checked = state.enabled === true;
+                setControlValue(mouseControls.attractStrength, state.attractStrength ?? state.attract ?? '42');
+                setControlValue(mouseControls.repelStrength, state.repelStrength ?? state.repel ?? '72');
+                setControlValue(mouseControls.radius, state.radius ?? '220');
+                setControlValue(mouseControls.softness, state.softness ?? '1.2');
+                setControlValue(mouseControls.scrollStep, state.scrollStep ?? '5');
+                [
+                    mouseControls.attractStrength,
+                    mouseControls.repelStrength,
+                    mouseControls.radius,
+                    mouseControls.softness,
+                    mouseControls.scrollStep
+                ].forEach(control => {
+                    if (control) updateRangeIndicator(control);
+                });
+                syncMouseInteractionStatus();
+            }
+
+            function isMouseInteractionEnabled() {
+                return mouseControls.enabled?.checked === true;
+            }
+
+            function syncMouseInteractionStatus(message = '') {
+                if (mouseControls.status) {
+                    if (message) mouseControls.status.textContent = message;
+                    else mouseControls.status.textContent = isMouseInteractionEnabled() ? 'Mouse forces active.' : 'Mouse forces off.';
+                }
+                document.getElementById('drawer-trigger-mouse-interaction')?.classList.toggle('inactive-title', !isMouseInteractionEnabled());
+                if (typeof updateDrawerTitleStates === 'function') updateDrawerTitleStates();
+            }
+
+            function eventPathIncludes(event, node) {
+                if (!node) return false;
+                const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+                return path.includes(node) || node.contains?.(event.target);
+            }
+
+            function isMouseInteractionUiTarget(event) {
+                return eventPathIncludes(event, controlPanel) ||
+                    eventPathIncludes(event, gridControlPanel) ||
+                    eventPathIncludes(event, motionMatrixPanel) ||
+                    eventPathIncludes(event, panelToggle);
+            }
+
+            function getStudioPointFromPointerEvent(event) {
+                if (!viewport || isMouseInteractionUiTarget(event)) return null;
+                const rect = viewport.getBoundingClientRect();
+                if (!rect.width || !rect.height) return null;
+                if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return null;
+                return {
+                    x: clamp((event.clientX - rect.left) / rect.width * STUDIO_WIDTH, 0, STUDIO_WIDTH),
+                    y: clamp((event.clientY - rect.top) / rect.height * STUDIO_HEIGHT, 0, STUDIO_HEIGHT)
+                };
+            }
+
+            function updateMouseInteractionPointer(event) {
+                const point = getStudioPointFromPointerEvent(event);
+                mouseInteractionState.pointerInside = !!point;
+                if (!point) return false;
+                mouseInteractionState.x = point.x;
+                mouseInteractionState.y = point.y;
+                mouseInteractionState.lastMoveAt = performance.now();
+                return true;
+            }
+
+            function adjustMouseInteractionStrengths(direction) {
+                const step = clamp(readStateFloat(getControlValue(mouseControls.scrollStep), 5), 1, 20) * direction;
+                [
+                    mouseControls.attractStrength,
+                    mouseControls.repelStrength
+                ].forEach(control => {
+                    if (!control) return;
+                    const next = clamp(readStateFloat(getControlValue(control), 0) + step, 0, 100);
+                    setControlValue(control, next);
+                    updateRangeIndicator(control);
+                });
+                syncMouseInteractionStatus(`Mouse force ${direction > 0 ? 'up' : 'down'}: ${getControlValue(mouseControls.attractStrength)}/${getControlValue(mouseControls.repelStrength)}.`);
+            }
+
+            function bindMouseInteractionEvents() {
+                mouseControls.enabled?.addEventListener('change', syncMouseInteractionStatus);
+                [
+                    mouseControls.attractStrength,
+                    mouseControls.repelStrength,
+                    mouseControls.radius,
+                    mouseControls.softness,
+                    mouseControls.scrollStep
+                ].forEach(control => control?.addEventListener('input', () => syncMouseInteractionStatus()));
+                window.addEventListener('pointermove', event => {
+                    updateMouseInteractionPointer(event);
+                }, { passive: true });
+                window.addEventListener('pointerdown', event => {
+                    const overCanvas = updateMouseInteractionPointer(event);
+                    if (!overCanvas) return;
+                    if (event.button === 0 && isMouseInteractionEnabled()) {
+                        mouseInteractionState.repelHeld = true;
+                        syncMouseInteractionStatus('Repel hold active.');
+                    }
+                    if (event.button === 2) {
+                        event.preventDefault();
+                        if (mouseControls.enabled) mouseControls.enabled.checked = !mouseControls.enabled.checked;
+                        mouseInteractionState.repelHeld = false;
+                        syncMouseInteractionStatus();
+                    }
+                }, { passive: false });
+                window.addEventListener('pointerup', event => {
+                    if (event.button === 0 && mouseInteractionState.repelHeld) {
+                        mouseInteractionState.repelHeld = false;
+                        syncMouseInteractionStatus();
+                    }
+                }, { passive: true });
+                window.addEventListener('pointercancel', () => {
+                    mouseInteractionState.repelHeld = false;
+                    mouseInteractionState.pointerInside = false;
+                    syncMouseInteractionStatus();
+                }, { passive: true });
+                window.addEventListener('contextmenu', event => {
+                    if (getStudioPointFromPointerEvent(event)) event.preventDefault();
+                });
+                window.addEventListener('wheel', event => {
+                    if (!isMouseInteractionEnabled() || !updateMouseInteractionPointer(event)) return;
+                    event.preventDefault();
+                    adjustMouseInteractionStrengths(event.deltaY < 0 ? 1 : -1);
+                }, { passive: false });
+                syncMouseInteractionStatus();
+            }
+
+            function getMouseInteractionFrameState(nowMs = performance.now()) {
+                if (!isMouseInteractionEnabled() || !mouseInteractionState.pointerInside) return null;
+                const idleMs = Math.max(0, nowMs - mouseInteractionState.lastMoveAt);
+                const repelActive = mouseInteractionState.repelHeld;
+                const attractFade = repelActive ? 0 : clamp(1 - idleMs / 900, 0, 1);
+                if (!repelActive && attractFade <= 0) return null;
+                const radius = clamp(readStateFloat(getControlValue(mouseControls.radius), 220), 40, 520);
+                const softness = clamp(readStateFloat(getControlValue(mouseControls.softness), 1.2), 0.4, 3);
+                return {
+                    x: mouseInteractionState.x,
+                    y: mouseInteractionState.y,
+                    radius,
+                    radiusSq: radius * radius,
+                    softness,
+                    mode: repelActive ? 'repel' : 'attract',
+                    strength: repelActive
+                        ? clamp(readStateFloat(getControlValue(mouseControls.repelStrength), 72), 0, 100) / 100
+                        : clamp(readStateFloat(getControlValue(mouseControls.attractStrength), 42), 0, 100) / 100 * attractFade
+                };
+            }
 
             function syncTimingControlRanges() {
                 [
@@ -1271,6 +1447,12 @@ const viewport = document.getElementById('canvas-viewport');
                 'transition-flicker-speed': 'Visual flicker pulses per second.',
                 'transition-flicker-balance': 'Visible vs hidden ratio.',
                 'transition-flicker-wildness': 'Randomness in flicker timing.',
+                'mouse-interaction-enabled': 'Enable pointer forces on the canvas.',
+                'mouse-attract-strength': 'Force used while the pointer moves over the canvas.',
+                'mouse-repel-strength': 'Force used while left click is held on the canvas.',
+                'mouse-interaction-radius': 'Pointer force radius in canvas pixels.',
+                'mouse-interaction-softness': 'Higher values make pointer falloff softer near the edge.',
+                'mouse-scroll-step': 'Amount changed by mouse wheel over the canvas.',
                 'image-scale': 'Image size behind the dots.',
                 'image-offset-x': 'Move image left or right.',
                 'image-offset-y': 'Move image up or down.',
@@ -1287,6 +1469,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-dot-matrix': 'Per-layer target, colors, midpoint, and motion settings.',
                 'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
                 'drawer-trigger-timing': 'Current/next phase timing, flicker start delays, and auto duration.',
+                'drawer-trigger-mouse-interaction': 'Pointer forces for attract, repel, and wheel strength changes.',
                 'drawer-trigger-advanced-options': 'Grid layout, flicker visuals, and shared blink behavior.',
                 'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',
                 'drawer-trigger-masks': 'Vector and raster grid-mask expansion and timing.',

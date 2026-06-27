@@ -331,6 +331,7 @@ function getActiveLayerStateFromControls() {
                     layerOrder: [...DOT_LAYER_KEYS],
                     svgMediaStackIndex: clampSvgMediaStackIndex(),
                     autoTransition: getAutoTransitionControlState(),
+                    mouse: getMouseInteractionControlState(),
                     blink: forceBlinkRespawnState(getBlinkStateFromControls()),
                     randomRanges: getRandomRangeState(),
                     randomLocks: getRandomLockState(),
@@ -381,6 +382,7 @@ function getActiveLayerStateFromControls() {
                 if (state.mask) applyMaskControlState(state.mask || {});
                 applyImageMaskControlState(state.imageMask || {});
                 applyAutoTransitionControlState(state.autoTransition || {});
+                applyMouseInteractionControlState(state.mouse || {});
                 mediaMode = state.mediaMode === 'videos' ? 'videos' : 'images';
                 updateMediaModeUi();
 
@@ -700,6 +702,14 @@ function getActiveLayerStateFromControls() {
                         flickerBalance: '75',
                         flickerWildness: '100',
                         autoDuration: '4'
+                    },
+                    mouse: {
+                        enabled: false,
+                        attractStrength: '42',
+                        repelStrength: '72',
+                        radius: '220',
+                        softness: '1.2',
+                        scrollStep: '5'
                     },
                     stage: {
                         width: String(DEFAULT_STUDIO_WIDTH),

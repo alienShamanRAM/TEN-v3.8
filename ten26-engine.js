@@ -837,6 +837,7 @@
                 document.getElementById('drawer-trigger-slides')?.classList.toggle('inactive-title', !hasSvgSlides);
                 document.getElementById('drawer-trigger-image-slides')?.classList.toggle('inactive-title', !hasMediaSlides);
                 document.getElementById('drawer-trigger-blink-mode')?.classList.toggle('inactive-title', !blinkControls.enabled?.checked);
+                document.getElementById('drawer-trigger-mouse-interaction')?.classList.toggle('inactive-title', !mouseControls.enabled?.checked);
             }
 
             function parseSvgDimension(value) {
@@ -1853,7 +1854,7 @@
                     });
                 }
 
-                update(deltaTime, nowMs = performance.now()) {
+                update(deltaTime, nowMs = performance.now(), mouseFrameState = null) {
                     const baseConfig = getLayerRuntimeConfig(this.layerKey);
                     const cfg = baseConfig;
                     if (cfg.hidden) return;
@@ -1873,6 +1874,7 @@
                     const svgRadius = Math.max(1, cfg.svgRadius);
                     const gridRadius = Math.max(1, cfg.gridRadius);
                     const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
+                    const mouseForce = mouseFrameState && mouseFrameState.strength > 0 ? mouseFrameState : null;
                     this.dots.forEach((dot, index) => {
                         let fx = 0;
                         let fy = 0;
@@ -1935,6 +1937,23 @@
                                 const stickyDamp = Math.max(0, 1 - gridCapture * near * near * gridAlpha * (0.2 - gridElasticity * 0.08) * frameDt);
                                 dot.vx *= stickyDamp;
                                 dot.vy *= stickyDamp;
+                            }
+                        }
+
+                        if (mouseForce) {
+                            const mdx = mouseForce.x - dot.x;
+                            const mdy = mouseForce.y - dot.y;
+                            const mouseDistanceSq = mdx * mdx + mdy * mdy;
+                            if (mouseDistanceSq < mouseForce.radiusSq) {
+                                const mouseDistance = Math.max(0.0001, Math.sqrt(mouseDistanceSq));
+                                const near = clamp(1 - mouseDistance / mouseForce.radius, 0, 1);
+                                const influence = Math.pow(smoothstep(0, 1, near), mouseForce.softness) * mouseForce.strength;
+                                if (influence > 0.0001) {
+                                    const direction = mouseForce.mode === 'repel' ? -1 : 1;
+                                    const forceScale = mouseForce.mode === 'repel' ? 0.045 : 0.032;
+                                    fx += mdx * direction * forceScale * influence;
+                                    fy += mdy * direction * forceScale * influence;
+                                }
                             }
                         }
 
