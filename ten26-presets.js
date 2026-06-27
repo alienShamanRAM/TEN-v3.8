@@ -705,11 +705,18 @@ function getActiveLayerStateFromControls() {
                     },
                     mouse: {
                         enabled: false,
-                        attractStrength: '42',
-                        repelStrength: '72',
+                        attractStrength: '120',
+                        repelStrength: '180',
+                        svgTargetCount: '1',
                         radius: '220',
                         softness: '1.2',
-                        scrollStep: '5'
+                        scrollStep: '5',
+                        scrollLinks: {
+                            attractStrength: true,
+                            repelStrength: true,
+                            svgTargetCount: false,
+                            radius: false
+                        }
                     },
                     stage: {
                         width: String(DEFAULT_STUDIO_WIDTH),

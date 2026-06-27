@@ -1874,7 +1874,8 @@
                     const svgRadius = Math.max(1, cfg.svgRadius);
                     const gridRadius = Math.max(1, cfg.gridRadius);
                     const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
-                    const mouseForce = mouseFrameState && mouseFrameState.strength > 0 ? mouseFrameState : null;
+                    const mouseForce = mouseFrameState && (mouseFrameState.strength > 0 || mouseFrameState.svgTargetActive) ? mouseFrameState : null;
+                    const svgMouseTarget = mouseForce?.svgTargetActive && mouseForce.svgTargetStrength > 0 ? mouseForce : null;
                     this.dots.forEach((dot, index) => {
                         let fx = 0;
                         let fy = 0;
@@ -1888,30 +1889,35 @@
                             massScale += (pseudoRandom(dot.seed + 17) - 0.5) * 1.4 * variation;
                         }
 
-                        if (svgAlpha > 0 && this.targets && this.targets.length) {
+                        if ((svgAlpha > 0 || svgMouseTarget) && this.targets && this.targets.length) {
                             const targetIndex = this.getDotTargetIndex(dot, index, this.targets.length, cfg, nowSeconds);
-                            const baseTarget = this.targets[targetIndex];
+                            const mouseTargetCount = svgMouseTarget
+                                ? clamp(Math.round(svgMouseTarget.svgTargetCount || 0), 0, this.targets.length)
+                                : 0;
+                            const useMouseTarget = mouseTargetCount > 0 && targetIndex < mouseTargetCount;
+                            const targetAlpha = useMouseTarget ? Math.max(svgAlpha, svgMouseTarget.svgTargetStrength) : svgAlpha;
+                            const baseTarget = useMouseTarget ? svgMouseTarget : this.targets[targetIndex];
                             const dx = baseTarget.x - dot.x;
                             const dy = baseTarget.y - dot.y;
                             const distance = Math.max(0.0001, Math.hypot(dx, dy));
                             const nx = dx / distance;
                             const ny = dy / distance;
                             const near = clamp(1 - distance / svgRadius, 0, 1);
-                            const influence = smoothstep(0, 1, near) * svgAlpha;
+                            const influence = smoothstep(0, 1, near) * targetAlpha;
 
                             if (influence > 0) {
                                 fx += dx * cfg.pull * 0.04 * influence * Math.max(0.15, pullScale);
                                 fy += dy * cfg.pull * 0.04 * influence * Math.max(0.15, pullScale);
 
                                 if (cfg.orbit !== 0) {
-                                    const orbitForce = cfg.orbit * (0.16 + near * 0.42) * svgAlpha;
+                                    const orbitForce = cfg.orbit * (0.16 + near * 0.42) * targetAlpha;
                                     fx += -ny * orbitForce;
                                     fy += nx * orbitForce;
                                 }
 
                                 if (cfg.targetDamping > 0) {
                                     const targetDamping = clamp(cfg.targetDamping, 0, 100) / 100;
-                                    const stickyDamp = Math.max(0, 1 - targetDamping * near * near * svgAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
+                                    const stickyDamp = Math.max(0, 1 - targetDamping * near * near * targetAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
                                     dot.vx *= stickyDamp;
                                     dot.vy *= stickyDamp;
                                 }

@@ -461,6 +461,7 @@ const viewport = document.getElementById('canvas-viewport');
                 dice: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3h11A3.5 3.5 0 0 1 21 6.5v11a3.5 3.5 0 0 1-3.5 3.5h-11A3.5 3.5 0 0 1 3 17.5v-11A3.5 3.5 0 0 1 6.5 3Zm0 2A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 17.5 5h-11ZM8 8.2a1.2 1.2 0 1 1 2.4 0A1.2 1.2 0 0 1 8 8.2Zm5.6 0a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0ZM8 15.8a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Zm5.6 0a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Zm-2.8-3.8a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Z"/></svg>',
                 lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1.2c.7 0 1.3.6 1.3 1.3v7.4c0 .7-.6 1.3-1.3 1.3H5.8c-.7 0-1.3-.6-1.3-1.3v-7.4c0-.7.6-1.3 1.3-1.3H7Zm2 0h6V7a3 3 0 0 0-6 0v3Z"/></svg>',
                 unlock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10V7a5 5 0 0 1 9.4-2.4l-1.8.9A3 3 0 0 0 10 7v3h8.2c.7 0 1.3.6 1.3 1.3v7.4c0 .7-.6 1.3-1.3 1.3H5.8c-.7 0-1.3-.6-1.3-1.3v-7.4c0-.7.6-1.3 1.3-1.3H8Z"/></svg>',
+                mouse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8a5.2 5.2 0 0 1 5.2 5.2v8a5.2 5.2 0 0 1-10.4 0V8A5.2 5.2 0 0 1 12 2.8Zm0 2A3.2 3.2 0 0 0 8.8 8v8a3.2 3.2 0 0 0 6.4 0V8A3.2 3.2 0 0 0 12 4.8Zm-.9 1.4h1.8v4.1h-1.8V6.2Z"/></svg>',
                 minimize: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14v2H5v-2Z"/></svg>'
             };
 
@@ -823,15 +824,18 @@ const viewport = document.getElementById('canvas-viewport');
                 status: document.getElementById('mouse-interaction-status'),
                 attractStrength: document.getElementById('mouse-attract-strength'),
                 repelStrength: document.getElementById('mouse-repel-strength'),
+                svgTargetCount: document.getElementById('mouse-svg-target-count'),
                 radius: document.getElementById('mouse-interaction-radius'),
                 softness: document.getElementById('mouse-interaction-softness'),
-                scrollStep: document.getElementById('mouse-scroll-step')
+                scrollStep: document.getElementById('mouse-scroll-step'),
+                scrollLinkButtons: Array.from(document.querySelectorAll('[data-mouse-scroll-control]'))
             };
             const mouseInteractionState = {
                 pointerInside: false,
                 x: 0,
                 y: 0,
                 repelHeld: false,
+                svgTargetHeld: false,
                 lastMoveAt: 0
             };
 
@@ -952,24 +956,29 @@ const viewport = document.getElementById('canvas-viewport');
             function getMouseInteractionControlState() {
                 return {
                     enabled: mouseControls.enabled?.checked === true,
-                    attractStrength: getControlValue(mouseControls.attractStrength) || '42',
-                    repelStrength: getControlValue(mouseControls.repelStrength) || '72',
+                    attractStrength: getControlValue(mouseControls.attractStrength) || '120',
+                    repelStrength: getControlValue(mouseControls.repelStrength) || '180',
+                    svgTargetCount: getControlValue(mouseControls.svgTargetCount) || '1',
                     radius: getControlValue(mouseControls.radius) || '220',
                     softness: getControlValue(mouseControls.softness) || '1.2',
-                    scrollStep: getControlValue(mouseControls.scrollStep) || '5'
+                    scrollStep: getControlValue(mouseControls.scrollStep) || '5',
+                    scrollLinks: getMouseScrollLinkState()
                 };
             }
 
             function applyMouseInteractionControlState(state = {}) {
                 if (mouseControls.enabled) mouseControls.enabled.checked = state.enabled === true;
-                setControlValue(mouseControls.attractStrength, state.attractStrength ?? state.attract ?? '42');
-                setControlValue(mouseControls.repelStrength, state.repelStrength ?? state.repel ?? '72');
+                setControlValue(mouseControls.attractStrength, state.attractStrength ?? state.attract ?? '120');
+                setControlValue(mouseControls.repelStrength, state.repelStrength ?? state.repel ?? '180');
+                setControlValue(mouseControls.svgTargetCount, state.svgTargetCount ?? '1');
                 setControlValue(mouseControls.radius, state.radius ?? '220');
                 setControlValue(mouseControls.softness, state.softness ?? '1.2');
                 setControlValue(mouseControls.scrollStep, state.scrollStep ?? '5');
+                applyMouseScrollLinkState(state.scrollLinks);
                 [
                     mouseControls.attractStrength,
                     mouseControls.repelStrength,
+                    mouseControls.svgTargetCount,
                     mouseControls.radius,
                     mouseControls.softness,
                     mouseControls.scrollStep
@@ -986,7 +995,9 @@ const viewport = document.getElementById('canvas-viewport');
             function syncMouseInteractionStatus(message = '') {
                 if (mouseControls.status) {
                     if (message) mouseControls.status.textContent = message;
-                    else mouseControls.status.textContent = isMouseInteractionEnabled() ? 'Mouse forces active.' : 'Mouse forces off.';
+                    else mouseControls.status.textContent = isMouseInteractionEnabled()
+                        ? 'Move attracts. Left hold repels. Right hold pulls SVG targets.'
+                        : 'Mouse forces off.';
                 }
                 document.getElementById('drawer-trigger-mouse-interaction')?.classList.toggle('inactive-title', !isMouseInteractionEnabled());
                 if (typeof updateDrawerTitleStates === 'function') updateDrawerTitleStates();
@@ -1026,18 +1037,68 @@ const viewport = document.getElementById('canvas-viewport');
                 return true;
             }
 
-            function adjustMouseInteractionStrengths(direction) {
+            function getMouseScrollControlMap() {
+                return {
+                    attractStrength: { control: mouseControls.attractStrength, label: 'Attract' },
+                    repelStrength: { control: mouseControls.repelStrength, label: 'Repel' },
+                    svgTargetCount: { control: mouseControls.svgTargetCount, label: 'SVG Targets' },
+                    radius: { control: mouseControls.radius, label: 'Radius' }
+                };
+            }
+
+            function getMouseScrollLinkState() {
+                return mouseControls.scrollLinkButtons.reduce((state, button) => {
+                    const key = button.dataset.mouseScrollControl;
+                    if (key) state[key] = button.classList.contains('active');
+                    return state;
+                }, {});
+            }
+
+            function syncMouseScrollLinkButton(button) {
+                if (!button) return;
+                const linked = button.classList.contains('active');
+                const map = getMouseScrollControlMap();
+                const label = map[button.dataset.mouseScrollControl]?.label || 'value';
+                button.setAttribute('aria-pressed', String(linked));
+                setIconButton(button, 'mouse', `${linked ? 'Unlink' : 'Link'} mouse wheel from ${label}`);
+            }
+
+            function applyMouseScrollLinkState(state = null) {
+                const defaults = {
+                    attractStrength: true,
+                    repelStrength: true,
+                    svgTargetCount: false,
+                    radius: false
+                };
+                mouseControls.scrollLinkButtons.forEach(button => {
+                    const key = button.dataset.mouseScrollControl;
+                    const linked = state && Object.prototype.hasOwnProperty.call(state, key)
+                        ? state[key] === true
+                        : defaults[key] === true;
+                    button.classList.toggle('active', linked);
+                    syncMouseScrollLinkButton(button);
+                });
+            }
+
+            function adjustMouseInteractionScrollValues(direction) {
                 const step = clamp(readStateFloat(getControlValue(mouseControls.scrollStep), 5), 1, 20) * direction;
-                [
-                    mouseControls.attractStrength,
-                    mouseControls.repelStrength
-                ].forEach(control => {
+                const map = getMouseScrollControlMap();
+                const changed = [];
+                mouseControls.scrollLinkButtons.forEach(button => {
+                    if (!button.classList.contains('active')) return;
+                    const entry = map[button.dataset.mouseScrollControl];
+                    const control = entry?.control;
                     if (!control) return;
-                    const next = clamp(readStateFloat(getControlValue(control), 0) + step, 0, 100);
+                    const min = readStateFloat(control.min, 0);
+                    const max = readStateFloat(control.max, 100);
+                    const next = clamp(readStateFloat(getControlValue(control), min) + step, min, max);
                     setControlValue(control, next);
                     updateRangeIndicator(control);
+                    changed.push(`${entry.label} ${getControlValue(control)}`);
                 });
-                syncMouseInteractionStatus(`Mouse force ${direction > 0 ? 'up' : 'down'}: ${getControlValue(mouseControls.attractStrength)}/${getControlValue(mouseControls.repelStrength)}.`);
+                syncMouseInteractionStatus(changed.length
+                    ? `Mouse wheel ${direction > 0 ? 'up' : 'down'}: ${changed.join(' · ')}.`
+                    : 'Mouse wheel has no linked values.');
             }
 
             function bindMouseInteractionEvents() {
@@ -1045,10 +1106,19 @@ const viewport = document.getElementById('canvas-viewport');
                 [
                     mouseControls.attractStrength,
                     mouseControls.repelStrength,
+                    mouseControls.svgTargetCount,
                     mouseControls.radius,
                     mouseControls.softness,
                     mouseControls.scrollStep
                 ].forEach(control => control?.addEventListener('input', () => syncMouseInteractionStatus()));
+                applyMouseScrollLinkState();
+                mouseControls.scrollLinkButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        button.classList.toggle('active');
+                        syncMouseScrollLinkButton(button);
+                        syncMouseInteractionStatus();
+                    });
+                });
                 window.addEventListener('pointermove', event => {
                     updateMouseInteractionPointer(event);
                 }, { passive: true });
@@ -1060,10 +1130,12 @@ const viewport = document.getElementById('canvas-viewport');
                         syncMouseInteractionStatus('Repel hold active.');
                     }
                     if (event.button === 2) {
-                        event.preventDefault();
-                        if (mouseControls.enabled) mouseControls.enabled.checked = !mouseControls.enabled.checked;
-                        mouseInteractionState.repelHeld = false;
-                        syncMouseInteractionStatus();
+                        if (isMouseInteractionEnabled()) {
+                            event.preventDefault();
+                            mouseInteractionState.svgTargetHeld = true;
+                            mouseInteractionState.repelHeld = false;
+                            syncMouseInteractionStatus(`SVG targets on mouse: ${getControlValue(mouseControls.svgTargetCount) || '1'}.`);
+                        }
                     }
                 }, { passive: false });
                 window.addEventListener('pointerup', event => {
@@ -1071,19 +1143,24 @@ const viewport = document.getElementById('canvas-viewport');
                         mouseInteractionState.repelHeld = false;
                         syncMouseInteractionStatus();
                     }
+                    if (event.button === 2 && mouseInteractionState.svgTargetHeld) {
+                        mouseInteractionState.svgTargetHeld = false;
+                        syncMouseInteractionStatus();
+                    }
                 }, { passive: true });
                 window.addEventListener('pointercancel', () => {
                     mouseInteractionState.repelHeld = false;
+                    mouseInteractionState.svgTargetHeld = false;
                     mouseInteractionState.pointerInside = false;
                     syncMouseInteractionStatus();
                 }, { passive: true });
                 window.addEventListener('contextmenu', event => {
-                    if (getStudioPointFromPointerEvent(event)) event.preventDefault();
+                    if (!isMouseInteractionUiTarget(event)) event.preventDefault();
                 });
                 window.addEventListener('wheel', event => {
                     if (!isMouseInteractionEnabled() || !updateMouseInteractionPointer(event)) return;
                     event.preventDefault();
-                    adjustMouseInteractionStrengths(event.deltaY < 0 ? 1 : -1);
+                    adjustMouseInteractionScrollValues(event.deltaY < 0 ? 1 : -1);
                 }, { passive: false });
                 syncMouseInteractionStatus();
             }
@@ -1092,10 +1169,12 @@ const viewport = document.getElementById('canvas-viewport');
                 if (!isMouseInteractionEnabled() || !mouseInteractionState.pointerInside) return null;
                 const idleMs = Math.max(0, nowMs - mouseInteractionState.lastMoveAt);
                 const repelActive = mouseInteractionState.repelHeld;
-                const attractFade = repelActive ? 0 : clamp(1 - idleMs / 900, 0, 1);
-                if (!repelActive && attractFade <= 0) return null;
+                const svgTargetActive = mouseInteractionState.svgTargetHeld;
+                const attractFade = (repelActive || svgTargetActive) ? 0 : clamp(1 - idleMs / 900, 0, 1);
+                if (!repelActive && !svgTargetActive && attractFade <= 0) return null;
                 const radius = clamp(readStateFloat(getControlValue(mouseControls.radius), 220), 40, 520);
                 const softness = clamp(readStateFloat(getControlValue(mouseControls.softness), 1.2), 0.4, 3);
+                const attractStrength = clamp(readStateFloat(getControlValue(mouseControls.attractStrength), 120), 0, 300) / 100;
                 return {
                     x: mouseInteractionState.x,
                     y: mouseInteractionState.y,
@@ -1103,9 +1182,14 @@ const viewport = document.getElementById('canvas-viewport');
                     radiusSq: radius * radius,
                     softness,
                     mode: repelActive ? 'repel' : 'attract',
-                    strength: repelActive
-                        ? clamp(readStateFloat(getControlValue(mouseControls.repelStrength), 72), 0, 100) / 100
-                        : clamp(readStateFloat(getControlValue(mouseControls.attractStrength), 42), 0, 100) / 100 * attractFade
+                    strength: svgTargetActive
+                        ? 0
+                        : repelActive
+                            ? clamp(readStateFloat(getControlValue(mouseControls.repelStrength), 180), 0, 300) / 100
+                            : attractStrength * attractFade,
+                    svgTargetActive,
+                    svgTargetCount: clamp(Math.round(readStateFloat(getControlValue(mouseControls.svgTargetCount), 1)), 1, 400),
+                    svgTargetStrength: attractStrength
                 };
             }
 
@@ -1450,6 +1534,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'mouse-interaction-enabled': 'Enable pointer forces on the canvas.',
                 'mouse-attract-strength': 'Force used while the pointer moves over the canvas.',
                 'mouse-repel-strength': 'Force used while left click is held on the canvas.',
+                'mouse-svg-target-count': 'How many SVG target slots move to the mouse while right click is held.',
                 'mouse-interaction-radius': 'Pointer force radius in canvas pixels.',
                 'mouse-interaction-softness': 'Higher values make pointer falloff softer near the edge.',
                 'mouse-scroll-step': 'Amount changed by mouse wheel over the canvas.',
