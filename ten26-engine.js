@@ -2,7 +2,7 @@
             function getMaskState(slideType = 'svg') {
                 const controls = getMaskControlsForType(slideType);
                 return {
-                    enabled: controls.enabled?.checked !== false,
+                    enabled: true,
                     expansion: read(controls.expansion)
                 };
             }
@@ -24,7 +24,6 @@
                     controls.scale?.value,
                     controls.offsetX?.value,
                     controls.offsetY?.value,
-                    mask.enabled ? 1 : 0,
                     mask.expansion
                 ].join('|');
             }
@@ -108,10 +107,6 @@
             }
 
             function updateMaskStatus() {
-                if (!maskControls.enabled.checked) {
-                    maskControls.status.textContent = 'Mask disabled.';
-                    return;
-                }
                 const svgSlides = slides.filter(slide => isSvgSlideType(slide.type));
                 if (!svgSlides.length) {
                     maskControls.status.textContent = 'Load an SVG slide to build an SVG mask.';
@@ -236,7 +231,6 @@
                 const slide = slides[slideIndex];
                 if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') return null;
                 const mask = getMaskState(slide.type);
-                if (!mask.enabled) return null;
                 const key = getMaskCacheKey(slide, mask, slideIndex);
                 const cache = {
                     slideIndex,
@@ -319,18 +313,12 @@
                 const sourceSlide = slides[fromSlideIndex];
                 const targetMask = getMaskState(targetSlide?.type || 'svg');
                 const sourceMask = getMaskState(sourceSlide?.type || 'svg');
-                if (!targetMask.enabled) {
-                    clearAppliedSlideMask();
-                    return false;
-                }
                 const targetCache = getReadySlideMaskCache(toSlideIndex, targetMask) ||
                     (!targetSlide || !targetSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(toSlideIndex) : null);
                 const fromCache = fromVisible
                     ? createEmptySlideMaskCache(fromSlideIndex)
-                    : sourceMask.enabled
-                    ? (getReadySlideMaskCache(fromSlideIndex, sourceMask) ||
+                    : (getReadySlideMaskCache(fromSlideIndex, sourceMask) ||
                         (!sourceSlide || !sourceSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(fromSlideIndex) : null))
-                    : createEmptySlideMaskCache(fromSlideIndex);
                 if (!targetCache) return activateSlideMask(toSlideIndex, { sync: false });
                 if (!fromCache && fromSlideIndex !== toSlideIndex && !isSlideMaskReadyForTransition(fromSlideIndex)) {
                     return false;
@@ -373,7 +361,7 @@
                 const { sync = false } = options;
                 const slide = slides[slideIndex];
                 const mask = getMaskState(slide?.type || 'svg');
-                if (!mask.enabled || !slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') {
+                if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') {
                     clearAppliedSlideMask();
                     return false;
                 }
@@ -1222,22 +1210,18 @@
             let autoTransition = null;
             let forceState = {
                 svgAlpha: 0,
-                gridAlpha: 1,
-                svgRadiusPhase: 0,
-                gridRadiusPhase: 1
+                gridAlpha: 1
             };
 
             function setForceState(next = {}) {
                 forceState = {
                     svgAlpha: clamp(next.svgAlpha ?? forceState.svgAlpha, 0, 1),
-                    gridAlpha: clamp(next.gridAlpha ?? forceState.gridAlpha, 0, 1),
-                    svgRadiusPhase: clamp(next.svgRadiusPhase ?? forceState.svgRadiusPhase, 0, 1),
-                    gridRadiusPhase: clamp(next.gridRadiusPhase ?? forceState.gridRadiusPhase, 0, 1)
+                    gridAlpha: clamp(next.gridAlpha ?? forceState.gridAlpha, 0, 1)
                 };
             }
 
             function resetForcesToGrid() {
-                setForceState({ svgAlpha: 0, gridAlpha: 1, svgRadiusPhase: 0, gridRadiusPhase: 1 });
+                setForceState({ svgAlpha: 0, gridAlpha: 1 });
             }
 
             function getSlideMapper(slide) {
@@ -1503,10 +1487,6 @@
 
             function updateImageMaskStatus() {
                 if (!imageMaskControls.status) return;
-                if (!imageMaskControls.enabled?.checked) {
-                    imageMaskControls.status.textContent = 'Media mask disabled.';
-                    return;
-                }
                 const mediaSlides = slides.filter(slide => isMediaSlideType(slide.type));
                 if (!mediaSlides.length) {
                     imageMaskControls.status.textContent = 'Load a media slide to build a media mask.';
@@ -1774,49 +1754,28 @@
                             idleAlpha: old ? old.idleAlpha : 1,
                             targetSlot: old && Number.isFinite(old.targetSlot) ? old.targetSlot : index,
                             shuffleAt: old ? old.shuffleAt : 0,
-                            gridSlot: old && Number.isFinite(old.gridSlot) ? old.gridSlot : index,
-                            gridShuffleAt: old ? old.gridShuffleAt : 0,
                             seed: old ? old.seed : Math.random() * 1000
                         };
                     });
                 }
 
-                getIdleGridOffset(dot, index, cfg, now) {
-                    if (cfg.idleMotion === 'none' || cfg.idleSteps <= 0 || cfg.idleSpeed <= 0) return { x: 0, y: 0 };
-                    const randomOffset = pseudoRandom(dot.seed + 41) * cfg.idleRandom / 100;
-                    const phase = now * cfg.idleSpeed * 0.18 + dot.seed * randomOffset;
-                    const wave = Math.sin(phase);
-                    const amount = cfg.spacing * cfg.idleSteps * wave;
-                    const directionIndex = Math.floor(phase + dot.seed) % 8;
-                    const directions = {
-                        horizontal: [[1, 0], [-1, 0]],
-                        vertical: [[0, 1], [0, -1]],
-                        diagonal: [[1, 1], [-1, 1], [1, -1], [-1, -1]],
-                        all: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]
-                    };
-                    const set = directions[cfg.idleMotion] || directions.all;
-                    const dir = set[Math.abs(directionIndex) % set.length];
-                    const diagonalScale = Math.abs(dir[0]) + Math.abs(dir[1]) === 2 ? Math.SQRT1_2 : 1;
-                    return { x: dir[0] * amount * diagonalScale, y: dir[1] * amount * diagonalScale };
-                }
-
-                updateIdleAlpha(dot, index, cfg, nowSeconds, deltaTime) {
+                updateIdleAlpha(dot, index, cfg, nowSeconds) {
                     if (!cfg.visibilityEnabled || cfg.visibilityProbability <= 0) {
-                        dot.idleAlpha = approachValue(dot.idleAlpha ?? 1, 1, cfg.visibilityRespawn, deltaTime);
+                        dot.idleAlpha = 1;
                         return;
                     }
                     if (cfg.visibilityGridProximity > 0) {
                         const gridDx = dot.x - dot.gridX;
                         const gridDy = dot.y - dot.gridY;
                         if (gridDx * gridDx + gridDy * gridDy > cfg.visibilityGridProximitySq) {
-                            dot.idleAlpha = approachValue(dot.idleAlpha ?? 1, 1, cfg.visibilityRespawn, deltaTime);
+                            dot.idleAlpha = 1;
                             return;
                         }
                     }
                     const sharedSeed = index + 1;
                     const affected = pseudoRandom(sharedSeed + 911) < clamp(cfg.visibilityProbability, 0, 100) / 100;
                     if (!affected) {
-                        dot.idleAlpha = approachValue(dot.idleAlpha ?? 1, 1, cfg.visibilityRespawn, deltaTime);
+                        dot.idleAlpha = 1;
                         return;
                     }
                     const randomness = clamp(cfg.visibilityRandomness, 0, 100) / 100;
@@ -1832,14 +1791,14 @@
                     const cycle = onPeriod + offPeriod;
                     const phase = (nowSeconds + phaseSeed) % cycle;
                     const hidden = phase > onPeriod;
-                    dot.idleAlpha = approachValue(dot.idleAlpha ?? 1, hidden ? 0 : 1, cfg.visibilityRespawn, deltaTime);
+                    dot.idleAlpha = hidden ? 0 : 1;
                 }
 
                 updateDotLook(dot, cfg) {
                     dot.displayInfluence = clamp(dot.targetInfluence, 0, 1);
                     dot.color = cfg.sameColor
                         ? cfg.gridColor
-                        : interpolateMidRgbColor(cfg.gridRgb, cfg.midRgb, cfg.targetRgb, dot.displayInfluence, cfg.colorMidpoint ?? cfg.sizeMidpoint);
+                        : interpolateMidRgbColor(cfg.gridRgb, cfg.midRgb, cfg.targetRgb, dot.displayInfluence, cfg.sizeMidpoint);
                     const midPoint = clamp(cfg.sizeMidpoint, 0.05, 0.95);
                     const t = clamp(dot.displayInfluence, 0, 1);
                     const firstLeg = t <= midPoint;
@@ -1880,55 +1839,18 @@
                     return Math.abs(Math.floor(dot.targetSlot)) % targetCount;
                 }
 
-                getDotGridHome(dot, index, cfg, nowSeconds) {
-                    const dotCount = this.dots.length;
-                    if (!dotCount) return { x: dot.gridX, y: dot.gridY };
-                    const shuffleAmount = clamp(cfg.gridShuffle ?? 0, 0, 100) / 100;
-                    if (shuffleAmount > 0 && pseudoRandom(dot.seed + 433) < shuffleAmount) {
-                        if (!Number.isFinite(dot.gridSlot)) dot.gridSlot = index % dotCount;
-                        const swapsPerSecond = 0.12 + shuffleAmount * 1.35;
-                        if (!dot.gridShuffleAt) dot.gridShuffleAt = nowSeconds + pseudoRandom(dot.seed + 149) / swapsPerSecond;
-                        if (nowSeconds >= dot.gridShuffleAt) {
-                            dot.gridSlot = Math.floor(pseudoRandom(nowSeconds * 11.9 + dot.seed * 23.17) * dotCount);
-                            dot.gridShuffleAt = nowSeconds + (0.28 + pseudoRandom(nowSeconds + dot.seed * 7.41) * 1.8) / swapsPerSecond;
-                        }
-                    } else {
-                        dot.gridSlot = index % dotCount;
-                        dot.gridShuffleAt = 0;
-                    }
-                    const homeDot = this.dots[Math.abs(Math.floor(dot.gridSlot)) % dotCount] || dot;
-                    return { x: homeDot.gridX, y: homeDot.gridY };
-                }
-
                 returnToGrid() {
                     this.mode = 'grid';
                 }
 
                 isSettledToGrid() {
                     const cfg = getLayerRuntimeConfig(this.layerKey);
-                    if (cfg.idleMotion !== 'none' && cfg.idleSteps > 0 && cfg.idleSpeed > 0) {
-                        return this.dots.every(dot => dot.targetInfluence <= 0.05);
-                    }
-                    const snapDistance = cfg.snapDistance;
+                    const settleDistance = cfg.settleDistance;
                     return this.dots.every(dot => {
                         const distance = Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY);
                         const velocity = Math.hypot(dot.vx, dot.vy);
-                        return distance <= snapDistance && velocity <= 0.08;
+                        return distance <= settleDistance && velocity <= 0.08;
                     });
-                }
-
-                isSettledToTargets(snapDistance, speedLimit, coverage = 1) {
-                    if (!this.targets.length) return true;
-                    if (!this.dots.length) return true;
-                    let settled = 0;
-                    this.dots.forEach((dot, index) => {
-                        const targetIndex = Number.isFinite(dot.targetSlot) ? Math.abs(Math.floor(dot.targetSlot)) % this.targets.length : index % this.targets.length;
-                        const target = this.targets[targetIndex];
-                        const distance = Math.hypot(dot.x - target.x, dot.y - target.y);
-                        const velocity = Math.hypot(dot.vx, dot.vy);
-                        if (distance <= snapDistance && velocity <= speedLimit) settled++;
-                    });
-                    return settled / this.dots.length >= clamp(coverage, 0.01, 1);
                 }
 
                 update(deltaTime, nowMs = performance.now()) {
@@ -1941,7 +1863,6 @@
                     const boundaryElasticity = clamp(cfg.elasticity, 0, 100) / 100;
                     const gridElasticity = clamp(cfg.gridElasticity ?? cfg.elasticity, 0, 100) / 100;
                     const gridCapture = 1 - gridElasticity;
-                    const gridOrbit = cfg.gridOrbit ?? 0;
                     const variation = clamp(cfg.variation, 0, 100) / 100;
                     const hasVariation = variation > 0.001;
                     const svgAlpha = clamp(forceState.svgAlpha, 0, 1);
@@ -1949,9 +1870,9 @@
                     this.mode = svgAlpha > 0.02 ? 'attract' : 'grid';
                     const baseDrag = 0.006 + clamp(cfg.friction, 0, 100) * 0.0018;
                     const frictionFactor = Math.max(0, 1 - baseDrag * frameDt);
-                    const animatedSvgRadius = Math.max(1, cfg.svgRadius * (1 + (cfg.svgRadiusMotion / 100) * forceState.svgRadiusPhase));
-                    const animatedGridRadius = Math.max(1, cfg.gridRadius * (1 + (cfg.gridRadiusMotion / 100) * forceState.gridRadiusPhase));
-                    const snapDistanceSq = cfg.snapDistance * cfg.snapDistance;
+                    const svgRadius = Math.max(1, cfg.svgRadius);
+                    const gridRadius = Math.max(1, cfg.gridRadius);
+                    const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
                     this.dots.forEach((dot, index) => {
                         let fx = 0;
                         let fy = 0;
@@ -1973,7 +1894,7 @@
                             const distance = Math.max(0.0001, Math.hypot(dx, dy));
                             const nx = dx / distance;
                             const ny = dy / distance;
-                            const near = clamp(1 - distance / animatedSvgRadius, 0, 1);
+                            const near = clamp(1 - distance / svgRadius, 0, 1);
                             const influence = smoothstep(0, 1, near) * svgAlpha;
 
                             if (influence > 0) {
@@ -1986,9 +1907,9 @@
                                     fy += nx * orbitForce;
                                 }
 
-                                if (cfg.capture > 0) {
-                                    const capture = clamp(cfg.capture, 0, 100) / 100;
-                                    const stickyDamp = Math.max(0, 1 - capture * near * near * svgAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
+                                if (cfg.targetDamping > 0) {
+                                    const targetDamping = clamp(cfg.targetDamping, 0, 100) / 100;
+                                    const stickyDamp = Math.max(0, 1 - targetDamping * near * near * svgAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
                                     dot.vx *= stickyDamp;
                                     dot.vy *= stickyDamp;
                                 }
@@ -1998,27 +1919,18 @@
                         }
 
                         if (gridAlpha > 0) {
-                            const shuffledHome = this.getDotGridHome(dot, index, cfg, nowSeconds);
-                            const idleOffset = this.getIdleGridOffset(dot, index, cfg, now);
-                            const homeX = shuffledHome.x + idleOffset.x;
-                            const homeY = shuffledHome.y + idleOffset.y;
+                            const homeX = dot.gridX;
+                            const homeY = dot.gridY;
                             gridHomeX = homeX;
                             gridHomeY = homeY;
                             const dx = homeX - dot.x;
                             const dy = homeY - dot.y;
                             const distance = Math.max(0.0001, Math.hypot(dx, dy));
-                            const nx = dx / distance;
-                            const ny = dy / distance;
-                            const near = clamp(1 - distance / animatedGridRadius, 0, 1);
-                            const catchInfluence = distance > animatedGridRadius ? 0.18 : 0.08;
+                            const near = clamp(1 - distance / gridRadius, 0, 1);
+                            const catchInfluence = distance > gridRadius ? 0.18 : 0.08;
                             const influence = (catchInfluence + smoothstep(0, 1, near) * (1 - catchInfluence)) * gridAlpha;
                             fx += dx * cfg.returnPull * 0.065 * influence * Math.max(0.15, pullScale);
                             fy += dy * cfg.returnPull * 0.065 * influence * Math.max(0.15, pullScale);
-                            if (gridOrbit !== 0) {
-                                const orbitForce = gridOrbit * (0.16 + near * 0.42) * gridAlpha;
-                                fx += -ny * orbitForce;
-                                fy += nx * orbitForce;
-                            }
                             if (gridCapture > 0) {
                                 const stickyDamp = Math.max(0, 1 - gridCapture * near * near * gridAlpha * (0.2 - gridElasticity * 0.08) * frameDt);
                                 dot.vx *= stickyDamp;
@@ -2054,7 +1966,7 @@
                             const gridDx = dot.x - gridHomeX;
                             const gridDy = dot.y - gridHomeY;
                             const velocitySq = dot.vx * dot.vx + dot.vy * dot.vy;
-                            if (gridDx * gridDx + gridDy * gridDy <= snapDistanceSq && velocitySq <= 0.0064) {
+                            if (gridDx * gridDx + gridDy * gridDy <= settleDistanceSq && velocitySq <= 0.0064) {
                                 dot.x = gridHomeX;
                                 dot.y = gridHomeY;
                                 dot.vx = 0;
@@ -2063,7 +1975,7 @@
                         }
 
                         dot.targetInfluence += (desiredInfluence - dot.targetInfluence) * clamp(0.08 * frameDt, 0, 1);
-                        this.updateIdleAlpha(dot, index, cfg, nowSeconds, deltaTime);
+                        this.updateIdleAlpha(dot, index, cfg, nowSeconds);
                         this.updateDotLook(dot, cfg);
                     });
                 }
@@ -2114,8 +2026,9 @@
                 return {
                     currentTime: autoControls.currentTime.value,
                     currentFlickerStart: autoControls.currentFlickerStart?.value || '0',
-                    nextTime: autoControls.travelTime.value,
+                    nextTime: autoControls.nextTime.value,
                     nextFlickerStart: autoControls.nextFlickerStart?.value || '0',
+                    returnGridTime: autoControls.returnGridTime?.value || '0',
                     flickerBias: autoControls.flickerBias.value,
                     flickerSpeed: autoControls.flickerSpeed.value,
                     flickerBalance: autoControls.flickerBalance.value,
@@ -2163,8 +2076,9 @@
             function applyAutoTransitionControlState(state = {}) {
                 setControlValue(autoControls.currentTime, pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3'));
                 setControlValue(autoControls.currentFlickerStart, pickAutoStateValue(state.currentFlickerStart, state.flickerDelay, '0'));
-                setControlValue(autoControls.travelTime, pickAutoStateValue(state.nextTime, state.travelTime, '2'));
+                setControlValue(autoControls.nextTime, pickAutoStateValue(state.nextTime, '2'));
                 setControlValue(autoControls.nextFlickerStart, pickAutoStateValue(state.nextFlickerStart, state.flickerDelay, '0'));
+                setControlValue(autoControls.returnGridTime, pickAutoStateValue(state.returnGridTime, '0'));
                 setControlValue(autoControls.flickerBias, deriveFlickerBias(state));
                 setControlValue(autoControls.flickerSpeed, deriveFlickerSpeed(state));
                 setControlValue(autoControls.flickerBalance, deriveFlickerBalance(state));
@@ -2180,7 +2094,8 @@
                 const flickerWildness = read(autoControls.flickerWildness);
                 const cycleMs = clamp(1000 / Math.max(0.01, flickerSpeed), 30, 1800);
                 const rawCurrentTime = Math.max(0.1, read(autoControls.currentTime));
-                const rawNextTime = Math.max(0.1, read(autoControls.travelTime));
+                const rawNextTime = Math.max(0.1, read(autoControls.nextTime));
+                const returnGridTime = clamp(readStateFloat(getControlValue(autoControls.returnGridTime), 0), 0, 8);
                 const currentTime = rawCurrentTime;
                 const nextTime = rawNextTime;
                 const currentFlickerStart = clamp(read(autoControls.currentFlickerStart), 0, rawCurrentTime);
@@ -2192,6 +2107,7 @@
                     currentFlickerStart,
                     nextTime,
                     nextFlickerStart,
+                    returnGridTime,
                     outFlicker: Math.max(0.05, currentFlickerWindow * (1 - flickerBias * 0.35)),
                     inFlicker: Math.max(0.05, nextFlickerWindow * (1 + flickerBias * 0.35)),
                     flickerOn: clamp(cycleMs * flickerBalance, 15, 900),
@@ -2282,8 +2198,12 @@
                     return;
                 }
                 if (autoTransition) {
-                    setAutoStatus('Flicker is already running. Press Esc to stop.');
-                    return;
+                    if (options.interruptActive) {
+                        stopAutoTransition(false);
+                    } else {
+                        setAutoStatus('Flicker is already running. Press Esc to stop.');
+                        return;
+                    }
                 }
 
                 const fromIndex = currentSlideIndex;
@@ -2348,7 +2268,7 @@
                         finishMediaFrameCutTransition();
                         return;
                     }
-                    setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
+                    setForceState({ svgAlpha: 1, gridAlpha: 0 });
                     setAutoStatus('Current slide phase.');
                 }
                 updateViewStatus();
@@ -2433,9 +2353,19 @@
                     resetDotMaskAlphas(1);
                     autoTransition.travelMaskCleared = true;
                 }
-                setForceState({ svgAlpha: 0, gridAlpha: 0, svgRadiusPhase: 0, gridRadiusPhase: 0 });
+                setForceState({ svgAlpha: 0, gridAlpha: 0 });
                 setAutoPhase('nextPhase');
                 setAutoStatus('Next slide phase.');
+            }
+
+            function startAutoReturnPhase() {
+                if (!autoTransition) return;
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                holdState = 'return';
+                setSlideOpacity(1);
+                setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                setAutoPhase('returnPhase');
+                setAutoStatus('Returning dots to grid.');
             }
 
             function phaseProgress(time, duration) {
@@ -2474,7 +2404,7 @@
                         settings.outFlicker,
                         'out'
                     ));
-                    setForceState({ svgAlpha: eased, gridAlpha: 0, svgRadiusPhase: progress, gridRadiusPhase: 0 });
+                    setForceState({ svgAlpha: eased, gridAlpha: 0 });
                     if (autoTransition.timer >= settings.currentTime) {
                         pauseVideoSlide(slides[autoTransition.fromIndex], false);
                         if (autoTransition.mediaTransitionMode === 'cut') {
@@ -2497,9 +2427,24 @@
                         settings.inFlicker,
                         'in'
                     ));
-                    setForceState({ svgAlpha: eased, gridAlpha: 0, svgRadiusPhase: progress, gridRadiusPhase: 0 });
+                    setForceState({ svgAlpha: eased, gridAlpha: 0 });
                     if (autoTransition.timer >= settings.nextTime) {
                         setSlideOpacity(1);
+                        if (settings.returnGridTime > 0.001) {
+                            startAutoReturnPhase();
+                            return;
+                        }
+                        finishAutoTransition();
+                    }
+                    return;
+                }
+
+                if (autoTransition.phase === 'returnPhase') {
+                    const progress = phaseProgress(autoTransition.timer, settings.returnGridTime);
+                    const eased = forceFadeProgress(progress);
+                    setSlideOpacity(1);
+                    setForceState({ svgAlpha: 1 - eased, gridAlpha: eased });
+                    if (autoTransition.timer >= settings.returnGridTime) {
                         finishAutoTransition();
                     }
                     return;
@@ -2553,6 +2498,8 @@
                         ? autoTransition.settings.currentTime
                         : autoTransition.phase === 'nextPhase'
                         ? autoTransition.settings.nextTime
+                        : autoTransition.phase === 'returnPhase'
+                        ? autoTransition.settings.returnGridTime
                         : 0
                     : 0;
                 const timer = autoTransition
@@ -2631,10 +2578,14 @@
 
             function beginHoldAdvance(direction = 1, code = 'button-next', options = {}) {
                 pauseAllVideos(true);
+                const manualAdvance = code !== 'header-auto';
                 const skipCurrentLock = options.skipCurrentLock !== undefined
                     ? options.skipCurrentLock
-                    : code !== 'header-auto';
-                startAutoTransition(direction, { skipCurrentLock });
+                    : manualAdvance;
+                startAutoTransition(direction, {
+                    skipCurrentLock,
+                    interruptActive: manualAdvance
+                });
             }
 
             function releaseHoldAdvance(code = null) {
@@ -2657,7 +2608,7 @@
                 applySlideTransform();
                 activateSlideMask(currentSlideIndex, { sync: true });
                 const activeLayers = applyVisibleLayerTargetsForSlide(currentSlideIndex);
-                setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
+                setForceState({ svgAlpha: 1, gridAlpha: 0 });
                 holdState = 'attract';
                 const slide = slides[currentSlideIndex];
                 setMorphStatus(activeLayers

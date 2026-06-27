@@ -17,13 +17,10 @@ function getActiveLayerStateFromControls() {
                     friction: motionState.friction,
                     speedLimit: motionState.speedLimit,
                     elasticity: motionState.elasticity,
-                    capture: motionState.capture,
                     returnPull: motionState.returnPull,
                     pull: motionState.pull,
                     svgRadius: motionState.svgRadius,
-                    svgRadiusMotion: current.svgRadiusMotion || '0',
                     gridRadius: motionState.gridRadius,
-                    gridRadiusMotion: current.gridRadiusMotion || '0',
                     orbit: motionState.orbit,
                     shuffle: motionState.shuffle,
                     variation: motionState.variation,
@@ -38,12 +35,9 @@ function getActiveLayerStateFromControls() {
                     visibilityRandomness: motionState.visibilityRandomness,
                     visibilityProbability: motionState.visibilityProbability,
                     visibilityGridProximity: motionState.visibilityGridProximity,
-                    visibilityRespawn: '0',
-                    snapDistance: current.snapDistance || '1.5',
                     gridColor: motionState.gridColor,
                     midColor: motionState.midColor,
-                    targetColor: motionState.targetColor,
-                    colorMidpoint: motionState.colorMidpoint || motionState.sizeMidpoint || '0.5'
+                    targetColor: motionState.targetColor
                 };
             }
 
@@ -57,32 +51,16 @@ function getActiveLayerStateFromControls() {
                 updateLayerSelectionUi();
             }
 
-            function getTimingState() {
-                return {};
-            }
-
-            function applyTimingState(state = {}) {
-                // V11 keeps this as an import shim for older preset files.
-            }
-
             function getMaskControlState() {
                 return {
-                    enabled: true,
                     expansion: maskControls.expansion.value,
-                    scaleTime: maskControls.scaleTime?.value || '4',
-                    samples: maskControls.samples.value,
-                    speedThreshold: maskControls.speedThreshold.value,
-                    gridThreshold: maskControls.gridThreshold.value
+                    scaleTime: maskControls.scaleTime?.value || '4'
                 };
             }
 
             function applyMaskControlState(state = {}) {
-                maskControls.enabled.checked = true;
                 setControlValue(maskControls.expansion, state.expansion || '32');
                 setControlValue(maskControls.scaleTime, state.scaleTime || '4');
-                setControlValue(maskControls.samples, state.samples || '18');
-                setControlValue(maskControls.speedThreshold, state.speedThreshold || '0.18');
-                setControlValue(maskControls.gridThreshold, state.gridThreshold || '4');
                 clearMaskCache();
                 updateMaskStatus();
             }
@@ -111,14 +89,12 @@ function getActiveLayerStateFromControls() {
 
             function getImageMaskControlState() {
                 return {
-                    enabled: true,
                     expansion: imageMaskControls.expansion?.value || '32',
                     scaleTime: imageMaskControls.scaleTime?.value || '4'
                 };
             }
 
             function applyImageMaskControlState(state = {}) {
-                if (imageMaskControls.enabled) imageMaskControls.enabled.checked = true;
                 setControlValue(imageMaskControls.expansion, state.expansion || '32');
                 setControlValue(imageMaskControls.scaleTime, state.scaleTime || '4');
                 clearMaskCache();
@@ -242,17 +218,13 @@ function getActiveLayerStateFromControls() {
             }
 
             function coerceLayerStateForV12(layer, source = {}) {
-                const legacyStickiness = readStateFloat(source.stickiness, readStateFloat(layer.stickiness, 0.25));
                 const targetSeed = source.targetTypes !== undefined ? source.targetTypes : (source.targetType !== undefined ? source.targetType : layer.targetType);
                 layer.targetType = normalizeTargetType(targetSeed, source.targetType || layer.targetType || 'fill');
                 layer.targetTypes = [layer.targetType];
                 if (source.speedLimit === undefined) layer.speedLimit = String(readStateFloat(layer.speedLimit, 80));
                 if (source.friction === undefined) layer.friction = String(readStateFloat(layer.friction, 34));
                 if (source.svgRadius === undefined) layer.svgRadius = String(readStateFloat(layer.svgRadius, 320));
-                if (source.svgRadiusMotion === undefined) layer.svgRadiusMotion = String(readStateFloat(layer.svgRadiusMotion, 0));
                 if (source.gridRadius === undefined) layer.gridRadius = String(readStateFloat(layer.gridRadius, 1000));
-                if (source.gridRadiusMotion === undefined) layer.gridRadiusMotion = String(readStateFloat(layer.gridRadiusMotion, 0));
-                if (source.capture === undefined) layer.capture = String(source.stickiness === undefined ? readStateFloat(layer.capture, 25) : Math.round(clamp(legacyStickiness * 50, 0, 100)));
                 if (source.elasticity === undefined && source.friction !== undefined) {
                     layer.elasticity = String(Math.round(clamp(58 - readStateFloat(source.friction, 0.45) * 18, 0, 100)));
                 }
@@ -263,9 +235,7 @@ function getActiveLayerStateFromControls() {
                 if (source.shuffle === undefined) layer.shuffle = '0';
                 if (source.variation === undefined) layer.variation = '0';
                 if (source.midSize === undefined) layer.midSize = String(readStateFloat(layer.midSize, readStateFloat(layer.gridSize, 2.5)));
-                if (source.sizeMidpoint === undefined) {
-                    layer.sizeMidpoint = String(clamp(readStateFloat(source.colorMidpoint, 0.5), 0.05, 0.95));
-                }
+                if (source.sizeMidpoint === undefined) layer.sizeMidpoint = '0.5';
                 if (source.speedSize === undefined) layer.speedSize = '0';
                 if (source.visibilityEnabled === undefined) layer.visibilityEnabled = true;
                 if (source.visibilityOn === undefined) layer.visibilityOn = '7';
@@ -273,24 +243,19 @@ function getActiveLayerStateFromControls() {
                 if (source.visibilityRandomness === undefined) layer.visibilityRandomness = '100';
                 if (source.visibilityProbability === undefined) layer.visibilityProbability = '70';
                 if (source.visibilityGridProximity === undefined) layer.visibilityGridProximity = '0';
-                layer.visibilityRespawn = '0';
                 const fallbackColor = normalizeHexColor(source.dotColor || source.gridColor || layer.gridColor || '#ffffff');
                 layer.gridColor = normalizeHexColor(source.gridColor || source.dotColor || layer.gridColor, fallbackColor);
                 layer.midColor = normalizeHexColor(source.midColor || source.dotColor || layer.midColor, layer.gridColor);
                 layer.targetColor = normalizeHexColor(source.targetColor || source.dotColor || layer.targetColor, layer.midColor);
-                layer.colorMidpoint = String(clamp(readStateFloat(source.colorMidpoint, readStateFloat(source.sizeMidpoint, readStateFloat(layer.sizeMidpoint, 0.5))), 0.05, 0.95));
                 layer.motionStyle = 'direct';
                 layer.motionEnergy = '0';
                 layer.flickerAmount = '0';
                 layer.flickerSpeed = '1';
                 layer.flickerFade = '0.25';
-                layer.idleMotion = 'none';
-                layer.idleSteps = '0';
-                layer.idleSpeed = '0';
-                layer.idleRandom = '0';
                 Object.keys(layer).forEach(key => {
                     if (key.toLowerCase() === 'blendmode') delete layer[key];
                 });
+                // Strip old private knobs so imported states normalize to the current visible layer model.
                 [
                     'motionStyle', 'motionEnergy', 'bounce', 'targetSpeed', 'gridSpeed',
                     'drift', 'wobble', 'stickiness', 'targetWobble', 'wobbleSpeed',
@@ -298,7 +263,9 @@ function getActiveLayerStateFromControls() {
                     'gridSizeRandom', 'gridSizeBoost', 'targetSizeBoost', 'targetSwitch', 'switchSoftness',
                     'colorVariation', 'midColorMode', 'targetColorMode', 'dotColor', 'dotColorMode',
                     'dotGridColor', 'dotTargetColor', 'gridColorMode',
-                    'idleMotion', 'idleSteps', 'idleSpeed', 'idleRandom', 'flickerAmount', 'flickerSpeed', 'flickerFade'
+                    'capture', 'svgRadiusMotion', 'gridRadiusMotion', 'snapDistance', 'colorMidpoint',
+                    'visibilityRespawn', 'idleMotion', 'idleSteps', 'idleSpeed', 'idleRandom',
+                    'flickerAmount', 'flickerSpeed', 'flickerFade'
                 ].forEach(key => delete layer[key]);
                 return layer;
             }
@@ -320,11 +287,8 @@ function getActiveLayerStateFromControls() {
                     layers[layerKey].targetType = motion.targetType || motion['dot-target-type'] || layers[layerKey].targetType;
                     layers[layerKey].mass = motion['dot-mass'] || layers[layerKey].mass;
                     layers[layerKey].svgRadius = motion['dot-svg-radius'] || motion.svgRadius || layers[layerKey].svgRadius;
-                    layers[layerKey].svgRadiusMotion = motion['dot-svg-radius-motion'] || motion.svgRadiusMotion || layers[layerKey].svgRadiusMotion;
                     layers[layerKey].gridRadius = motion['dot-grid-radius'] || motion.gridRadius || layers[layerKey].gridRadius;
-                    layers[layerKey].gridRadiusMotion = motion['dot-grid-radius-motion'] || motion.gridRadiusMotion || layers[layerKey].gridRadiusMotion;
                     layers[layerKey].elasticity = motion['dot-elasticity'] || motion.elasticity || layers[layerKey].elasticity;
-                    layers[layerKey].capture = motion['dot-capture'] || motion.capture || layers[layerKey].capture;
                     layers[layerKey].shuffle = motion['dot-shuffle'] || motion.shuffle || layers[layerKey].shuffle;
                     layers[layerKey].variation = motion['dot-variation'] || motion.variation || layers[layerKey].variation;
                     layers[layerKey].friction = motion['dot-friction'] || layers[layerKey].friction;
@@ -334,9 +298,6 @@ function getActiveLayerStateFromControls() {
                     layers[layerKey].returnPull = motion['dot-return-pull'] || layers[layerKey].returnPull;
                     layers[layerKey].pull = motion['dot-pull'] || layers[layerKey].pull;
                     layers[layerKey].stickiness = motion['dot-stickiness'] || layers[layerKey].stickiness;
-                    if (!motion['dot-capture'] && !motion.capture && motion['dot-stickiness']) {
-                        layers[layerKey].capture = String(Math.round(clamp(parseFloat(motion['dot-stickiness']) * 50, 0, 100)));
-                    }
                     layers[layerKey].targetWobble = motion['dot-target-wobble'] || layers[layerKey].targetWobble;
                     layers[layerKey].wobbleSpeed = motion['dot-wobble-speed'] || layers[layerKey].wobbleSpeed;
                     layers[layerKey].orbit = motion['dot-orbit'] || layers[layerKey].orbit;
@@ -346,10 +307,8 @@ function getActiveLayerStateFromControls() {
                     layers[layerKey].targetSize = motion['dot-target-size'] || layers[layerKey].targetSize;
                     layers[layerKey].sizeMidpoint = motion['dot-size-midpoint'] || layers[layerKey].sizeMidpoint;
                     layers[layerKey].speedSize = motion['dot-speed-size'] || layers[layerKey].speedSize;
-                    layers[layerKey].snapDistance = motion['morph-snap-dist'] || layers[layerKey].snapDistance;
                     layers[layerKey].gridColor = motion.gridColor || motion.dotColor || motion.dotGridColor || motion.dotTargetColor || layers[layerKey].gridColor;
                     layers[layerKey].targetColor = motion.targetColor || motion.dotTargetColor || motion.dotColor || motion.dotGridColor || layers[layerKey].targetColor;
-                    layers[layerKey].colorMidpoint = motion.colorMidpoint || motion['dot-color-midpoint'] || layers[layerKey].colorMidpoint;
                     layers[layerKey].flickerAmount = motion['dot-flicker-amount'] || layers[layerKey].flickerAmount;
                     layers[layerKey].flickerSpeed = motion['dot-flicker-speed'] || layers[layerKey].flickerSpeed;
                     layers[layerKey].flickerFade = motion['dot-flicker-fade'] || layers[layerKey].flickerFade;
@@ -371,7 +330,6 @@ function getActiveLayerStateFromControls() {
                     activeLayerKey,
                     layerOrder: [...DOT_LAYER_KEYS],
                     svgMediaStackIndex: clampSvgMediaStackIndex(),
-                    timing: getTimingState(),
                     autoTransition: getAutoTransitionControlState(),
                     blink: forceBlinkRespawnState(getBlinkStateFromControls()),
                     randomRanges: getRandomRangeState(),
@@ -419,10 +377,6 @@ function getActiveLayerStateFromControls() {
                     slideControls.offsetY.value = slideState.offsetY || '0';
                 }
                 applyImageSlideControlState(state.imageSlide || {});
-                applyTimingState(state.timing || {
-                    fadeOut: state.motion?.['morph-fade-out'] || '0.7',
-                    fadeIn: state.motion?.['morph-fade-in'] || '0.8'
-                });
                 if (state.mask) applyMaskControlState(state.mask || {});
                 applyImageMaskControlState(state.imageMask || {});
                 applyAutoTransitionControlState(state.autoTransition || {});
@@ -678,12 +632,8 @@ function getActiveLayerStateFromControls() {
             function getDefaultMaskState() {
                 const mask = getDefaultAssetBundle().mask || {};
                 return {
-                    enabled: mask.enabled !== false,
                     expansion: mask.expansion || '32',
-                    scaleTime: mask.scaleTime || '4',
-                    samples: mask.samples || '18',
-                    speedThreshold: mask.speedThreshold || '0.18',
-                    gridThreshold: mask.gridThreshold || '4'
+                    scaleTime: mask.scaleTime || '4'
                 };
             }
 
@@ -700,7 +650,6 @@ function getActiveLayerStateFromControls() {
             function getDefaultImageMaskState() {
                 const imageMask = getDefaultAssetBundle().imageMask || {};
                 return {
-                    enabled: imageMask.enabled !== false,
                     expansion: imageMask.expansion || '32',
                     scaleTime: imageMask.scaleTime || '4'
                 };
@@ -713,8 +662,7 @@ function getActiveLayerStateFromControls() {
                     visibilityOff: '3',
                     visibilityRandomness: '100',
                     visibilityProbability: '70',
-                    visibilityGridProximity: '0',
-                    visibilityRespawn: '0'
+                    visibilityGridProximity: '0'
                 };
             }
 
@@ -724,25 +672,10 @@ function getActiveLayerStateFromControls() {
                     activeLayerKey: DEFAULT_LAYER_KEY,
                     layerOrder: [DEFAULT_LAYER_KEY],
                     svgMediaStackIndex: 1,
-                    timing: {},
                     autoTransition: {
                         currentTime: '3',
-                        travelTime: '2',
-                        gridTime: '3',
-                        gridAttractTime: '0.6',
-                        gridAttractOverrides: {
-                            returnPull: '0.38',
-                            gridRadius: '1000',
-                            speedLimit: '80',
-                            mass: '1',
-                            friction: '34',
-                            elasticity: '45',
-                            orbit: '0',
-                            shuffle: '0',
-                            variation: '0',
-                            speedSize: '0'
-                        },
-                        flickerTime: '2',
+                        nextTime: '2',
+                        returnGridTime: '0',
                         flickerBias: '6',
                         flickerSpeed: '10',
                         flickerBalance: '75',
@@ -1117,13 +1050,12 @@ function getActiveLayerStateFromControls() {
                     visibilityOff: '0.28',
                     visibilityRandomness: '28',
                     visibilityProbability: '42',
-                    visibilityGridProximity: '0',
-                    visibilityRespawn: '0'
+                    visibilityGridProximity: '0'
                 };
                 const legacyLayers = {
-                    top: makeLayerState('top', blink, { targetType: 'fill', mass: '1', friction: '34', speedLimit: '58', elasticity: '48', capture: '34', pull: '0.72', svgRadius: '360', returnPull: '0.38', gridRadius: '1600', orbit: '0', shuffle: '8', variation: '12', midSize: '3.4', targetSize: '4' }),
-                    mid: makeLayerState('mid', blink, { targetType: 'path', mass: '1.5', friction: '42', speedLimit: '44', elasticity: '42', capture: '42', pull: '0.58', svgRadius: '460', returnPull: '0.34', gridRadius: '1700', orbit: '0.18', shuffle: '12', variation: '18', midSize: '3.6', targetSize: '3.8' }),
-                    bottom: makeLayerState('bottom', blink, { targetType: 'anchor', mass: '2.2', friction: '48', speedLimit: '36', elasticity: '30', capture: '58', pull: '0.48', svgRadius: '540', returnPull: '0.3', gridRadius: '1800', orbit: '-0.12', shuffle: '0', variation: '10', midSize: '3.2', targetSize: '3.6' })
+                    top: makeLayerState('top', blink, { targetType: 'fill', mass: '1', friction: '34', speedLimit: '58', elasticity: '48', pull: '0.72', svgRadius: '360', returnPull: '0.38', gridRadius: '1600', orbit: '0', shuffle: '8', variation: '12', midSize: '3.4', targetSize: '4' }),
+                    mid: makeLayerState('mid', blink, { targetType: 'path', mass: '1.5', friction: '42', speedLimit: '44', elasticity: '42', pull: '0.58', svgRadius: '460', returnPull: '0.34', gridRadius: '1700', orbit: '0.18', shuffle: '12', variation: '18', midSize: '3.6', targetSize: '3.8' }),
+                    bottom: makeLayerState('bottom', blink, { targetType: 'anchor', mass: '2.2', friction: '48', speedLimit: '36', elasticity: '30', pull: '0.48', svgRadius: '540', returnPull: '0.3', gridRadius: '1800', orbit: '-0.12', shuffle: '0', variation: '10', midSize: '3.2', targetSize: '3.6' })
                 };
                 const normalizedLayers = normalizeLayerCollection(legacyLayers, ['top', 'mid', 'bottom']);
                 state.activeLayerKey = normalizedLayers.sourceToTarget.top || normalizedLayers.layerOrder[0] || DEFAULT_LAYER_KEY;
@@ -1132,23 +1064,8 @@ function getActiveLayerStateFromControls() {
                 state.autoTransition = {
                     ...state.autoTransition,
                     currentTime: '0.9',
-                    travelTime: '1.35',
-                    gridTime: '0.95',
-                    gridAttractTime: '0.55',
-                    gridAttractOverrides: {
-                        ...state.autoTransition.gridAttractOverrides,
-                        returnPull: '0.48',
-                        gridRadius: '1000',
-                        speedLimit: '72',
-                        mass: '1.2',
-                        friction: '38',
-                        elasticity: '42',
-                        orbit: '0',
-                        shuffle: '0',
-                        variation: '8',
-                        speedSize: '0'
-                    },
-                    flickerTime: '0.62',
+                    nextTime: '1.35',
+                    returnGridTime: '0',
                     flickerBias: '8',
                     flickerSpeed: '8',
                     flickerBalance: '56',

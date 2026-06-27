@@ -44,8 +44,7 @@ const viewport = document.getElementById('canvas-viewport');
             function forceBlinkRespawnState(state = {}) {
                 return {
                     ...state,
-                    visibilityGridProximity: state.visibilityGridProximity ?? '0',
-                    visibilityRespawn: '0'
+                    visibilityGridProximity: state.visibilityGridProximity ?? '0'
                 };
             }
 
@@ -321,7 +320,7 @@ const viewport = document.getElementById('canvas-viewport');
                 ]);
                 buildDrawerGroup('drawer-advanced-options', 'drawer-trigger-advanced-options', 'Advanced Options', [
                     'drawer-grid',
-                    'drawer-auto-transition',
+                    'drawer-flicker',
                     'drawer-blink-mode'
                 ]);
             }
@@ -739,13 +738,9 @@ const viewport = document.getElementById('canvas-viewport');
             let mediaMode = 'images';
 
             const maskControls = {
-                enabled: document.getElementById('mask-enabled'),
                 status: document.getElementById('mask-status'),
                 expansion: document.getElementById('mask-expansion'),
-                scaleTime: document.getElementById('mask-scale-time'),
-                samples: document.getElementById('mask-samples'),
-                speedThreshold: document.getElementById('mask-speed-threshold'),
-                gridThreshold: document.getElementById('mask-grid-threshold')
+                scaleTime: document.getElementById('mask-scale-time')
             };
 
             const mediaControls = {
@@ -768,7 +763,6 @@ const viewport = document.getElementById('canvas-viewport');
             };
 
             const imageMaskControls = {
-                enabled: document.getElementById('image-mask-enabled'),
                 status: document.getElementById('image-mask-status'),
                 expansion: document.getElementById('image-mask-expansion'),
                 scaleTime: document.getElementById('image-mask-scale-time')
@@ -816,8 +810,9 @@ const viewport = document.getElementById('canvas-viewport');
                 status: document.getElementById('auto-transition-status'),
                 currentTime: document.getElementById('transition-current-time'),
                 currentFlickerStart: document.getElementById('transition-current-flicker-start'),
-                travelTime: document.getElementById('transition-travel-time'),
+                nextTime: document.getElementById('transition-next-time'),
                 nextFlickerStart: document.getElementById('transition-next-flicker-start'),
+                returnGridTime: document.getElementById('transition-return-grid-time'),
                 flickerBias: document.getElementById('transition-flicker-bias'),
                 flickerSpeed: document.getElementById('transition-flicker-speed'),
                 flickerBalance: document.getElementById('transition-flicker-balance'),
@@ -858,6 +853,7 @@ const viewport = document.getElementById('canvas-viewport');
             const DENSE_SIZE_CENTER = 4;
             const DENSE_SIZE_MAX = 100;
             const DENSE_SIZE_UI_CENTER = 50;
+            const DOT_SETTLE_DISTANCE = 1.5;
 
             function isDenseSizeSlider(control) {
                 const id = control?.id || '';
@@ -940,7 +936,7 @@ const viewport = document.getElementById('canvas-viewport');
             function syncTimingControlRanges() {
                 [
                     [autoControls.currentTime, autoControls.currentFlickerStart, 3],
-                    [autoControls.travelTime, autoControls.nextFlickerStart, 2]
+                    [autoControls.nextTime, autoControls.nextFlickerStart, 2]
                 ].forEach(([timeControl, startControl, fallback]) => {
                     if (!startControl) return;
                     const phaseTime = clamp(readStateFloat(getControlValue(timeControl), fallback), 0.1, 12);
@@ -1218,13 +1214,6 @@ const viewport = document.getElementById('canvas-viewport');
                 return x - Math.floor(x);
             }
 
-            function approachValue(current, target, duration, deltaTime) {
-                if (duration <= 0.01) return target;
-                const step = deltaTime / duration;
-                if (current < target) return Math.min(target, current + step);
-                return Math.max(target, current - step);
-            }
-
             function updateRangeIndicator(slider) {
                 const valueIdAliases = {};
                 const indicator = document.getElementById(valueIdAliases[slider.id] || `val-${slider.id}`);
@@ -1272,14 +1261,12 @@ const viewport = document.getElementById('canvas-viewport');
                 'mask-scale-time': 'Seconds used for masked dots to shrink out or grow back during slide changes.',
                 'image-mask-expansion': 'Expand the image slide mask outward from the rectangle edges.',
                 'image-mask-scale-time': 'Seconds used for image-slide masked dots to shrink out or grow back.',
-                'mask-samples': 'Legacy mask setting kept for older presets.',
-                'mask-speed-threshold': 'Legacy mask setting kept for older presets.',
-                'mask-grid-threshold': 'Legacy mask setting kept for older presets.',
                 'slide-auto-duration': 'Seconds between automatic slide advances.',
                 'transition-current-time': 'Length of the current-slide phase.',
                 'transition-current-flicker-start': 'When current-slide flicker starts inside the current phase. The max follows Current Time.',
-                'transition-travel-time': 'Length of the next-slide phase.',
+                'transition-next-time': 'Length of the next-slide phase.',
                 'transition-next-flicker-start': 'When next-slide flicker starts inside the next phase. The max follows Next Time.',
+                'transition-return-grid-time': 'Seconds used to fade from the revealed slide target back to grid homes.',
                 'transition-flicker-bias': 'Favor old-out or new-in.',
                 'transition-flicker-speed': 'Visual flicker pulses per second.',
                 'transition-flicker-balance': 'Visible vs hidden ratio.',
@@ -1299,7 +1286,7 @@ const viewport = document.getElementById('canvas-viewport');
             const MODULE_TOOLTIPS = {
                 'drawer-trigger-dot-matrix': 'Per-layer target, colors, midpoint, and motion settings.',
                 'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
-                'drawer-trigger-timing': 'Transition stage timing, stage speed, auto duration, and overall pace.',
+                'drawer-trigger-timing': 'Current/next phase timing, flicker start delays, and auto duration.',
                 'drawer-trigger-advanced-options': 'Grid layout, flicker visuals, and shared blink behavior.',
                 'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',
                 'drawer-trigger-masks': 'Vector and raster grid-mask expansion and timing.',
@@ -1318,7 +1305,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'SVG Mask': 'Hide grid homes inside or near painted SVG artwork.',
                 'Image Mask': 'Hide grid homes inside the active media rectangle.',
                 'Media Mask': 'Hide grid homes inside the active media rectangle.',
-                'Transition Path': 'Dot movement phases: hold current, move to next, then return to grid.',
+                'Transition Path': 'Dot movement phases for the current slide and next slide.',
                 'Flicker Shape': 'Binary on/off behavior during slide swaps.',
                 'Canvas Color': 'Static or cycling canvas palette.',
                 'Background Color': 'Backdrop outside the canvas.',
@@ -1342,8 +1329,6 @@ const viewport = document.getElementById('canvas-viewport');
                 'app-bg-picker': 'Backdrop color outside the canvas.',
                 'app-bg-hex': 'Backdrop color outside the canvas.',
                 'blink-enabled': 'Turn shared grid blink on or off.',
-                'mask-enabled': 'Hide grid-home dots inside the active SVG.',
-                'image-mask-enabled': 'Hide grid-home dots inside the active media rectangle.',
                 'view-overlay-opacity': 'Set info overlay opacity. 0% hides it and stops overlay runtime refresh.',
                 'media-transition-mode': 'Choose how transitions behave when the current slide is media.',
                 'panel-toggle': 'Open both control panels.',
@@ -1701,15 +1686,12 @@ const viewport = document.getElementById('canvas-viewport');
                     friction: '34',
                     speedLimit: '80',
                     elasticity: '45',
-                    capture: '25',
                     shuffle: '0',
                     variation: '0',
                     returnPull: '0.38',
                     pull: '0.7',
                     svgRadius: '320',
-                    svgRadiusMotion: '0',
                     gridRadius: PRESET_GRID_RADIUS,
-                    gridRadiusMotion: '0',
                     orbit: '0',
                     gridSize: '2.5',
                     midSize: '2.5',
@@ -1722,12 +1704,9 @@ const viewport = document.getElementById('canvas-viewport');
                     visibilityRandomness: '100',
                     visibilityProbability: '70',
                     visibilityGridProximity: '0',
-                    visibilityRespawn: '0',
-                    snapDistance: '1.5',
                     gridColor: meta.defaultColor,
                     midColor: meta.defaultColor,
                     targetColor: meta.defaultColor,
-                    colorMidpoint: '0.5',
                     ...overrides
                 };
             }
@@ -1872,8 +1851,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const sourceState = dotLayerStates[sourceLayerKey] || createDefaultLayerState(sourceLayerKey);
                 const copiedState = {
                     ...sourceState,
-                    name: createLayerCopyName(sourceState.name || sourceLabel),
-                    visibilityRespawn: '0'
+                    name: createLayerCopyName(sourceState.name || sourceLabel)
                 };
                 dotLayerStates[layerKey] = createDefaultLayerState(layerKey, {
                     ...copiedState
@@ -1957,7 +1935,7 @@ const viewport = document.getElementById('canvas-viewport');
                 if (cached?.source === state) return cached.config;
                 const meta = DOT_LAYER_META[layerKey] || DOT_LAYER_META[DEFAULT_LAYER_KEY];
                 const flyBy = clamp(readStateFloat(state.elasticity, 45), 0, 100);
-                const legacyCapture = clamp(100 - flyBy, 0, 100);
+                const targetDamping = clamp(100 - flyBy, 0, 100);
                 const targetType = normalizeTargetType(state.targetType || state.targetTypes);
                 const gridColor = normalizeHexColor(state.gridColor, meta.defaultColor);
                 const midColor = normalizeHexColor(state.midColor, gridColor);
@@ -1976,26 +1954,21 @@ const viewport = document.getElementById('canvas-viewport');
                     friction: readStateFloat(state.friction, 34),
                     speedLimit: readStateFloat(state.speedLimit, 80),
                     elasticity: readStateFloat(state.elasticity, 45),
-                    capture: legacyCapture,
+                    targetDamping,
                     returnPull: clamp(readStateFloat(state.returnPull, 0.38), 0.1, 1),
                     pull: clamp(readStateFloat(state.pull, 0.7), 0.1, 1),
                     svgRadius: clamp(readStateFloat(state.svgRadius, 320), 100, 1000),
-                    svgRadiusMotion: readStateFloat(state.svgRadiusMotion, 0),
                     gridRadius: clamp(readStateFloat(state.gridRadius, 1000), 100, 1000),
-                    gridRadiusMotion: readStateFloat(state.gridRadiusMotion, 0),
                     orbit: readStateFloat(state.orbit, 0),
                     shuffle: readStateFloat(state.shuffle, 0),
                     gridElasticity: readStateFloat(state.elasticity, 45),
-                    gridOrbit: 0,
-                    gridShuffle: 0,
                     variation: readStateFloat(state.variation, 0),
                     gridSize: clamp(readStateFloat(state.gridSize, 2.5), 0.5, MAX_DOT_SIZE),
                     midSize: clamp(readStateFloat(state.midSize, readStateFloat(state.gridSize, 2.5)), 0.5, MAX_DOT_SIZE),
                     targetSize: clamp(readStateFloat(state.targetSize, 2.5), 0.5, MAX_DOT_SIZE),
                     sizeMidpoint: clamp(readStateFloat(state.sizeMidpoint, 0.5), 0.05, 0.95),
-                    colorMidpoint: clamp(readStateFloat(state.colorMidpoint, readStateFloat(state.sizeMidpoint, 0.5)), 0.05, 0.95),
                     speedSize: readStateFloat(state.speedSize, 0),
-                    snapDistance: readStateFloat(state.snapDistance, 1.5),
+                    settleDistance: DOT_SETTLE_DISTANCE,
                     gridColor,
                     midColor,
                     targetColor,
@@ -2003,18 +1976,13 @@ const viewport = document.getElementById('canvas-viewport');
                     midRgb: hexToRgb(midColor),
                     targetRgb: hexToRgb(targetColor),
                     sameColor: gridColor === midColor && midColor === targetColor,
-                    idleMotion: state.idleMotion,
-                    idleSteps: parseInt(state.idleSteps, 10) || 0,
-                    idleSpeed: readStateFloat(state.idleSpeed, 0),
-                    idleRandom: readStateFloat(state.idleRandom, 0),
                     visibilityEnabled: state.visibilityEnabled === true || state.visibilityEnabled === 'true',
                     visibilityOn: readStateFloat(state.visibilityOn, 7),
                     visibilityOff: readStateFloat(state.visibilityOff, 3),
                     visibilityRandomness: readStateFloat(state.visibilityRandomness, 100),
                     visibilityProbability: readStateFloat(state.visibilityProbability, 70),
                     visibilityGridProximity,
-                    visibilityGridProximitySq: visibilityGridProximity * visibilityGridProximity,
-                    visibilityRespawn: 0
+                    visibilityGridProximitySq: visibilityGridProximity * visibilityGridProximity
                 };
                 layerRuntimeConfigCache[layerKey] = { source: state, config };
                 return config;
@@ -2659,13 +2627,10 @@ const viewport = document.getElementById('canvas-viewport');
                     friction: controls.friction?.value || current.friction,
                     speedLimit: controls.speedLimit?.value || current.speedLimit,
                     elasticity,
-                    capture: String(clamp(100 - readStateFloat(elasticity, 45), 0, 100)),
                     returnPull: controls.returnPull?.value || current.returnPull,
                     pull: controls.pull?.value || current.pull,
                     svgRadius: controls.svgRadius?.value || current.svgRadius,
-                    svgRadiusMotion: current.svgRadiusMotion || '0',
                     gridRadius: controls.gridRadius?.value || current.gridRadius,
-                    gridRadiusMotion: current.gridRadiusMotion || '0',
                     orbit: controls.orbit?.value || current.orbit,
                     shuffle: controls.shuffle?.value || current.shuffle,
                     variation: controls.variation?.value || current.variation,
@@ -2674,9 +2639,7 @@ const viewport = document.getElementById('canvas-viewport');
                     targetSize: getControlValue(controls.targetSize) || current.targetSize,
                     sizeMidpoint,
                     speedSize: controls.speedSize?.value || current.speedSize,
-                    colorMidpoint: sizeMidpoint,
                     ...blinkState,
-                    snapDistance: current.snapDistance || '1.5',
                     gridColor: normalizeHexColor(controls.gridColor?.value || current.gridColor, '#ffffff'),
                     midColor: normalizeHexColor(controls.midColor?.value || current.midColor, current.gridColor || '#ffffff'),
                     targetColor: normalizeHexColor(controls.targetColor?.value || current.targetColor, current.midColor || current.gridColor || '#ffffff')

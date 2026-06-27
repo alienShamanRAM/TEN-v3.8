@@ -59,7 +59,7 @@ function bindEvents() {
                 mediaControls.transitionMode?.addEventListener('change', updateMediaModeUi);
                 autoControls.currentTime?.addEventListener('input', syncTimingControlRanges);
                 autoControls.currentFlickerStart?.addEventListener('input', syncTimingControlRanges);
-                autoControls.travelTime?.addEventListener('input', syncTimingControlRanges);
+                autoControls.nextTime?.addEventListener('input', syncTimingControlRanges);
                 autoControls.nextFlickerStart?.addEventListener('input', syncTimingControlRanges);
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
                 window.addEventListener('resize', () => {
@@ -411,12 +411,6 @@ function bindEvents() {
                     });
                 });
 
-                maskControls.enabled.addEventListener('change', () => {
-                    clearMaskCache();
-                    updateMaskStatus();
-                    scheduleMaskWarmup();
-                    if (isSvgSlideType(slides[currentSlideIndex]?.type)) activateSlideMask(currentSlideIndex, { sync: true });
-                });
                 [maskControls.expansion].forEach(control => {
                     control.addEventListener('input', () => {
                         clearMaskCache();
@@ -427,12 +421,6 @@ function bindEvents() {
                 });
                 maskControls.scaleTime?.addEventListener('input', () => {
                     updateMaskStatus();
-                });
-                imageMaskControls.enabled?.addEventListener('change', () => {
-                    clearMaskCache();
-                    updateImageMaskStatus();
-                    scheduleMaskWarmup();
-                    if (isMediaSlideType(slides[currentSlideIndex]?.type)) activateSlideMask(currentSlideIndex, { sync: true });
                 });
                 imageMaskControls.expansion?.addEventListener('input', () => {
                     clearMaskCache();

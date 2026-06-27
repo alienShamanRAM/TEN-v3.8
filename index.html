@@ -103,11 +103,7 @@
                 <div class="slider-group"><span>Scale</span><input type="range" id="slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-slide-scale">100%</span></div>
                 <div class="slider-group"><span>Offset X</span><input type="range" id="slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-slide-offset-x">0</span></div>
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-slide-offset-y">0</span></div>
-                <input type="checkbox" id="mask-enabled" class="hidden-ui-node" checked>
                 <div class="geometry-status" id="mask-status">Mask hides dots whose grid homes sit inside or near painted slide artwork.</div>
-                <div class="slider-group hidden-ui-node"><span>Edge Samples</span><input type="range" id="mask-samples" min="4" max="36" value="18" step="1"><span class="val-indicator" id="val-mask-samples">18</span></div>
-                <div class="slider-group hidden-ui-node"><span>Act Speed</span><input type="range" id="mask-speed-threshold" min="0" max="2" value="0.18" step="0.01"><span class="val-indicator" id="val-mask-speed-threshold">0.18</span></div>
-                <div class="slider-group hidden-ui-node"><span>Act Grid Dist</span><input type="range" id="mask-grid-threshold" min="0" max="80" value="4" step="0.1"><span class="val-indicator" id="val-mask-grid-threshold">4</span></div>
             </div>
         </div>
 
@@ -132,7 +128,6 @@
                 <div class="slider-group"><span>Scale</span><input type="range" id="image-slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-image-slide-scale">100%</span></div>
                 <div class="slider-group"><span>Offset X</span><input type="range" id="image-slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-image-slide-offset-x">0</span></div>
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="image-slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-image-slide-offset-y">0</span></div>
-                <input type="checkbox" id="image-mask-enabled" class="hidden-ui-node" checked>
                 <div class="geometry-status" id="image-mask-status">Mask hides dots whose grid homes sit inside the media rectangle.</div>
             </div>
         </div>
@@ -158,8 +153,9 @@
                 <div class="drawer-section-title">Transition</div>
                 <div class="slider-group"><span>Current Time</span><input type="range" id="transition-current-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-current-time">3</span></div>
                 <div class="slider-group"><span>Current Flicker Start</span><input type="range" id="transition-current-flicker-start" min="0" max="3" value="0" step="0.05"><span class="val-indicator" id="val-transition-current-flicker-start">0</span></div>
-                <div class="slider-group"><span>Next Time</span><input type="range" id="transition-travel-time" min="0.1" max="12" value="2" step="0.05"><span class="val-indicator" id="val-transition-travel-time">2</span></div>
+                <div class="slider-group"><span>Next Time</span><input type="range" id="transition-next-time" min="0.1" max="12" value="2" step="0.05"><span class="val-indicator" id="val-transition-next-time">2</span></div>
                 <div class="slider-group"><span>Next Flicker Start</span><input type="range" id="transition-next-flicker-start" min="0" max="2" value="0" step="0.05"><span class="val-indicator" id="val-transition-next-flicker-start">0</span></div>
+                <div class="slider-group"><span>Return To Grid</span><input type="range" id="transition-return-grid-time" min="0" max="8" value="0" step="0.05"><span class="val-indicator" id="val-transition-return-grid-time">0</span></div>
                 <div class="drawer-section-title">Auto Advance</div>
                 <div class="slider-group auto-duration-row"><span>SVG Auto Duration</span><input type="range" id="slide-auto-duration" min="1" max="8" value="4" step="0.5"><span class="val-indicator" id="val-slide-auto-duration">4</span></div>
                 <div class="slider-group" id="media-duration-row"><span>Image Auto Duration</span><input type="range" id="media-slide-duration" min="1" max="30" value="4" step="0.5"><span class="val-indicator" id="val-media-slide-duration">4</span></div>
@@ -176,7 +172,7 @@
         </div>
 
         <!-- Flicker Drawer -->
-        <div class="drawer" id="drawer-auto-transition">
+        <div class="drawer" id="drawer-flicker">
             <button class="drawer-trigger" id="drawer-trigger-flicker">Flicker</button>
             <div class="drawer-content">
                 <div class="slider-group"><span>Flicker Speed</span><input type="range" id="transition-flicker-speed" min="1" max="30" value="10" step="0.5"><span class="val-indicator" id="val-transition-flicker-speed">10</span></div>
@@ -262,7 +258,7 @@
                 </section>
                 <section>
                     <h3>Header Controls</h3>
-                    <p>Left arrow or keyboard Left goes to the previous slide (SVG or Image). Right arrow or keyboard Right goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes using the current slide source duration.</p>
+                    <p>Left arrow or keyboard Left immediately goes to the previous slide. Right arrow or keyboard Right immediately goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes using the current slide source duration.</p>
                 </section>
                 <section>
                     <h3>Grid Layers</h3>

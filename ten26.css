@@ -322,7 +322,7 @@ input:focus-visible {
 #drawer-slides { order: 4; }
 #drawer-image-slides { order: 5; }
 #drawer-timing { order: 6; }
-#drawer-auto-transition { order: 7; }
+#drawer-flicker { order: 7; }
 #drawer-bg { order: 8; }
 #drawer-presets { order: 9; }
 #drawer-grid { order: 10; }
