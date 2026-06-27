@@ -384,20 +384,25 @@ function getActiveLayerStateFromControls() {
                 mediaMode = state.mediaMode === 'videos' ? 'videos' : 'images';
                 updateMediaModeUi();
 
-                const image = state.imageLayer || {};
-                const imageName = image.name || image.fileName || '';
-                imageState = {
-	                    name: imageName,
-	                    fileName: image.fileName || imageName,
-	                    src: image.src || '',
-	                    hidden: image.hidden === true,
-	                    naturalWidth: image.naturalWidth || 0,
-                    naturalHeight: image.naturalHeight || 0
-                };
-                setControlValue(imageControls.scale, image.scale || '100');
-                setControlValue(imageControls.offsetX, image.offsetX || '0');
-                setControlValue(imageControls.offsetY, image.offsetY || '0');
-                updateImageLayer();
+                if (hasOwnValue(state, 'imageLayer')) {
+                    const image = state.imageLayer || {};
+                    const hasEmbeddedImageSource = hasOwnValue(image, 'src');
+                    const previousImageState = imageState || {};
+                    const previousImageName = previousImageState.name || previousImageState.fileName || '';
+                    const imageName = image.name || image.fileName || (hasEmbeddedImageSource ? '' : previousImageName);
+                    imageState = {
+                        name: imageName,
+                        fileName: image.fileName || imageName,
+                        src: hasEmbeddedImageSource ? (image.src || '') : (previousImageState.src || ''),
+                        hidden: image.hidden === true,
+                        naturalWidth: hasEmbeddedImageSource ? (image.naturalWidth || 0) : (previousImageState.naturalWidth || 0),
+                        naturalHeight: hasEmbeddedImageSource ? (image.naturalHeight || 0) : (previousImageState.naturalHeight || 0)
+                    };
+                    setControlValue(imageControls.scale, image.scale || '100');
+                    setControlValue(imageControls.offsetX, image.offsetX || '0');
+                    setControlValue(imageControls.offsetY, image.offsetY || '0');
+                    updateImageLayer();
+                }
 
                 const bg = state.bg || {};
                 const cycleColors = Array.isArray(bg.cycleColors) ? bg.cycleColors : [];
@@ -456,7 +461,8 @@ function getActiveLayerStateFromControls() {
                         currentSlideIndex = 0;
                     }
                 } else {
-                    currentSlideIndex = clamp(currentSlideIndex || 0, 0, Math.max(0, slides.length - 1));
+                    const nextSlideIndex = hasOwnValue(state, 'currentSlideIndex') ? state.currentSlideIndex : currentSlideIndex;
+                    currentSlideIndex = clamp(nextSlideIndex || 0, 0, Math.max(0, slides.length - 1));
                 }
                 pendingSlideIndex = null;
                 slideOpacity = slides.length ? 1 : 0;
@@ -551,11 +557,22 @@ function getActiveLayerStateFromControls() {
             let presets = [];
             let builtInPresetNames = new Set();
             const APP_VERSION = 'ten26-presets-v2';
-            const PRESET_STORAGE_KEY = 'ten26.savedCustomPresets.v2';
+            const PRESET_STORAGE_KEY = 'ten26.savedCustomPresets.v3.startupBundle';
             const PRESET_STORAGE_MODE = 'full-preset-list';
+            let bundledStartupPresets = null;
 
             function getDefaultAssetBundle() {
                 return window.TEN26_DEFAULT_ASSETS || {};
+            }
+
+            function getBundledStartupPresets() {
+                if (bundledStartupPresets === null) {
+                    bundledStartupPresets = normalizePresetCollection(window.TEN26_STARTUP_PRESETS || []);
+                }
+                return bundledStartupPresets.map(preset => ({
+                    name: preset.name,
+                    state: cloneSerializable(preset.state)
+                }));
             }
 
             function cloneDefaultImageLayerState() {
@@ -732,6 +749,35 @@ function getActiveLayerStateFromControls() {
                 return JSON.parse(JSON.stringify(value));
             }
 
+            function hasOwnValue(source, key) {
+                return Object.prototype.hasOwnProperty.call(source || {}, key);
+            }
+
+            function createValuesOnlyImageLayerState(imageLayer = {}) {
+                return {
+                    hidden: imageLayer.hidden === true,
+                    scale: imageLayer.scale || '100',
+                    offsetX: imageLayer.offsetX || '0',
+                    offsetY: imageLayer.offsetY || '0'
+                };
+            }
+
+            function createValuesOnlyPresetState(state = {}) {
+                const compact = cloneSerializable(state || {});
+                delete compact.slides;
+                if (compact.imageLayer && typeof compact.imageLayer === 'object') {
+                    compact.imageLayer = createValuesOnlyImageLayerState(compact.imageLayer);
+                }
+                return compact;
+            }
+
+            function serializePresetForValuesOnlySave(preset) {
+                return {
+                    name: preset.name,
+                    state: createValuesOnlyPresetState(preset.state)
+                };
+            }
+
             function normalizePresetName(value, fallback = 'Custom Preset') {
                 const name = String(value || '').replace(/\s+/g, ' ').trim();
                 return (name || fallback).slice(0, 80);
@@ -777,11 +823,9 @@ function getActiveLayerStateFromControls() {
                         app: 'TEN26',
                         version: APP_VERSION,
                         storageMode: PRESET_STORAGE_MODE,
+                        assetMode: 'values-only',
                         savedAt: new Date().toISOString(),
-                        presets: source.map(preset => ({
-                            name: preset.name,
-                            state: cloneSerializable(preset.state)
-                        }))
+                        presets: source.map(serializePresetForValuesOnlySave)
                     };
                     localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(payload));
                     return true;
@@ -931,7 +975,7 @@ function getActiveLayerStateFromControls() {
                 const name = getUniquePresetName(rawName, usedNames);
                 const preset = {
                     name,
-                    state: cloneSerializable(getCurrentState())
+                    state: createValuesOnlyPresetState(getCurrentState())
                 };
                 presets.push(styleDefaultPreset(preset));
                 const saved = savePresetsToStorage();
@@ -984,11 +1028,9 @@ function getActiveLayerStateFromControls() {
                 const payload = {
                     app: 'TEN26',
                     version: APP_VERSION,
+                    assetMode: 'values-only',
                     exportedAt: new Date().toISOString(),
-                    presets: presets.map(preset => ({
-                        name: preset.name,
-                        state: cloneSerializable(preset.state)
-                    }))
+                    presets: presets.map(serializePresetForValuesOnlySave)
                 };
                 const stamp = getLocalDateStamp();
                 downloadTextFile(`ten26-presets-${stamp}.json`, `${JSON.stringify(payload, null, 2)}\n`);
@@ -1030,8 +1072,11 @@ function getActiveLayerStateFromControls() {
                 return name === 'Space Mod';
             }
 
-            // Built-in presets are sample scenes for the bundled Sample SVGs folder.
+            // Bundled startup presets come from the exported preset asset; generated samples stay as fallback.
             function buildDefaultPresets() {
+                const startupPresets = getBundledStartupPresets();
+                if (startupPresets.length) return startupPresets;
+
                 const WHITE = '#ffffff';
                 const PINK = '#ffc5f4';
                 const BLUE = '#02006c';
@@ -1261,7 +1306,7 @@ function getActiveLayerStateFromControls() {
                 const merged = mergePresetsWithBuiltIns(stored?.presets || [], { fullList: stored?.isFullList });
                 presets = merged.presets;
                 updatePresetDropdown();
-                const builtInLabel = `${merged.builtInCount} sample preset${merged.builtInCount === 1 ? '' : 's'}`;
+                const builtInLabel = `${merged.builtInCount} startup preset${merged.builtInCount === 1 ? '' : 's'}`;
                 setPresetStatus(merged.customCount
                     ? `${builtInLabel} loaded with ${merged.customCount} custom preset${merged.customCount === 1 ? '' : 's'}.`
                     : `${builtInLabel} loaded. Add, export, or import presets here.`);

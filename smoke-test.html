@@ -146,10 +146,23 @@
                     const canvas = doc.querySelector('#morph-canvas');
                     const presetOptions = Array.from(doc.querySelector('#preset-select')?.options || []);
                     const presetCount = presetOptions.length;
-                    const presetNames = presetOptions.map(option => option.textContent || '');
+                    const presetNames = presetOptions.map(option => (option.textContent || '').replace(/^!\s*/, ''));
+                    const startupPresetNames = ['ram1', 'ram3', 'ram22', 'Ram4', 'ram0', 'ram00', 'ram5', 'ram7', 'ram S', 'ram O', 'ram X', 'eraser', 'ram'];
+                    const hasOnlyStartupPresets = presetNames.length === startupPresetNames.length &&
+                        startupPresetNames.every((name, index) => presetNames[index] === name);
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
                     const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');
+                    const compactPresetState = typeof win.createValuesOnlyPresetState === 'function'
+                        ? win.createValuesOnlyPresetState({
+                            imageLayer: { src: 'data:image/png;base64,AAA', name: 'sample.png', scale: '75', offsetX: '1', offsetY: '2' },
+                            slides: [{ type: 'svg', name: 'sample.svg', svg: '<svg></svg>' }]
+                        })
+                        : null;
+                    const compactExportReady = !!compactPresetState &&
+                        !compactPresetState.slides &&
+                        !compactPresetState.imageLayer?.src &&
+                        compactPresetState.imageLayer?.scale === '75';
                     const sanitizer = win.TEN26SanitizeSvgText;
                     const unsafeSvg = '<svg onload="alert(1)" xmlns="http://www.w3.org/2000/svg"><scr' + 'ipt>alert(1)</scr' + 'ipt><rect width="10" height="10" /></svg>';
                     const sanitized = typeof sanitizer === 'function' ? sanitizer(unsafeSvg) : '';
@@ -164,8 +177,12 @@
                         fail('Hardening layer did not initialize.');
                         return;
                     }
-                    if (!hasRuntime || presetCount < 9 || presetNames.includes('Space Mod') || motionLayerCount < 9 || gridLayerCount < 9) {
-                        fail(`Runtime did not initialize fully; presets ${presetCount}, motion layers ${motionLayerCount}, grid layers ${gridLayerCount}.`);
+                    if (!compactExportReady) {
+                        fail('Values-only preset compaction did not initialize.');
+                        return;
+                    }
+                    if (!hasRuntime || !hasOnlyStartupPresets || presetNames.includes('Space Mod') || motionLayerCount < 9 || gridLayerCount < 9) {
+                        fail(`Runtime did not initialize fully; presets ${presetNames.join(', ')}, motion layers ${motionLayerCount}, grid layers ${gridLayerCount}.`);
                         return;
                     }
                     pass(`Passed: hardening active with ${presetCount} preset option${presetCount === 1 ? '' : 's'} and ${motionLayerCount} dynamic layers.`);

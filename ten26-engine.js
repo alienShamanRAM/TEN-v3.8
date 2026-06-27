@@ -2073,12 +2073,21 @@
                 return String(Math.round(clamp((onMs / Math.max(1, onMs + offMs)) * 100, 10, 90)));
             }
 
+            function deriveLegacyFlickerStart(phaseDuration, state = {}) {
+                const flickerTime = readStateFloat(state.flickerTime, NaN);
+                const duration = readStateFloat(phaseDuration, NaN);
+                if (!Number.isFinite(flickerTime) || !Number.isFinite(duration)) return '';
+                return String(clamp(duration - flickerTime, 0, duration));
+            }
+
             function applyAutoTransitionControlState(state = {}) {
-                setControlValue(autoControls.currentTime, pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3'));
-                setControlValue(autoControls.currentFlickerStart, pickAutoStateValue(state.currentFlickerStart, state.flickerDelay, '0'));
-                setControlValue(autoControls.nextTime, pickAutoStateValue(state.nextTime, '2'));
-                setControlValue(autoControls.nextFlickerStart, pickAutoStateValue(state.nextFlickerStart, state.flickerDelay, '0'));
-                setControlValue(autoControls.returnGridTime, pickAutoStateValue(state.returnGridTime, '0'));
+                const currentTime = pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3');
+                const nextTime = pickAutoStateValue(state.nextTime, state.travelTime, '2');
+                setControlValue(autoControls.currentTime, currentTime);
+                setControlValue(autoControls.currentFlickerStart, pickAutoStateValue(state.currentFlickerStart, state.flickerDelay, deriveLegacyFlickerStart(currentTime, state), '0'));
+                setControlValue(autoControls.nextTime, nextTime);
+                setControlValue(autoControls.nextFlickerStart, pickAutoStateValue(state.nextFlickerStart, state.flickerDelay, deriveLegacyFlickerStart(nextTime, state), '0'));
+                setControlValue(autoControls.returnGridTime, pickAutoStateValue(state.returnGridTime, state.gridTime, '0'));
                 setControlValue(autoControls.flickerBias, deriveFlickerBias(state));
                 setControlValue(autoControls.flickerSpeed, deriveFlickerSpeed(state));
                 setControlValue(autoControls.flickerBalance, deriveFlickerBalance(state));
