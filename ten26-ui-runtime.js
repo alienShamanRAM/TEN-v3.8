@@ -3,6 +3,7 @@ window.installTen26Hardening?.();
 function bindEvents() {
                 setupDenseSizeSliders();
                 bindAllRangeDisplays();
+                syncTimingControlRanges();
                 setupRandomLockUi();
                 setupRandomRangeUi();
                 installDotColorPaletteUi();
@@ -56,6 +57,10 @@ function bindEvents() {
                 });
                 helpControls.tooltipsEnabled?.addEventListener('change', syncTooltipPreference);
                 mediaControls.transitionMode?.addEventListener('change', updateMediaModeUi);
+                autoControls.currentTime?.addEventListener('input', syncTimingControlRanges);
+                autoControls.currentFlickerStart?.addEventListener('input', syncTimingControlRanges);
+                autoControls.travelTime?.addEventListener('input', syncTimingControlRanges);
+                autoControls.nextFlickerStart?.addEventListener('input', syncTimingControlRanges);
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
                 window.addEventListener('resize', () => {
                     if (viewScaleMode === 'fit') setViewScale(getFitViewScale(), 'fit');
@@ -63,8 +68,15 @@ function bindEvents() {
                 });
                 let headerAutoTimer = null;
                 const getHeaderAutoSeconds = () => {
-                    const raw = parseFloat(slideControls.autoDuration?.value || '4');
-                    return Math.min(8, Math.max(1, Number.isFinite(raw) ? raw : 4));
+                    const slide = slides[currentSlideIndex];
+                    if (slide?.type === 'video') {
+                        const duration = Number.isFinite(slide.duration) && slide.duration > 0 ? slide.duration : 4;
+                        return Math.min(300, Math.max(1, duration));
+                    }
+                    const source = slide?.type === 'image' ? mediaControls.duration : slideControls.autoDuration;
+                    const raw = parseFloat(source?.value || '4');
+                    const max = slide?.type === 'image' ? 30 : 8;
+                    return Math.min(max, Math.max(1, Number.isFinite(raw) ? raw : 4));
                 };
                 const formatHeaderAutoSeconds = () => {
                     const seconds = getHeaderAutoSeconds();
@@ -93,6 +105,12 @@ function bindEvents() {
                     if (!slides.length || autoTransition || activeHoldMode || holdState !== 'idle') return;
                     beginHoldAdvance(1, 'header-auto');
                 };
+                const refreshHeaderAutoTiming = () => {
+                    if (headerAutoTimer) startHeaderAutoTimer();
+                    setHeaderAutoState(!!headerAutoTimer);
+                };
+                slideControls.autoDuration?.addEventListener('input', refreshHeaderAutoTiming);
+                mediaControls.duration?.addEventListener('input', refreshHeaderAutoTiming);
                 performanceControlGroups.forEach(controls => {
                     const sourcePrefix = 'header';
                     controls.prev?.addEventListener('click', event => {

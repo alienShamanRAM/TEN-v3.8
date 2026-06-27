@@ -100,6 +100,7 @@
                         ['#drawer-trigger-view-options', 'View Options'],
                         ['#drawer-trigger-masks', 'Grid Masking'],
                         ['#drawer-trigger-upload-media', 'Upload Media'],
+                        ['#drawer-trigger-timing', 'Timing'],
                         ['#drawer-trigger-advanced-options', 'Advanced Options']
                     ];
                     const brokenLabel = labelChecks.find(([selector, expected]) => {
@@ -114,9 +115,25 @@
                         fail('Old Grid advanced drawer still exists.');
                         return;
                     }
-                    const attractTimeLabel = doc.querySelector('#slide-grid-attract-time')?.closest('.slider-group')?.querySelector('span')?.textContent?.trim();
-                    if (attractTimeLabel !== 'Attract Time') {
-                        fail('Grid attract label did not update.');
+                    if (doc.querySelector('#slide-grid-attract-time, #grid-attract-return-pull, #transition-flicker-time, #transition-hold-time, #transition-flicker-delay, #transition-grid-time, #transition-return-force-speed, #transition-current-force-speed, #transition-travel-force-speed, #transition-overall-pace')) {
+                        fail('Removed timing controls still exist.');
+                        return;
+                    }
+                    const newTransitionControls = [
+                        ['#transition-current-time', '0.1', '8'],
+                        ['#transition-current-flicker-start', '0', null],
+                        ['#transition-travel-time', '0.1', '12'],
+                        ['#transition-next-flicker-start', '0', null]
+                    ];
+                    const missingTransitionControl = newTransitionControls.find(([selector, expectedMin, expectedMax]) => {
+                        const node = doc.querySelector(selector);
+                        return !node ||
+                            node.min !== expectedMin ||
+                            (expectedMax !== null && node.max !== expectedMax) ||
+                            !Number.isFinite(parseFloat(node.value));
+                    });
+                    if (missingTransitionControl) {
+                        fail(`Transition control missing or malformed: ${missingTransitionControl[0]}`);
                         return;
                     }
                     const canvas = doc.querySelector('#morph-canvas');

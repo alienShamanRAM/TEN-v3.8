@@ -1933,9 +1933,7 @@
 
                 update(deltaTime, nowMs = performance.now()) {
                     const baseConfig = getLayerRuntimeConfig(this.layerKey);
-                    const cfg = autoTransition?.phase === 'gridAttract'
-                        ? applyGridAttractRuntimeOverrides(baseConfig)
-                        : baseConfig;
+                    const cfg = baseConfig;
                     if (cfg.hidden) return;
                     const frameDt = Math.min(deltaTime * 60, 3);
                     const now = nowMs * 0.012;
@@ -1960,13 +1958,11 @@
                         let desiredInfluence = 0;
                         let pullScale = 1;
                         let massScale = 1;
-                        let speedScale = 1;
                         let gridHomeX = dot.gridX;
                         let gridHomeY = dot.gridY;
                         if (hasVariation) {
                             pullScale += (pseudoRandom(dot.seed + 11) - 0.5) * 1.2 * variation;
                             massScale += (pseudoRandom(dot.seed + 17) - 0.5) * 1.4 * variation;
-                            speedScale += (pseudoRandom(dot.seed + 23) - 0.5) * 1.25 * variation;
                         }
 
                         if (svgAlpha > 0 && this.targets && this.targets.length) {
@@ -2033,7 +2029,7 @@
                         const invMass = 1 / Math.max(0.1, cfg.mass * Math.max(0.2, massScale));
                         dot.vx = (dot.vx + fx * invMass * frameDt) * frictionFactor;
                         dot.vy = (dot.vy + fy * invMass * frameDt) * frictionFactor;
-                        const maxSpeed = Math.max(0.05, cfg.speedLimit * Math.max(0.2, speedScale));
+                        const maxSpeed = Math.max(0.05, cfg.speedLimit);
                         const speedSq = dot.vx * dot.vx + dot.vy * dot.vy;
                         const maxSpeedSq = maxSpeed * maxSpeed;
                         if (speedSq > maxSpeedSq) {
@@ -2117,11 +2113,9 @@
             function getAutoTransitionControlState() {
                 return {
                     currentTime: autoControls.currentTime.value,
-                    travelTime: autoControls.travelTime.value,
-                    gridTime: autoControls.gridTime.value,
-                    gridAttractTime: autoControls.gridAttractTime?.value || '0.6',
-                    gridAttractOverrides: getGridAttractOverrideStateFromControls(),
-                    flickerTime: autoControls.flickerTime.value,
+                    currentFlickerStart: autoControls.currentFlickerStart?.value || '0',
+                    nextTime: autoControls.travelTime.value,
+                    nextFlickerStart: autoControls.nextFlickerStart?.value || '0',
                     flickerBias: autoControls.flickerBias.value,
                     flickerSpeed: autoControls.flickerSpeed.value,
                     flickerBalance: autoControls.flickerBalance.value,
@@ -2139,17 +2133,6 @@
                 const parsed = parseFloat(rate);
                 if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
                 return String(Math.round(clamp(1000 / parsed, 15, 900) / 5) * 5);
-            }
-
-            function deriveFlickerTime(state = {}) {
-                const direct = readStateFloat(state.flickerTime, NaN);
-                if (Number.isFinite(direct)) return String(direct);
-                const outTime = readStateFloat(pickAutoStateValue(state.outFlicker, state.currentFadeDur, state.simpleFadeOutDur), NaN);
-                const inTime = readStateFloat(pickAutoStateValue(state.inFlicker, state.newFadeDur, state.simpleFadeInDur), NaN);
-                if (Number.isFinite(outTime) && Number.isFinite(inTime)) return String(((outTime + inTime) / 2).toFixed(2));
-                if (Number.isFinite(outTime)) return String(outTime);
-                if (Number.isFinite(inTime)) return String(inTime);
-                return '2';
             }
 
             function deriveFlickerBias(state = {}) {
@@ -2179,46 +2162,38 @@
 
             function applyAutoTransitionControlState(state = {}) {
                 setControlValue(autoControls.currentTime, pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3'));
-                setControlValue(autoControls.travelTime, pickAutoStateValue(state.travelTime, state.nextTime, '2'));
-                setControlValue(autoControls.gridTime, pickAutoStateValue(state.gridTime, state.manualGridReturn, '3'));
-                setControlValue(autoControls.gridAttractTime, pickAutoStateValue(state.gridAttractTime, '0.6'));
-                applyGridAttractOverrideState(state.gridAttractOverrides || {});
-                setControlValue(autoControls.flickerTime, deriveFlickerTime(state));
+                setControlValue(autoControls.currentFlickerStart, pickAutoStateValue(state.currentFlickerStart, state.flickerDelay, '0'));
+                setControlValue(autoControls.travelTime, pickAutoStateValue(state.nextTime, state.travelTime, '2'));
+                setControlValue(autoControls.nextFlickerStart, pickAutoStateValue(state.nextFlickerStart, state.flickerDelay, '0'));
                 setControlValue(autoControls.flickerBias, deriveFlickerBias(state));
                 setControlValue(autoControls.flickerSpeed, deriveFlickerSpeed(state));
                 setControlValue(autoControls.flickerBalance, deriveFlickerBalance(state));
                 setControlValue(autoControls.flickerWildness, pickAutoStateValue(state.flickerWildness, state.flickerRandom, '100'));
                 setControlValue(slideControls.autoDuration, pickAutoStateValue(state.autoDuration, state.slideAutoDuration, '4'));
-            }
-
-            function getMediaHoldDuration(slide) {
-                if (!slide) return read(autoControls.currentTime);
-                if (slide.type === 'video') {
-                    return Math.max(0.1, Number.isFinite(slide.duration) && slide.duration > 0 ? slide.duration : 4);
-                }
-                if (slide.type === 'image') {
-                    return read(mediaControls.duration);
-                }
-                return read(autoControls.currentTime);
+                syncTimingControlRanges();
             }
 
             function getAutoSettings() {
-                const flickerTime = read(autoControls.flickerTime);
                 const flickerBias = read(autoControls.flickerBias) / 100;
                 const flickerSpeed = read(autoControls.flickerSpeed);
                 const flickerBalance = read(autoControls.flickerBalance) / 100;
                 const flickerWildness = read(autoControls.flickerWildness);
                 const cycleMs = clamp(1000 / Math.max(0.01, flickerSpeed), 30, 1800);
-                const slide = slides[currentSlideIndex];
-                const baseCurrentTime = read(autoControls.currentTime);
-                const mediaTime = getMediaHoldDuration(slide);
+                const rawCurrentTime = Math.max(0.1, read(autoControls.currentTime));
+                const rawNextTime = Math.max(0.1, read(autoControls.travelTime));
+                const currentTime = rawCurrentTime;
+                const nextTime = rawNextTime;
+                const currentFlickerStart = clamp(read(autoControls.currentFlickerStart), 0, rawCurrentTime);
+                const nextFlickerStart = clamp(read(autoControls.nextFlickerStart), 0, rawNextTime);
+                const currentFlickerWindow = Math.max(0.05, currentTime - currentFlickerStart);
+                const nextFlickerWindow = Math.max(0.05, nextTime - nextFlickerStart);
                 return {
-                    currentTime: isMediaSlideType(slide?.type) ? mediaTime : baseCurrentTime,
-                    travelTime: read(autoControls.travelTime),
-                    gridTime: read(autoControls.gridTime),
-                    gridAttractTime: Math.max(0, read(autoControls.gridAttractTime)),
-                    outFlicker: Math.max(0.05, flickerTime * (1 - flickerBias * 0.65)),
-                    inFlicker: Math.max(0.05, flickerTime * (1 + flickerBias * 0.65)),
+                    currentTime,
+                    currentFlickerStart,
+                    nextTime,
+                    nextFlickerStart,
+                    outFlicker: Math.max(0.05, currentFlickerWindow * (1 - flickerBias * 0.35)),
+                    inFlicker: Math.max(0.05, nextFlickerWindow * (1 + flickerBias * 0.35)),
                     flickerOn: clamp(cycleMs * flickerBalance, 15, 900),
                     flickerOff: clamp(cycleMs * (1 - flickerBalance), 15, 900),
                     flickerRandom: flickerWildness,
@@ -2336,12 +2311,13 @@
                 const flickerSeed = Math.random() * 10000;
                 autoTransition = {
                     type: 'flicker',
-                    phase: 'currentLock',
+                    phase: 'currentPhase',
                     timer: 0,
                     flags: {},
                     fromIndex,
                     targetIndex,
                     settings,
+                    skipCurrentForceRamp: skipCurrentLock,
                     flickerSeed,
                     outTimeline: buildFlickerTimeline(settings.outFlicker, 'out', settings, flickerSeed),
                     inTimeline: buildFlickerTimeline(settings.inFlicker, 'in', settings, flickerSeed + 193.7),
@@ -2373,8 +2349,7 @@
                         return;
                     }
                     setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
-                    setAutoPhase('oldFlicker');
-                    setAutoStatus('Current slide flickering out.');
+                    setAutoStatus('Current slide phase.');
                 }
                 updateViewStatus();
             }
@@ -2446,35 +2421,37 @@
                 updateSlideControlStatus();
             }
 
-            function startAutoGridAttractStage() {
+            function startAutoNextPhase() {
                 if (!autoTransition) return;
-                setSlideOpacity(0);
-                holdState = 'return';
-                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
-                resetDotMaskAlphas(1);
-                setForceState({ svgAlpha: 0, gridAlpha: 1, svgRadiusPhase: 0, gridRadiusPhase: 0 });
-                setAutoPhase('gridAttract');
-                setAutoStatus('Grid attracting before the next slide.');
-            }
-
-            function continueAutoAfterGridAttract() {
-                if (!autoTransition) return;
-                if (autoTransition.mediaTransitionMode === 'flicker') {
-                    revealAutoTargetSlide();
-                    setSlideOpacity(0);
-                    applyDeferredAutoMask(true);
-                    setAutoPhase('newFlicker');
-                    setAutoStatus('Media flicker to next slide.');
-                    return;
+                if (autoTransition.mediaTransitionMode !== 'flicker') {
+                    beginAutoDotTarget(autoTransition.targetIndex, `Dots moving to slide ${autoTransition.targetIndex + 1}.`);
                 }
-                beginAutoDotTarget(autoTransition.targetIndex, `Dots traveling to slide ${autoTransition.targetIndex + 1}.`);
                 revealAutoTargetSlide();
                 setSlideOpacity(0);
-                setAutoPhase('travel');
+                applyDeferredAutoMask(true);
+                if (autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
+                    resetDotMaskAlphas(1);
+                    autoTransition.travelMaskCleared = true;
+                }
+                setForceState({ svgAlpha: 0, gridAlpha: 0, svgRadiusPhase: 0, gridRadiusPhase: 0 });
+                setAutoPhase('nextPhase');
+                setAutoStatus('Next slide phase.');
             }
 
             function phaseProgress(time, duration) {
                 return clamp(time / Math.max(0.001, duration), 0, 1);
+            }
+
+            function forceFadeProgress(progress, speed = 1) {
+                const safeSpeed = clamp(speed, 0.25, 4);
+                return smoothstep(0, 1, Math.pow(clamp(progress, 0, 1), 1 / safeSpeed));
+            }
+
+            function samplePhaseFlicker(time, phaseDuration, flickerStart, timeline, flickerDuration, mode) {
+                const finalState = mode === 'out' ? 0 : 1;
+                if (time >= phaseDuration) return finalState;
+                if (time < flickerStart) return mode === 'out' ? 1 : 0;
+                return sampleFlickerTimeline(time - flickerStart, flickerDuration, timeline, mode);
             }
 
             function setSlideOpacity(value) {
@@ -2486,92 +2463,46 @@
 
             function updateFlickerTransition(deltaTime, settings) {
                 autoTransition.timer += deltaTime;
-                if (autoTransition.phase === 'currentLock') {
+                if (autoTransition.phase === 'currentPhase') {
                     const progress = phaseProgress(autoTransition.timer, settings.currentTime);
-                    const eased = smoothstep(0, 1, progress);
-                    setSlideOpacity(1);
-                    setForceState({ svgAlpha: eased, gridAlpha: 1 - eased, svgRadiusPhase: progress, gridRadiusPhase: 1 - progress });
+                    const eased = autoTransition.skipCurrentForceRamp ? 1 : forceFadeProgress(progress);
+                    setSlideOpacity(samplePhaseFlicker(
+                        autoTransition.timer,
+                        settings.currentTime,
+                        settings.currentFlickerStart,
+                        autoTransition.outTimeline,
+                        settings.outFlicker,
+                        'out'
+                    ));
+                    setForceState({ svgAlpha: eased, gridAlpha: 0, svgRadiusPhase: progress, gridRadiusPhase: 0 });
                     if (autoTransition.timer >= settings.currentTime) {
                         pauseVideoSlide(slides[autoTransition.fromIndex], false);
                         if (autoTransition.mediaTransitionMode === 'cut') {
                             finishMediaFrameCutTransition();
                             return;
                         }
-                        setAutoPhase('oldFlicker');
-                        setAutoStatus('Current slide flickering out.');
+                        startAutoNextPhase();
                     }
                     return;
                 }
 
-                if (autoTransition.phase === 'oldFlicker') {
-                    setSlideOpacity(sampleFlickerTimeline(autoTransition.timer, settings.outFlicker, autoTransition.outTimeline, 'out'));
-                    setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
-                    if (autoTransition.timer >= settings.outFlicker) {
-                        if (settings.gridAttractTime > 0) {
-                            startAutoGridAttractStage();
-                            return;
-                        }
-                        if (autoTransition.mediaTransitionMode === 'flicker') {
-                            revealAutoTargetSlide();
-                            setSlideOpacity(0);
-                            applyDeferredAutoMask(true);
-                            setAutoPhase('newFlicker');
-                            setAutoStatus('Media flicker to next slide.');
-                            return;
-                        }
-                        beginAutoDotTarget(autoTransition.targetIndex, `Dots traveling to slide ${autoTransition.targetIndex + 1}.`);
-                        revealAutoTargetSlide();
-                        setSlideOpacity(0);
-                        setAutoPhase('travel');
-                    }
-                    return;
-                }
-
-                if (autoTransition.phase === 'gridAttract') {
-                    const progress = phaseProgress(autoTransition.timer, settings.gridAttractTime);
-                    setSlideOpacity(0);
-                    setForceState({ svgAlpha: 0, gridAlpha: 1, svgRadiusPhase: 0, gridRadiusPhase: smoothstep(0, 1, progress) });
-                    if (autoTransition.timer >= settings.gridAttractTime) {
-                        continueAutoAfterGridAttract();
-                    }
-                    return;
-                }
-
-                if (autoTransition.phase === 'travel') {
-                    setSlideOpacity(0);
-                    setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: phaseProgress(autoTransition.timer, settings.travelTime), gridRadiusPhase: 0 });
-                    if (autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
-                        resetDotMaskAlphas(1);
-                        autoTransition.travelMaskCleared = true;
-                    }
-                    if (autoTransition.timer >= settings.travelTime) {
-                        applyDeferredAutoMask(true);
-                        setAutoPhase('newFlicker');
-                        setAutoStatus('New slide flickering in.');
-                    }
-                    return;
-                }
-
-                if (autoTransition.phase === 'newFlicker') {
-                    setSlideOpacity(sampleFlickerTimeline(autoTransition.timer, settings.inFlicker, autoTransition.inTimeline, 'in'));
-                    setForceState({ svgAlpha: 1, gridAlpha: 0, svgRadiusPhase: 1, gridRadiusPhase: 0 });
-                    if (autoTransition.timer >= settings.inFlicker) {
+                if (autoTransition.phase === 'nextPhase') {
+                    const progress = phaseProgress(autoTransition.timer, settings.nextTime);
+                    const eased = forceFadeProgress(progress);
+                    setSlideOpacity(samplePhaseFlicker(
+                        autoTransition.timer,
+                        settings.nextTime,
+                        settings.nextFlickerStart,
+                        autoTransition.inTimeline,
+                        settings.inFlicker,
+                        'in'
+                    ));
+                    setForceState({ svgAlpha: eased, gridAlpha: 0, svgRadiusPhase: progress, gridRadiusPhase: 0 });
+                    if (autoTransition.timer >= settings.nextTime) {
                         setSlideOpacity(1);
-                        setAutoPhase('gridReturn');
-                        holdState = 'return';
-                        returnSettleCheckElapsed = 0;
-                        DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
-                        requestDeferredWarmups({ mask: true, target: true });
-                        setAutoStatus('Grid rest returning.');
+                        finishAutoTransition();
                     }
                     return;
-                }
-
-                if (autoTransition.phase === 'gridReturn') {
-                    const progress = phaseProgress(autoTransition.timer, settings.gridTime);
-                    const eased = smoothstep(0, 1, progress);
-                    setForceState({ svgAlpha: 1 - eased, gridAlpha: eased, svgRadiusPhase: 1 - progress, gridRadiusPhase: progress });
-                    if (autoTransition.timer >= settings.gridTime) finishAutoTransition();
                 }
             }
 
@@ -2618,18 +2549,10 @@
                     ? 'Returning'
                     : 'Idle';
                 const phaseDuration = autoTransition?.settings
-                    ? autoTransition.phase === 'currentLock'
+                    ? autoTransition.phase === 'currentPhase'
                         ? autoTransition.settings.currentTime
-                        : autoTransition.phase === 'oldFlicker'
-                        ? autoTransition.settings.outFlicker
-                        : autoTransition.phase === 'gridAttract'
-                        ? autoTransition.settings.gridAttractTime
-                        : autoTransition.phase === 'travel'
-                        ? autoTransition.settings.travelTime
-                        : autoTransition.phase === 'newFlicker'
-                        ? autoTransition.settings.inFlicker
-                        : autoTransition.phase === 'gridReturn'
-                        ? autoTransition.settings.gridTime
+                        : autoTransition.phase === 'nextPhase'
+                        ? autoTransition.settings.nextTime
                         : 0
                     : 0;
                 const timer = autoTransition

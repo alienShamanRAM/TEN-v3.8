@@ -815,20 +815,9 @@ const viewport = document.getElementById('canvas-viewport');
             const autoControls = {
                 status: document.getElementById('auto-transition-status'),
                 currentTime: document.getElementById('transition-current-time'),
+                currentFlickerStart: document.getElementById('transition-current-flicker-start'),
                 travelTime: document.getElementById('transition-travel-time'),
-                gridTime: document.getElementById('transition-grid-time'),
-                gridAttractTime: document.getElementById('slide-grid-attract-time'),
-                gridAttractReturnPull: document.getElementById('grid-attract-return-pull'),
-                gridAttractGridRadius: document.getElementById('grid-attract-grid-radius'),
-                gridAttractSpeedLimit: document.getElementById('grid-attract-speed-limit'),
-                gridAttractMass: document.getElementById('grid-attract-mass'),
-                gridAttractFriction: document.getElementById('grid-attract-friction'),
-                gridAttractElasticity: document.getElementById('grid-attract-elasticity'),
-                gridAttractOrbit: document.getElementById('grid-attract-orbit'),
-                gridAttractShuffle: document.getElementById('grid-attract-shuffle'),
-                gridAttractVariation: document.getElementById('grid-attract-variation'),
-                gridAttractSpeedSize: document.getElementById('grid-attract-speed-size'),
-                flickerTime: document.getElementById('transition-flicker-time'),
+                nextFlickerStart: document.getElementById('transition-next-flicker-start'),
                 flickerBias: document.getElementById('transition-flicker-bias'),
                 flickerSpeed: document.getElementById('transition-flicker-speed'),
                 flickerBalance: document.getElementById('transition-flicker-balance'),
@@ -947,6 +936,22 @@ const viewport = document.getElementById('canvas-viewport');
                 return Number.isFinite(parsed) ? parsed : fallback;
             };
             const isTypingTarget = el => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+
+            function syncTimingControlRanges() {
+                [
+                    [autoControls.currentTime, autoControls.currentFlickerStart, 3],
+                    [autoControls.travelTime, autoControls.nextFlickerStart, 2]
+                ].forEach(([timeControl, startControl, fallback]) => {
+                    if (!startControl) return;
+                    const phaseTime = clamp(readStateFloat(getControlValue(timeControl), fallback), 0.1, 12);
+                    startControl.max = String(phaseTime);
+                    const start = clamp(readStateFloat(getControlValue(startControl), 0), 0, phaseTime);
+                    if (start !== readStateFloat(getControlValue(startControl), 0)) {
+                        setControlValue(startControl, start);
+                    }
+                    updateRangeIndicator(startControl);
+                });
+            }
 
             function updateFullscreenUi() {
                 const active = !!document.fullscreenElement;
@@ -1271,23 +1276,12 @@ const viewport = document.getElementById('canvas-viewport');
                 'mask-speed-threshold': 'Legacy mask setting kept for older presets.',
                 'mask-grid-threshold': 'Legacy mask setting kept for older presets.',
                 'slide-auto-duration': 'Seconds between automatic slide advances.',
-                'transition-current-time': 'Time dots spend locking onto the current slide before it flickers out.',
-                'transition-travel-time': 'Time dots spend traveling toward the next slide while artwork is hidden.',
-                'transition-grid-time': 'Time dots spend relaxing back from the new slide into the grid.',
-                'slide-grid-attract-time': 'Time spent attracting dots back to their grid homes after the outgoing slide disappears and before the next slide activates.',
-                'grid-attract-return-pull': 'Temporary grid pull used during the inter-slide grid-attract stage.',
-                'grid-attract-grid-radius': 'Temporary grid reach used during the inter-slide grid-attract stage.',
-                'grid-attract-speed-limit': 'Temporary speed cap used during the inter-slide grid-attract stage.',
-                'grid-attract-mass': 'Temporary dot weight used during the inter-slide grid-attract stage.',
-                'grid-attract-friction': 'Temporary damping used during the inter-slide grid-attract stage.',
-                'grid-attract-elasticity': 'Temporary grid stick/fly-by response used during the inter-slide grid-attract stage.',
-                'grid-attract-orbit': 'Temporary grid swirl used during the inter-slide grid-attract stage.',
-                'grid-attract-shuffle': 'Temporary grid-home shuffle used during the inter-slide grid-attract stage.',
-                'grid-attract-variation': 'Temporary per-dot variation used during the inter-slide grid-attract stage.',
-                'grid-attract-speed-size': 'Temporary speed-based size change used during the inter-slide grid-attract stage.',
-                'transition-flicker-time': 'Length of flicker phase.',
+                'transition-current-time': 'Length of the current-slide phase.',
+                'transition-current-flicker-start': 'When current-slide flicker starts inside the current phase. The max follows Current Time.',
+                'transition-travel-time': 'Length of the next-slide phase.',
+                'transition-next-flicker-start': 'When next-slide flicker starts inside the next phase. The max follows Next Time.',
                 'transition-flicker-bias': 'Favor old-out or new-in.',
-                'transition-flicker-speed': 'Flicker pulses per second.',
+                'transition-flicker-speed': 'Visual flicker pulses per second.',
                 'transition-flicker-balance': 'Visible vs hidden ratio.',
                 'transition-flicker-wildness': 'Randomness in flicker timing.',
                 'image-scale': 'Image size behind the dots.',
@@ -1305,14 +1299,15 @@ const viewport = document.getElementById('canvas-viewport');
             const MODULE_TOOLTIPS = {
                 'drawer-trigger-dot-matrix': 'Per-layer target, colors, midpoint, and motion settings.',
                 'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
-                'drawer-trigger-advanced-options': 'Grid layout, flicker timing, and shared blink behavior.',
-                'drawer-trigger-grid': 'Dot count, spacing, layer offsets, and grid-attract behavior.',
+                'drawer-trigger-timing': 'Transition stage timing, stage speed, auto duration, and overall pace.',
+                'drawer-trigger-advanced-options': 'Grid layout, flicker visuals, and shared blink behavior.',
+                'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',
                 'drawer-trigger-masks': 'Vector and raster grid-mask expansion and timing.',
                 'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
                 'drawer-trigger-slides': 'Vector SVG artwork used as dot targets.',
                 'drawer-trigger-image-slides': 'Raster images and videos used as rectangular dot targets.',
                 'drawer-trigger-slide-control': 'Direct slide navigation and current slide inspection.',
-                'drawer-trigger-flicker': 'Glitch timing between slides.',
+                'drawer-trigger-flicker': 'Visual flicker rhythm, balance, wildness, and old/new bias.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
                 'drawer-trigger-presets': 'Save and restore full scene settings.',
@@ -1356,7 +1351,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'header-prev-btn': 'Previous slide.',
                 'header-hold-btn': 'Hold to attract dots to the current slide.',
                 'header-next-btn': 'Next slide.',
-                'header-auto-btn': 'Automatically advance to the next slide every 4 seconds.',
+                'header-auto-btn': 'Automatically advance using the current slide source duration.',
                 'matrix-open-all': 'Expand all grid-layer drawers.',
                 'matrix-collapse-all': 'Collapse all grid-layer drawers.',
                 'matrix-randomize-all': 'Randomize only unlocked values inside the grid-layer stack.',
@@ -2023,50 +2018,6 @@ const viewport = document.getElementById('canvas-viewport');
                 };
                 layerRuntimeConfigCache[layerKey] = { source: state, config };
                 return config;
-            }
-
-            const GRID_ATTRACT_OVERRIDE_CONTROL_KEYS = [
-                ['returnPull', 'gridAttractReturnPull', 0.1, 1, 0.38],
-                ['gridRadius', 'gridAttractGridRadius', 100, 1000, 1000],
-                ['speedLimit', 'gridAttractSpeedLimit', 0.5, 120, 80],
-                ['mass', 'gridAttractMass', 1, 10, 1],
-                ['friction', 'gridAttractFriction', 0, 100, 34],
-                ['elasticity', 'gridAttractElasticity', 0, 100, 45],
-                ['orbit', 'gridAttractOrbit', -2, 2, 0],
-                ['shuffle', 'gridAttractShuffle', 0, 100, 0],
-                ['variation', 'gridAttractVariation', 0, 100, 0],
-                ['speedSize', 'gridAttractSpeedSize', -40, 40, 0]
-            ];
-
-            function getGridAttractOverrideStateFromControls() {
-                return GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.reduce((acc, [stateKey, controlKey]) => {
-                    acc[stateKey] = getControlValue(autoControls[controlKey]) || '';
-                    return acc;
-                }, {});
-            }
-
-            function applyGridAttractOverrideState(state = {}) {
-                GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.forEach(([stateKey, controlKey, min, max, fallback]) => {
-                    const value = clamp(readStateFloat(state[stateKey], fallback), min, max);
-                    setControlValue(autoControls[controlKey], value);
-                });
-            }
-
-            function applyGridAttractRuntimeOverrides(config) {
-                if (!config) return config;
-                const next = { ...config };
-                GRID_ATTRACT_OVERRIDE_CONTROL_KEYS.forEach(([stateKey, controlKey, min, max, fallback]) => {
-                    const value = clamp(readStateFloat(getControlValue(autoControls[controlKey]), fallback), min, max);
-                    if (stateKey === 'elasticity') next.gridElasticity = value;
-                    else if (stateKey === 'orbit') next.gridOrbit = value;
-                    else if (stateKey === 'shuffle') next.gridShuffle = value;
-                    else next[stateKey] = value;
-                });
-                next.gridRgb = hexToRgb(next.gridColor);
-                next.midRgb = hexToRgb(next.midColor);
-                next.targetRgb = hexToRgb(next.targetColor);
-                next.sameColor = next.gridColor === next.midColor && next.midColor === next.targetColor;
-                return next;
             }
 
             function buildGridPoints(config) {

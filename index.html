@@ -103,7 +103,6 @@
                 <div class="slider-group"><span>Scale</span><input type="range" id="slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-slide-scale">100%</span></div>
                 <div class="slider-group"><span>Offset X</span><input type="range" id="slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-slide-offset-x">0</span></div>
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-slide-offset-y">0</span></div>
-                <div class="slider-group auto-duration-row"><span>Auto Duration</span><input type="range" id="slide-auto-duration" min="1" max="8" value="4" step="0.5"><span class="val-indicator" id="val-slide-auto-duration">4</span></div>
                 <input type="checkbox" id="mask-enabled" class="hidden-ui-node" checked>
                 <div class="geometry-status" id="mask-status">Mask hides dots whose grid homes sit inside or near painted slide artwork.</div>
                 <div class="slider-group hidden-ui-node"><span>Edge Samples</span><input type="range" id="mask-samples" min="4" max="36" value="18" step="1"><span class="val-indicator" id="val-mask-samples">18</span></div>
@@ -130,11 +129,6 @@
                     <option value="flicker">Media Flicker Only</option>
                     <option value="cut">Frame To Frame</option>
                 </select>
-                <div class="slider-group" id="media-duration-row">
-                    <span>Slide Duration (s)</span>
-                    <input type="range" id="media-slide-duration" min="1" max="30" value="4" step="0.5">
-                    <span class="val-indicator" id="val-media-slide-duration">4</span>
-                </div>
                 <div class="slider-group"><span>Scale</span><input type="range" id="image-slide-scale" min="10" max="300" value="100"><span class="val-indicator" id="val-image-slide-scale">100%</span></div>
                 <div class="slider-group"><span>Offset X</span><input type="range" id="image-slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-image-slide-offset-x">0</span></div>
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="image-slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-image-slide-offset-y">0</span></div>
@@ -149,10 +143,26 @@
             <div class="drawer-content">
                 <div class="drawer-section-title">Vector</div>
                 <div class="slider-group"><span>Mask Expand</span><input type="range" id="mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-mask-expansion">32</span></div>
-                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="mask-scale-time" min="0" max="10" value="5" step="0.05"><span class="val-indicator" id="val-mask-scale-time">5</span></div>
+                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="mask-scale-time" min="0" max="10" value="4" step="0.05"><span class="val-indicator" id="val-mask-scale-time">4</span></div>
                 <div class="drawer-section-title">Raster</div>
                 <div class="slider-group"><span>Mask Expand</span><input type="range" id="image-mask-expansion" min="0" max="260" value="32" step="1"><span class="val-indicator" id="val-image-mask-expansion">32</span></div>
-                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="image-mask-scale-time" min="0" max="10" value="5" step="0.05"><span class="val-indicator" id="val-image-mask-scale-time">5</span></div>
+                <div class="slider-group"><span>Mask Scale Time</span><input type="range" id="image-mask-scale-time" min="0" max="10" value="4" step="0.05"><span class="val-indicator" id="val-image-mask-scale-time">4</span></div>
+            </div>
+        </div>
+
+        <!-- Timing Drawer -->
+        <div class="drawer" id="drawer-timing">
+            <button class="drawer-trigger" id="drawer-trigger-timing">Timing</button>
+            <div class="drawer-content">
+                <div class="geometry-status" id="auto-transition-status">Left/Right change slides. Space holds the current slide. Up hides the UI. Down restores it. Esc stops flicker.</div>
+                <div class="drawer-section-title">Transition</div>
+                <div class="slider-group"><span>Current Time</span><input type="range" id="transition-current-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-current-time">3</span></div>
+                <div class="slider-group"><span>Current Flicker Start</span><input type="range" id="transition-current-flicker-start" min="0" max="3" value="0" step="0.05"><span class="val-indicator" id="val-transition-current-flicker-start">0</span></div>
+                <div class="slider-group"><span>Next Time</span><input type="range" id="transition-travel-time" min="0.1" max="12" value="2" step="0.05"><span class="val-indicator" id="val-transition-travel-time">2</span></div>
+                <div class="slider-group"><span>Next Flicker Start</span><input type="range" id="transition-next-flicker-start" min="0" max="2" value="0" step="0.05"><span class="val-indicator" id="val-transition-next-flicker-start">0</span></div>
+                <div class="drawer-section-title">Auto Advance</div>
+                <div class="slider-group auto-duration-row"><span>SVG Auto Duration</span><input type="range" id="slide-auto-duration" min="1" max="8" value="4" step="0.5"><span class="val-indicator" id="val-slide-auto-duration">4</span></div>
+                <div class="slider-group" id="media-duration-row"><span>Image Auto Duration</span><input type="range" id="media-slide-duration" min="1" max="30" value="4" step="0.5"><span class="val-indicator" id="val-media-slide-duration">4</span></div>
             </div>
         </div>
 
@@ -161,19 +171,6 @@
             <button class="drawer-trigger" id="drawer-trigger-grid">Grid</button>
             <div class="drawer-content">
                 <button class="preset-action-btn drawer-wide-action" id="grid-apply-all" type="button">Apply To All</button>
-                <div class="grid-attract-controls" id="grid-attract-controls">
-                    <div class="slider-group"><span>Attract Time</span><input type="range" id="slide-grid-attract-time" min="0" max="8" value="0.6" step="0.05"><span class="val-indicator" id="val-slide-grid-attract-time">0.6</span></div>
-                    <div class="slider-group"><span>Grid Pull</span><input type="range" id="grid-attract-return-pull" min="0.1" max="1" value="0.38" step="0.01"><span class="val-indicator" id="val-grid-attract-return-pull">0.38</span></div>
-                    <div class="slider-group"><span>Grid Reach</span><input type="range" id="grid-attract-grid-radius" min="100" max="1000" value="1000" step="10"><span class="val-indicator" id="val-grid-attract-grid-radius">1000</span></div>
-                    <div class="slider-group"><span>Speed Cap</span><input type="range" id="grid-attract-speed-limit" min="0.5" max="120" value="80" step="0.5"><span class="val-indicator" id="val-grid-attract-speed-limit">80</span></div>
-                    <div class="slider-group"><span>Weight</span><input type="range" id="grid-attract-mass" min="1" max="10" value="1" step="0.1"><span class="val-indicator" id="val-grid-attract-mass">1</span></div>
-                    <div class="slider-group"><span>Damping</span><input type="range" id="grid-attract-friction" min="0" max="100" value="34" step="1"><span class="val-indicator" id="val-grid-attract-friction">34</span></div>
-                    <div class="slider-group"><span>Grid Stick / Fly-By</span><input type="range" id="grid-attract-elasticity" min="0" max="100" value="45" step="1"><span class="val-indicator" id="val-grid-attract-elasticity">45</span></div>
-                    <div class="slider-group"><span>Grid Swirl</span><input type="range" id="grid-attract-orbit" min="-2" max="2" value="0" step="0.01" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-orbit">0</span></div>
-                    <div class="slider-group"><span>Grid Shuffle</span><input type="range" id="grid-attract-shuffle" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-shuffle">0</span></div>
-                    <div class="slider-group"><span>Motion Var</span><input type="range" id="grid-attract-variation" min="0" max="100" value="0" step="1"><span class="val-indicator" id="val-grid-attract-variation">0</span></div>
-                    <div class="slider-group"><span>Size Speed</span><input type="range" id="grid-attract-speed-size" min="-40" max="40" value="0" step="0.5" data-snap-value="0"><span class="val-indicator" id="val-grid-attract-speed-size">0</span></div>
-                </div>
                 <div class="geometry-status" id="grid-layout-status">Grid setup active.</div>
             </div>
         </div>
@@ -182,15 +179,10 @@
         <div class="drawer" id="drawer-auto-transition">
             <button class="drawer-trigger" id="drawer-trigger-flicker">Flicker</button>
             <div class="drawer-content">
-                <div class="geometry-status" id="auto-transition-status">Left/Right change slides. Space holds the current slide. Up hides the UI. Down restores it. Esc stops flicker.</div>
-                <div class="slider-group"><span>Hold Current</span><input type="range" id="transition-current-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-current-time">3</span></div>
-                <div class="slider-group"><span>Move To Next</span><input type="range" id="transition-travel-time" min="0.1" max="12" value="2" step="0.05"><span class="val-indicator" id="val-transition-travel-time">2</span></div>
-                <div class="slider-group"><span>Return To Grid</span><input type="range" id="transition-grid-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-grid-time">3</span></div>
-                <div class="slider-group flicker-section-gap"><span>Duration</span><input type="range" id="transition-flicker-time" min="0.05" max="6" value="2" step="0.05"><span class="val-indicator" id="val-transition-flicker-time">2</span></div>
-                <div class="slider-group"><span>Old/New</span><input type="range" id="transition-flicker-bias" min="-100" max="100" value="6" step="1"><span class="val-indicator" id="val-transition-flicker-bias">6</span></div>
-                <div class="slider-group"><span>Speed</span><input type="range" id="transition-flicker-speed" min="1" max="30" value="10" step="0.5"><span class="val-indicator" id="val-transition-flicker-speed">10</span></div>
+                <div class="slider-group"><span>Flicker Speed</span><input type="range" id="transition-flicker-speed" min="1" max="30" value="10" step="0.5"><span class="val-indicator" id="val-transition-flicker-speed">10</span></div>
                 <div class="slider-group"><span>On/Off</span><input type="range" id="transition-flicker-balance" min="10" max="90" value="75" step="1"><span class="val-indicator" id="val-transition-flicker-balance">75</span></div>
                 <div class="slider-group"><span>Wildness</span><input type="range" id="transition-flicker-wildness" min="0" max="100" value="100" step="1"><span class="val-indicator" id="val-transition-flicker-wildness">100</span></div>
+                <div class="slider-group"><span>Old/New</span><input type="range" id="transition-flicker-bias" min="-100" max="100" value="6" step="1"><span class="val-indicator" id="val-transition-flicker-bias">6</span></div>
             </div>
         </div>
 
@@ -266,11 +258,11 @@
                 </section>
                 <section>
                     <h3>Overview</h3>
-                    <p>TEN26 animates active grid layers between grid homes and slide targets on one shared stage. Upload Media supplies vector and raster sources, Grid Masking shapes how grid-home dots hide and return, and Advanced Options controls grid return, flicker, and blink behavior.</p>
+                    <p>TEN26 animates active grid layers between grid homes and slide targets on one shared stage. Upload Media supplies vector and raster sources, Timing controls the slideshow motion, Grid Masking shapes how grid-home dots hide and return, and Advanced Options controls layout, flicker style, and blink behavior.</p>
                 </section>
                 <section>
                     <h3>Header Controls</h3>
-                    <p>Left arrow or keyboard Left goes to the previous slide (SVG or Image). Right arrow or keyboard Right goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes every four seconds.</p>
+                    <p>Left arrow or keyboard Left goes to the previous slide (SVG or Image). Right arrow or keyboard Right goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes using the current slide source duration.</p>
                 </section>
                 <section>
                     <h3>Grid Layers</h3>
@@ -294,19 +286,23 @@
                 </section>
                 <section>
                     <h3>Grid Masking</h3>
-                    <p>Grid Masking holds the vector and raster mask timing controls. Mask Expand grows the mask area outward, and Mask Scale Time controls how quickly masked dots shrink out or grow back during slide changes.</p>
+                    <p>Grid Masking holds vector and raster mask controls. Mask Expand grows the mask area outward, and Mask Scale Time controls how quickly masked dots shrink out or grow back during slide changes.</p>
+                </section>
+                <section>
+                    <h3>Timing</h3>
+                    <p>Timing controls the two slide phases. Current Time sends dots to the current slide, Next Time sends them to the next slide, and each Flicker Start slider chooses when that phase begins flickering. After the next phase, dots release back to the grid using the layer values.</p>
                 </section>
                 <section>
                     <h3>Advanced Options</h3>
-                    <p>Advanced Options groups Grid, Flicker, and Blink. Grid handles layout and grid-attract return behavior, Flicker shapes slide swaps, and Blink applies shared visibility timing across layers.</p>
+                    <p>Advanced Options groups Grid, Flicker, and Blink. Grid handles layout, Flicker shapes the visual flicker rhythm, and Blink applies shared visibility timing across layers.</p>
                 </section>
                 <section>
                     <h3>Grid</h3>
-                    <p>Grid sets columns, rows, spacing, and X/Y offset for the selected layer. Apply To All copies that layout to every active layer. Attract Time controls the between-slide return stage, and the remaining sliders shape how dots pull back into their grid homes before the next slide comes in.</p>
+                    <p>Grid sets columns, rows, spacing, and X/Y offset for the selected layer. Apply To All copies that layout to every active layer. Motion and force values come from the Grid Layers stack.</p>
                 </section>
                 <section>
                     <h3>Flicker</h3>
-                    <p>Flicker controls transition timing for both vector and raster slides. Hold Current pulls dots into the current slide, Move To Next sends dots toward the next slide, Return To Grid settles dots back into the grid, Duration controls flicker length, Old/New biases the swap, Speed controls flicker rate, On/Off controls visible ratio, and Wildness adds timing variation.</p>
+                    <p>Flicker controls the visual flicker style for both vector and raster slides. Flicker Speed controls pulse rate, On/Off controls visible ratio, Wildness adds timing variation, and Old/New biases the outgoing and incoming flicker feel.</p>
                 </section>
                 <section>
                     <h3>Blink</h3>
