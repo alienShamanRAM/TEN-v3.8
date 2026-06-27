@@ -333,6 +333,7 @@ function getActiveLayerStateFromControls() {
                     autoTransition: getAutoTransitionControlState(),
                     blink: forceBlinkRespawnState(getBlinkStateFromControls()),
                     randomRanges: getRandomRangeState(),
+                    randomLocks: getRandomLockState(),
                     stage: getStageState(),
                     dotLayers: cloneDotLayerStates(),
                     imageLayer: {
@@ -473,6 +474,7 @@ function getActiveLayerStateFromControls() {
                 resetDotMaskAlphas(1);
                 loadActiveLayerIntoUi();
                 applyRandomRangeState(state.randomRanges || {});
+                applyRandomLockState(state.randomLocks || []);
                 syncLayerRegistryUi();
                 renderCurrentSlide();
                 if (typeof precomputeAllTransitionAssetsSync === 'function') precomputeAllTransitionAssetsSync();
@@ -867,18 +869,12 @@ function getActiveLayerStateFromControls() {
             function mergePresetsWithBuiltIns(stored = [], options = {}) {
                 const builtIns = buildDefaultPresets().map(styleDefaultPreset);
                 builtInPresetNames = new Set(builtIns.map(preset => preset.name));
-                if (options.fullList) {
-                    const visiblePresets = normalizeVisiblePresetList(stored);
-                    const safePresets = visiblePresets.length ? visiblePresets : builtIns;
-                    return {
-                        presets: safePresets,
-                        customCount: safePresets.filter(preset => !builtInPresetNames.has(preset.name)).length,
-                        builtInCount: safePresets.filter(preset => builtInPresetNames.has(preset.name)).length
-                    };
-                }
                 const usedNames = new Set(builtInPresetNames);
-                const customPresets = normalizePresetCollection(stored).reduce((list, preset) => {
-                    if (builtInPresetNames.has(preset.name)) return list;
+                const storedPresets = options.fullList
+                    ? normalizeVisiblePresetList(stored)
+                    : normalizePresetCollection(stored);
+                const customPresets = storedPresets.reduce((list, preset) => {
+                    if (builtInPresetNames.has(preset.name) || isRetiredBuiltInPresetName(preset.name)) return list;
                     const name = getUniquePresetName(preset.name, usedNames);
                     usedNames.add(name);
                     list.push(styleDefaultPreset({ name, state: preset.state }));
@@ -1030,54 +1026,234 @@ function getActiveLayerStateFromControls() {
                 reader.readAsText(file);
             }
 
-            // Final build ships one curated global scene preset.
+            function isRetiredBuiltInPresetName(name) {
+                return name === 'Space Mod';
+            }
+
+            // Built-in presets are sample scenes for the bundled Sample SVGs folder.
             function buildDefaultPresets() {
-                const makeLayerState = (layerKey, blink, overrides = {}) => {
+                const WHITE = '#ffffff';
+                const PINK = '#ffc5f4';
+                const BLUE = '#02006c';
+                const TARGET_TYPES = ['fill', 'path', 'anchor'];
+
+                const layerKeysForCount = count => ALL_DOT_LAYER_KEYS.slice(0, clamp(count, 1, 3));
+                const controlId = (layerKey, suffix) => `dot-${layerKey}-${suffix}`;
+                const addRange = (ranges, layerKey, suffix, randomMin, randomMax) => {
+                    ranges[controlId(layerKey, suffix)] = {
+                        randomMin: String(randomMin),
+                        randomMax: String(randomMax)
+                    };
+                };
+                const addLock = (locks, layerKey, suffix) => locks.push(controlId(layerKey, suffix));
+                const makeBlinkState = (overrides = {}) => forceBlinkRespawnState({
+                    ...getDefaultBlinkState(true),
+                    ...overrides
+                });
+
+                const buildPresetRandomRules = layerKeys => {
+                    const ranges = {};
+                    const locks = [];
+                    layerKeys.forEach((layerKey, index) => {
+                        const isTop = index === 0;
+                        const isBottom = layerKeys.length > 1 && index === layerKeys.length - 1;
+                        addRange(ranges, layerKey, 'grid-size', isTop ? 3 : 1, isTop ? 3 : 4);
+                        addRange(ranges, layerKey, 'mid-size', isTop ? 3 : 1, isTop ? 3 : 4);
+                        addRange(ranges, layerKey, 'target-size', isTop ? 3 : 1, 3);
+                        addLock(locks, layerKey, 'target-color-hex');
+                        if (isTop) {
+                            ['grid-size', 'mid-size', 'target-size', 'grid-color-hex', 'mid-color-hex'].forEach(suffix => addLock(locks, layerKey, suffix));
+                        }
+                        if (isBottom) {
+                            ['grid-color-hex', 'mid-color-hex'].forEach(suffix => addLock(locks, layerKey, suffix));
+                        }
+                    });
+                    return { ranges, locks };
+                };
+
+                const makeLayerState = (layerKey, layerIndex, layerCount, blink, overrides = {}) => {
+                    const isTop = layerIndex === 0;
+                    const isBottom = layerCount > 1 && layerIndex === layerCount - 1;
+                    const middleColor = overrides.gridColor || (layerIndex % 2 ? PINK : WHITE);
+                    const targetColor = isTop ? WHITE : (overrides.targetColor || (layerIndex % 2 ? PINK : WHITE));
+                    const targetSize = isTop
+                        ? '3'
+                        : String(clamp(readStateFloat(overrides.targetSize, 2.2), 1, 3));
                     const incoming = {
+                        name: overrides.name || (isTop ? 'Top Target' : (isBottom ? 'Blue Base' : 'Mid Target')),
+                        targetType: overrides.targetType || TARGET_TYPES[layerIndex % TARGET_TYPES.length],
+                        cols: '25',
+                        rows: '7',
+                        spacing: PRESET_GRID_SPACING,
+                        offsetX: '0',
+                        offsetY: PRESET_GRID_OFFSET_Y,
+                        mass: '1',
+                        friction: '34',
+                        speedLimit: '80',
+                        elasticity: '45',
+                        shuffle: '0',
+                        variation: '0',
+                        returnPull: '0.38',
+                        pull: '0.7',
+                        svgRadius: '320',
+                        gridRadius: PRESET_GRID_RADIUS,
+                        orbit: '0',
+                        sizeMidpoint: '0.5',
+                        speedSize: '0',
                         ...overrides,
                         ...blink,
-                        gridSize: '3',
-                        midSize: String(clamp(readStateFloat(overrides.midSize, 3.6), 0.5, 5)),
-                        targetSize: String(clamp(readStateFloat(overrides.targetSize, 4), 0.5, 5))
+                        gridColor: isTop ? WHITE : (isBottom ? BLUE : middleColor),
+                        midColor: isTop ? WHITE : (isBottom ? BLUE : (overrides.midColor || middleColor)),
+                        targetColor,
+                        gridSize: isTop ? '3' : (overrides.gridSize || '2.5'),
+                        midSize: isTop ? '3' : (overrides.midSize || overrides.gridSize || '2.5'),
+                        targetSize
                     };
                     return coerceLayerStateForV12(createDefaultLayerState(layerKey, incoming), incoming);
                 };
-                const state = defaultState();
-                const defaultSlides = cloneDefaultSlidesState();
-                const blink = {
-                    visibilityEnabled: true,
-                    visibilityOn: '1.6',
-                    visibilityOff: '0.28',
-                    visibilityRandomness: '28',
-                    visibilityProbability: '42',
-                    visibilityGridProximity: '0'
+
+                const makePreset = config => {
+                    const state = defaultState();
+                    const layerKeys = layerKeysForCount(config.layerCount);
+                    const blink = makeBlinkState(config.blink);
+                    const dotLayers = layerKeys.reduce((acc, layerKey, index) => {
+                        const layerConfig = config.layers?.[index] || {};
+                        acc[layerKey] = makeLayerState(layerKey, index, layerKeys.length, blink, {
+                            targetType: config.targets?.[index] || TARGET_TYPES[index % TARGET_TYPES.length],
+                            ...layerConfig
+                        });
+                        return acc;
+                    }, {});
+                    const normalizedLayers = normalizeLayerCollection(dotLayers, layerKeys);
+                    const defaultSlides = cloneDefaultSlidesState();
+                    const randomRules = buildPresetRandomRules(normalizedLayers.layerOrder);
+                    state.activeLayerKey = normalizedLayers.layerOrder[0] || DEFAULT_LAYER_KEY;
+                    state.layerOrder = normalizedLayers.layerOrder;
+                    state.svgMediaStackIndex = normalizedLayers.layerOrder.length;
+                    state.dotLayers = normalizedLayers.dotLayers;
+                    state.autoTransition = {
+                        ...state.autoTransition,
+                        ...(config.autoTransition || {})
+                    };
+                    state.blink = blink;
+                    state.randomRanges = randomRules.ranges;
+                    state.randomLocks = randomRules.locks;
+                    state.imageLayer = cloneDefaultImageLayerState();
+                    state.slides = defaultSlides;
+                    state.currentSlideIndex = clamp(getDefaultAssetBundle().currentSlideIndex || 0, 0, Math.max(0, defaultSlides.length - 1));
+                    state.slide = getDefaultSlideState();
+                    state.mask = getDefaultMaskState();
+                    state.imageSlide = getDefaultImageSlideState();
+                    state.imageMask = getDefaultImageMaskState();
+                    if (config.bg) state.bg = { ...state.bg, ...config.bg };
+                    return { name: config.name, state };
                 };
-                const legacyLayers = {
-                    top: makeLayerState('top', blink, { targetType: 'fill', mass: '1', friction: '34', speedLimit: '58', elasticity: '48', pull: '0.72', svgRadius: '360', returnPull: '0.38', gridRadius: '1600', orbit: '0', shuffle: '8', variation: '12', midSize: '3.4', targetSize: '4' }),
-                    mid: makeLayerState('mid', blink, { targetType: 'path', mass: '1.5', friction: '42', speedLimit: '44', elasticity: '42', pull: '0.58', svgRadius: '460', returnPull: '0.34', gridRadius: '1700', orbit: '0.18', shuffle: '12', variation: '18', midSize: '3.6', targetSize: '3.8' }),
-                    bottom: makeLayerState('bottom', blink, { targetType: 'anchor', mass: '2.2', friction: '48', speedLimit: '36', elasticity: '30', pull: '0.48', svgRadius: '540', returnPull: '0.3', gridRadius: '1800', orbit: '-0.12', shuffle: '0', variation: '10', midSize: '3.2', targetSize: '3.6' })
-                };
-                const normalizedLayers = normalizeLayerCollection(legacyLayers, ['top', 'mid', 'bottom']);
-                state.activeLayerKey = normalizedLayers.sourceToTarget.top || normalizedLayers.layerOrder[0] || DEFAULT_LAYER_KEY;
-                state.layerOrder = normalizedLayers.layerOrder;
-                state.dotLayers = normalizedLayers.dotLayers;
-                state.autoTransition = {
-                    ...state.autoTransition,
-                    currentTime: '0.9',
-                    nextTime: '1.35',
-                    returnGridTime: '0',
-                    flickerBias: '8',
-                    flickerSpeed: '8',
-                    flickerBalance: '56',
-                    flickerWildness: '34'
-                };
-                state.blink = blink;
-                state.imageLayer = cloneDefaultImageLayerState();
-                state.slides = defaultSlides;
-                state.currentSlideIndex = clamp(getDefaultAssetBundle().currentSlideIndex || 0, 0, Math.max(0, defaultSlides.length - 1));
-                state.slide = getDefaultSlideState();
-                state.mask = getDefaultMaskState();
-                return [{ name: 'Space Mod', state }];
+
+                const presetConfigs = [
+                    {
+                        name: 'Solo Slow Constellation',
+                        layerCount: 1,
+                        targets: ['anchor'],
+                        autoTransition: { currentTime: '4.5', nextTime: '4.5', returnGridTime: '1.2', flickerBias: '1.4', flickerSpeed: '4', flickerBalance: '58', flickerWildness: '18', autoDuration: '5' },
+                        blink: { visibilityOn: '4.6', visibilityOff: '1.2', visibilityRandomness: '18', visibilityProbability: '55' },
+                        layers: [
+                            { cols: '31', rows: '9', spacing: '42', pull: '0.38', svgRadius: '660', returnPull: '0.24', gridRadius: '900', speedLimit: '28', mass: '3.6', friction: '68', elasticity: '22', orbit: '0.06', shuffle: '3', variation: '8', sizeMidpoint: '0.68', speedSize: '-0.4' }
+                        ]
+                    },
+                    {
+                        name: 'Solo Fast Bubbles',
+                        layerCount: 1,
+                        targets: ['fill'],
+                        autoTransition: { currentTime: '1.1', nextTime: '1.2', returnGridTime: '0.25', flickerBias: '0.35', flickerSpeed: '15', flickerBalance: '66', flickerWildness: '42', autoDuration: '2.4' },
+                        blink: { visibilityOn: '1.1', visibilityOff: '0.22', visibilityRandomness: '62', visibilityProbability: '78' },
+                        layers: [
+                            { cols: '24', rows: '8', spacing: '50', pull: '0.88', svgRadius: '330', returnPull: '0.54', gridRadius: '620', speedLimit: '110', mass: '1', friction: '18', elasticity: '72', orbit: '0.42', shuffle: '22', variation: '34', sizeMidpoint: '0.44', speedSize: '2.6' }
+                        ],
+                        bg: { mode: 'cycle2', staticColor: '#02006c', color2: '#ffc5f4' }
+                    },
+                    {
+                        name: 'Solo Chaotic Swarm',
+                        layerCount: 1,
+                        targets: ['path'],
+                        autoTransition: { currentTime: '1.7', nextTime: '1.55', returnGridTime: '0.45', flickerBias: '0.5', flickerSpeed: '18', flickerBalance: '72', flickerWildness: '86', autoDuration: '2.8' },
+                        blink: { visibilityOn: '0.72', visibilityOff: '0.18', visibilityRandomness: '94', visibilityProbability: '86' },
+                        layers: [
+                            { cols: '29', rows: '10', spacing: '39', pull: '0.94', svgRadius: '470', returnPull: '0.62', gridRadius: '760', speedLimit: '118', mass: '1.2', friction: '16', elasticity: '88', orbit: '-1.2', shuffle: '78', variation: '84', sizeMidpoint: '0.37', speedSize: '4.2' }
+                        ]
+                    },
+                    {
+                        name: 'Duo Geometric Drift',
+                        layerCount: 2,
+                        targets: ['fill', 'path'],
+                        autoTransition: { currentTime: '2.9', nextTime: '3.1', returnGridTime: '0.8', flickerBias: '1', flickerSpeed: '6', flickerBalance: '48', flickerWildness: '20', autoDuration: '4.2' },
+                        blink: { visibilityOn: '3.2', visibilityOff: '0.8', visibilityRandomness: '20', visibilityProbability: '58' },
+                        layers: [
+                            { cols: '28', rows: '8', spacing: '45', pull: '0.62', svgRadius: '390', returnPull: '0.36', gridRadius: '940', speedLimit: '48', mass: '1.8', friction: '48', elasticity: '40', orbit: '0', shuffle: '0', variation: '4', sizeMidpoint: '0.52' },
+                            { cols: '18', rows: '6', spacing: '70', offsetY: '-36', pull: '0.52', svgRadius: '520', returnPull: '0.32', gridRadius: '1000', speedLimit: '38', mass: '2.8', friction: '56', elasticity: '28', orbit: '0', shuffle: '0', variation: '2', gridSize: '2.2', midSize: '2.4', targetSize: '2.1', targetColor: PINK, sizeMidpoint: '0.58' }
+                        ]
+                    },
+                    {
+                        name: 'Duo Organic Flock',
+                        layerCount: 2,
+                        targets: ['path', 'anchor'],
+                        autoTransition: { currentTime: '2.4', nextTime: '2.7', returnGridTime: '0.65', flickerBias: '0.8', flickerSpeed: '8', flickerBalance: '60', flickerWildness: '38', autoDuration: '3.8' },
+                        blink: { visibilityOn: '2.4', visibilityOff: '0.42', visibilityRandomness: '46', visibilityProbability: '68' },
+                        layers: [
+                            { cols: '30', rows: '9', spacing: '40', pull: '0.68', svgRadius: '430', returnPull: '0.42', gridRadius: '860', speedLimit: '64', mass: '1.4', friction: '36', elasticity: '56', orbit: '0.18', shuffle: '16', variation: '24', sizeMidpoint: '0.46', speedSize: '0.8' },
+                            { cols: '22', rows: '8', spacing: '58', offsetX: '28', pull: '0.46', svgRadius: '610', returnPull: '0.28', gridRadius: '1000', speedLimit: '42', mass: '3.2', friction: '62', elasticity: '20', orbit: '-0.12', shuffle: '10', variation: '22', gridSize: '2', midSize: '2.2', targetSize: '1.8', targetColor: WHITE, sizeMidpoint: '0.64' }
+                        ]
+                    },
+                    {
+                        name: 'Duo Fast Swarm',
+                        layerCount: 2,
+                        targets: ['anchor', 'fill'],
+                        autoTransition: { currentTime: '1.25', nextTime: '1.35', returnGridTime: '0.25', flickerBias: '0.25', flickerSpeed: '16', flickerBalance: '70', flickerWildness: '76', autoDuration: '2.6' },
+                        blink: { visibilityOn: '0.85', visibilityOff: '0.2', visibilityRandomness: '86', visibilityProbability: '82' },
+                        layers: [
+                            { cols: '34', rows: '9', spacing: '36', pull: '0.9', svgRadius: '360', returnPull: '0.58', gridRadius: '700', speedLimit: '106', mass: '1', friction: '22', elasticity: '84', orbit: '0.86', shuffle: '58', variation: '70', sizeMidpoint: '0.4', speedSize: '3.4' },
+                            { cols: '20', rows: '7', spacing: '64', offsetY: '32', pull: '0.72', svgRadius: '460', returnPull: '0.46', gridRadius: '880', speedLimit: '86', mass: '1.6', friction: '30', elasticity: '68', orbit: '-0.55', shuffle: '44', variation: '56', gridSize: '1.7', midSize: '2', targetSize: '2.7', targetColor: PINK, sizeMidpoint: '0.45', speedSize: '2.2' }
+                        ]
+                    },
+                    {
+                        name: 'Trio Space Constellation',
+                        layerCount: 3,
+                        targets: ['anchor', 'path', 'fill'],
+                        autoTransition: { currentTime: '3.8', nextTime: '4', returnGridTime: '1.1', flickerBias: '1.35', flickerSpeed: '5', flickerBalance: '52', flickerWildness: '22', autoDuration: '5' },
+                        blink: { visibilityOn: '3.8', visibilityOff: '0.95', visibilityRandomness: '32', visibilityProbability: '62' },
+                        layers: [
+                            { cols: '33', rows: '9', spacing: '38', pull: '0.44', svgRadius: '650', returnPull: '0.28', gridRadius: '920', speedLimit: '34', mass: '3', friction: '64', elasticity: '26', orbit: '0.1', shuffle: '4', variation: '14', sizeMidpoint: '0.66' },
+                            { cols: '25', rows: '7', spacing: '50', offsetX: '-20', pull: '0.54', svgRadius: '520', returnPull: '0.34', gridRadius: '960', speedLimit: '42', mass: '2.2', friction: '54', elasticity: '34', orbit: '-0.08', shuffle: '8', variation: '16', gridSize: '1.8', midSize: '2.1', targetSize: '1.6', targetColor: PINK, sizeMidpoint: '0.58' },
+                            { cols: '19', rows: '6', spacing: '72', offsetY: '-42', pull: '0.36', svgRadius: '720', returnPull: '0.22', gridRadius: '1000', speedLimit: '28', mass: '4', friction: '72', elasticity: '18', orbit: '0.04', shuffle: '0', variation: '8', gridSize: '1.6', midSize: '1.8', targetSize: '2.1', targetColor: WHITE, sizeMidpoint: '0.7' }
+                        ]
+                    },
+                    {
+                        name: 'Trio Bubbly Orbit',
+                        layerCount: 3,
+                        targets: ['fill', 'anchor', 'path'],
+                        autoTransition: { currentTime: '1.8', nextTime: '2', returnGridTime: '0.45', flickerBias: '0.55', flickerSpeed: '12', flickerBalance: '66', flickerWildness: '52', autoDuration: '3.1' },
+                        blink: { visibilityOn: '1.6', visibilityOff: '0.32', visibilityRandomness: '68', visibilityProbability: '76' },
+                        layers: [
+                            { cols: '28', rows: '8', spacing: '44', pull: '0.76', svgRadius: '380', returnPull: '0.5', gridRadius: '700', speedLimit: '82', mass: '1.1', friction: '26', elasticity: '76', orbit: '0.66', shuffle: '34', variation: '44', sizeMidpoint: '0.42', speedSize: '2.8' },
+                            { cols: '24', rows: '8', spacing: '52', offsetX: '24', pull: '0.64', svgRadius: '520', returnPull: '0.4', gridRadius: '850', speedLimit: '62', mass: '1.7', friction: '38', elasticity: '54', orbit: '-0.38', shuffle: '24', variation: '36', gridColor: PINK, midColor: PINK, gridSize: '2.3', midSize: '2.7', targetSize: '2.4', targetColor: PINK, sizeMidpoint: '0.5', speedSize: '1.4' },
+                            { cols: '17', rows: '6', spacing: '78', offsetY: '40', pull: '0.5', svgRadius: '610', returnPull: '0.34', gridRadius: '960', speedLimit: '54', mass: '2.4', friction: '48', elasticity: '38', orbit: '0.2', shuffle: '18', variation: '28', gridSize: '1.8', midSize: '2.1', targetSize: '2.8', targetColor: WHITE, sizeMidpoint: '0.62', speedSize: '0.8' }
+                        ]
+                    },
+                    {
+                        name: 'Trio Chaotic Flock',
+                        layerCount: 3,
+                        targets: ['path', 'fill', 'anchor'],
+                        autoTransition: { currentTime: '1.4', nextTime: '1.55', returnGridTime: '0.3', flickerBias: '0.35', flickerSpeed: '18', flickerBalance: '74', flickerWildness: '92', autoDuration: '2.7' },
+                        blink: { visibilityOn: '0.78', visibilityOff: '0.16', visibilityRandomness: '98', visibilityProbability: '88' },
+                        layers: [
+                            { cols: '35', rows: '10', spacing: '34', pull: '0.96', svgRadius: '400', returnPull: '0.64', gridRadius: '720', speedLimit: '118', mass: '1', friction: '14', elasticity: '90', orbit: '-1.35', shuffle: '84', variation: '88', sizeMidpoint: '0.34', speedSize: '4.6' },
+                            { cols: '28', rows: '8', spacing: '46', offsetX: '-30', pull: '0.82', svgRadius: '500', returnPull: '0.5', gridRadius: '860', speedLimit: '92', mass: '1.5', friction: '24', elasticity: '74', orbit: '0.92', shuffle: '62', variation: '78', gridColor: PINK, midColor: PINK, gridSize: '2.1', midSize: '2.5', targetSize: '2', targetColor: PINK, sizeMidpoint: '0.42', speedSize: '2.8' },
+                            { cols: '21', rows: '7', spacing: '62', offsetY: '-34', pull: '0.66', svgRadius: '620', returnPull: '0.44', gridRadius: '1000', speedLimit: '74', mass: '2.1', friction: '34', elasticity: '58', orbit: '-0.5', shuffle: '48', variation: '64', gridSize: '1.7', midSize: '2', targetSize: '1.5', targetColor: WHITE, sizeMidpoint: '0.58', speedSize: '1.7' }
+                        ],
+                        bg: { mode: 'cycle3', staticColor: '#02006c', color2: '#ffc5f4', color3: '#00002a' }
+                    }
+                ];
+
+                return presetConfigs.map(makePreset);
             }
 
             function createDefaultPresets() {
@@ -1085,14 +1261,13 @@ function getActiveLayerStateFromControls() {
                 const merged = mergePresetsWithBuiltIns(stored?.presets || [], { fullList: stored?.isFullList });
                 presets = merged.presets;
                 updatePresetDropdown();
-                setPresetStatus(stored?.isFullList
-                    ? `${presets.length} preset${presets.length === 1 ? '' : 's'} loaded.`
-                    : (merged.customCount
-                        ? `Space Mod loaded with ${merged.customCount} custom preset${merged.customCount === 1 ? '' : 's'}.`
-                        : 'Space Mod loaded. Add, export, or import presets here.'));
+                const builtInLabel = `${merged.builtInCount} sample preset${merged.builtInCount === 1 ? '' : 's'}`;
+                setPresetStatus(merged.customCount
+                    ? `${builtInLabel} loaded with ${merged.customCount} custom preset${merged.customCount === 1 ? '' : 's'}.`
+                    : `${builtInLabel} loaded. Add, export, or import presets here.`);
             }
 
             function getStartupPresetState() {
-                const preset = presets.find(entry => entry?.name === 'Space Mod') || buildDefaultPresets()[0] || presets[0];
+                const preset = presets.find(entry => builtInPresetNames.has(entry?.name)) || buildDefaultPresets()[0] || presets[0];
                 return cloneSerializable(preset?.state || defaultState());
             }

@@ -144,7 +144,9 @@
                         return;
                     }
                     const canvas = doc.querySelector('#morph-canvas');
-                    const presetCount = doc.querySelector('#preset-select')?.options.length || 0;
+                    const presetOptions = Array.from(doc.querySelector('#preset-select')?.options || []);
+                    const presetCount = presetOptions.length;
+                    const presetNames = presetOptions.map(option => option.textContent || '');
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
                     const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');
@@ -162,7 +164,7 @@
                         fail('Hardening layer did not initialize.');
                         return;
                     }
-                    if (!hasRuntime || presetCount < 1 || motionLayerCount < 9 || gridLayerCount < 9) {
+                    if (!hasRuntime || presetCount < 9 || presetNames.includes('Space Mod') || motionLayerCount < 9 || gridLayerCount < 9) {
                         fail(`Runtime did not initialize fully; presets ${presetCount}, motion layers ${motionLayerCount}, grid layers ${gridLayerCount}.`);
                         return;
                     }

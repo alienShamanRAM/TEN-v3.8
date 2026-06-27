@@ -2307,6 +2307,26 @@ const viewport = document.getElementById('canvas-viewport');
                 else randomLockedControlIds.delete(lockId);
             }
 
+            function getRandomLockState() {
+                setupRandomLockUi();
+                return Array.from(randomLockedControlIds);
+            }
+
+            function applyRandomLockState(state = []) {
+                setupRandomLockUi();
+                randomLockedControlIds.clear();
+                if (Array.isArray(state)) {
+                    state.forEach(id => {
+                        if (typeof id === 'string' && id) randomLockedControlIds.add(id);
+                    });
+                } else if (state && typeof state === 'object') {
+                    Object.entries(state).forEach(([id, locked]) => {
+                        if (id && locked) randomLockedControlIds.add(id);
+                    });
+                }
+                updateRandomLockButtons();
+            }
+
             function stepDecimals(step) {
                 const text = String(step);
                 return text.includes('.') ? text.split('.')[1].length : 0;
