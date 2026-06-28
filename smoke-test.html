@@ -144,22 +144,85 @@
                     const mouseControls = [
                         '#drawer-mouse-interaction',
                         '#mouse-interaction-enabled',
-                        '#mouse-attract-strength',
                         '#mouse-repel-strength',
                         '#mouse-svg-target-count',
-                        '#mouse-scroll-link-attract',
-                        '#mouse-scroll-link-repel',
-                        '#mouse-scroll-link-svg-targets',
-                        '#mouse-scroll-link-radius',
                         '#mouse-interaction-radius',
                         '#mouse-interaction-softness',
                         '#mouse-scroll-step'
                     ];
                     const missingMouseControl = mouseControls.find(selector => !doc.querySelector(selector));
+                    const legacyMouseLock = doc.querySelector('[data-mouse-scroll-control], .mouse-scroll-link-btn');
+                    const mouseRepelNode = doc.querySelector('#mouse-repel-strength');
+                    const mouseTargetNode = doc.querySelector('#mouse-svg-target-count');
+                    const mouseRadiusNode = doc.querySelector('#mouse-interaction-radius');
+                    const mouseSoftnessNode = doc.querySelector('#mouse-interaction-softness');
+                    const mouseStepNode = doc.querySelector('#mouse-scroll-step');
+                    const removedAttractNode = doc.querySelector('#mouse-attract-strength');
+                    const mouseDefaultsReady =
+                        mouseRepelNode?.min === '10' &&
+                        mouseRepelNode?.value === '300' &&
+                        mouseTargetNode?.value === '400' &&
+                        mouseRadiusNode?.min === '100' &&
+                        mouseRadiusNode?.value === '520' &&
+                        mouseSoftnessNode?.value === '3' &&
+                        mouseStepNode?.value === '20';
                     const mouseRuntimeReady = typeof win.getMouseInteractionFrameState === 'function' &&
-                        typeof win.getMouseInteractionControlState === 'function';
-                    if (missingMouseControl || !mouseRuntimeReady) {
-                        fail(`Mouse interaction missing or malformed: ${missingMouseControl || 'runtime'}`);
+                        typeof win.getMouseInteractionControlState === 'function' &&
+                        typeof win.cycleMouseInteractionMode !== 'function';
+                    if (missingMouseControl || legacyMouseLock || removedAttractNode || !mouseDefaultsReady || !mouseRuntimeReady) {
+                        fail(`Mouse interaction missing or malformed: ${missingMouseControl || (legacyMouseLock ? 'legacy locks' : (removedAttractNode ? 'attract control' : (!mouseDefaultsReady ? 'defaults' : 'runtime')))}`);
+                        return;
+                    }
+                    const mouseToggle = doc.querySelector('#mouse-interaction-enabled');
+                    const mouseRect = doc.querySelector('#canvas-viewport')?.getBoundingClientRect();
+                    const mousePoint = mouseRect ? {
+                        clientX: mouseRect.left + mouseRect.width * 0.5,
+                        clientY: mouseRect.top + mouseRect.height * 0.5
+                    } : null;
+                    const dispatchMouse = (type, button, buttons) => {
+                        doc.querySelector('#canvas-viewport')?.dispatchEvent(new win.MouseEvent(type, {
+                            bubbles: true,
+                            cancelable: true,
+                            button,
+                            buttons,
+                            clientX: mousePoint?.clientX || 0,
+                            clientY: mousePoint?.clientY || 0
+                        }));
+                    };
+                    if (mouseToggle) {
+                        mouseToggle.checked = true;
+                        mouseToggle.dispatchEvent(new win.Event('change', { bubbles: true }));
+                    }
+                    dispatchMouse('mousemove', 0, 0);
+                    dispatchMouse('mousedown', 0, 1);
+                    const leftState = win.getMouseInteractionFrameState(win.performance.now());
+                    dispatchMouse('mousedown', 2, 3);
+                    const rightOverLeftState = win.getMouseInteractionFrameState(win.performance.now());
+                    dispatchMouse('mouseup', 2, 1);
+                    const leftAfterRightReleaseState = win.getMouseInteractionFrameState(win.performance.now());
+                    dispatchMouse('mouseup', 0, 0);
+                    dispatchMouse('mousedown', 2, 2);
+                    const rightState = win.getMouseInteractionFrameState(win.performance.now());
+                    dispatchMouse('mousedown', 0, 3);
+                    const leftOverRightState = win.getMouseInteractionFrameState(win.performance.now());
+                    dispatchMouse('mouseup', 0, 2);
+                    const rightAfterLeftReleaseState = win.getMouseInteractionFrameState(win.performance.now());
+                    dispatchMouse('mouseup', 2, 0);
+                    if (mouseToggle) {
+                        mouseToggle.checked = false;
+                        mouseToggle.dispatchEvent(new win.Event('change', { bubbles: true }));
+                    }
+                    const mouseButtonPriorityReady =
+                        leftState?.svgTargetActive === true &&
+                        leftState?.strength === 0 &&
+                        rightOverLeftState?.mode === 'repel' &&
+                        rightOverLeftState?.strength > 0 &&
+                        leftAfterRightReleaseState?.svgTargetActive === true &&
+                        rightState?.mode === 'repel' &&
+                        leftOverRightState?.svgTargetActive === true &&
+                        rightAfterLeftReleaseState?.mode === 'repel';
+                    if (!mouseButtonPriorityReady) {
+                        fail('Mouse button overlap behavior did not resolve correctly.');
                         return;
                     }
                     const maskState = typeof win.getMaskState === 'function' ? win.getMaskState('svg') : null;
@@ -235,7 +298,7 @@
                             activeLayerKey: 'layer-1',
                             layerOrder: ['layer-1'],
                             svgMediaStackIndex: 1,
-                            mouse: { enabled: true, attractStrength: '240' },
+                            mouse: { enabled: true, repelStrength: '240' },
                             autoTransition: { currentTime: '8' },
                             bg: { mode: 'cycle3' },
                             slides: [{ type: 'svg', name: 'sample.svg', svg: '<svg></svg>' }],
@@ -272,7 +335,7 @@
                             activeLayerKey: 'layer-1',
                             layerOrder: ['layer-1'],
                             svgMediaStackIndex: 1,
-                            mouse: { enabled: true, attractStrength: '240' },
+                            mouse: { enabled: true, repelStrength: '240' },
                             autoTransition: { currentTime: '8' },
                             blink: { visibilityOn: '2.5' },
                             bg: { mode: 'cycle3' },
@@ -295,7 +358,7 @@
                         : null;
                     const compactSettingsReady = !!compactSettingsState &&
                         compactSettingsState.settingsType === 'non-layer-settings' &&
-                        compactSettingsState.mouse?.attractStrength === '240' &&
+                        compactSettingsState.mouse?.repelStrength === '240' &&
                         compactSettingsState.autoTransition?.currentTime === '8' &&
                         compactSettingsState.slides?.length === 1 &&
                         compactSettingsState.specialOverlays?.length === 1 &&
@@ -306,10 +369,10 @@
                         !compactSettingsState.dotLayers &&
                         !compactSettingsState.randomRanges &&
                         !compactSettingsState.randomLocks;
-                    const mouseAttractControl = doc.querySelector('#mouse-attract-strength');
+                    const mouseRepelControl = doc.querySelector('#mouse-repel-strength');
                     const blinkOnControl = doc.querySelector('#blink-visibility-on');
                     const timingCurrentControl = doc.querySelector('#transition-current-time');
-                    if (mouseAttractControl) mouseAttractControl.value = '211';
+                    if (mouseRepelControl) mouseRepelControl.value = '211';
                     if (blinkOnControl) blinkOnControl.value = '4.25';
                     if (timingCurrentControl) timingCurrentControl.value = '6.75';
                     if (typeof win.applyLayerPresetState === 'function') {
@@ -332,7 +395,7 @@
                         });
                     }
                     const layerApplyKeepsConfig = typeof win.applyLayerPresetState === 'function' &&
-                        mouseAttractControl?.value === '211' &&
+                        mouseRepelControl?.value === '211' &&
                         blinkOnControl?.value === '4.25' &&
                         timingCurrentControl?.value === '6.75';
                     const gridColsControl = doc.querySelector('#grid-layer-1-cols');
@@ -340,14 +403,14 @@
                     if (typeof win.applySettingsState === 'function') {
                         win.applySettingsState({
                             autoTransition: { currentTime: '5.5' },
-                            mouse: { attractStrength: '99' },
+                            mouse: { repelStrength: '99' },
                             blink: { visibilityOn: '2.5' },
                             view: { scale: '75', scaleMode: 'manual', frameRate: '30', overlayOpacity: '0' }
                         });
                     }
                     const settingsApplyKeepsLayer = typeof win.applySettingsState === 'function' &&
                         gridColsControl?.value === '17' &&
-                        mouseAttractControl?.value === '99' &&
+                        mouseRepelControl?.value === '99' &&
                         blinkOnControl?.value === '2.5' &&
                         timingCurrentControl?.value === '5.5';
                     const sanitizer = win.TEN26SanitizeSvgText;
