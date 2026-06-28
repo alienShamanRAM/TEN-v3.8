@@ -528,7 +528,7 @@ function getActiveLayerStateFromControls() {
                     dotGroups[layerKey].rebuildGrid();
                     dotGroups[layerKey].returnToGrid();
                 });
-                resetDotMaskAlphas(1);
+                resetDotMaskScales(1);
                 loadActiveLayerIntoUi();
                 applyLayerPresetRandomState(layerPreset);
                 syncLayerRegistryUi();
@@ -651,7 +651,7 @@ function getActiveLayerStateFromControls() {
                     dotGroups[layerKey].rebuildGrid();
                     dotGroups[layerKey].returnToGrid();
                 });
-                resetDotMaskAlphas(1);
+                resetDotMaskScales(1);
                 loadActiveLayerIntoUi();
                 applyRandomRangeState(state.randomRanges || {});
                 applyRandomLockState(state.randomLocks || []);
@@ -722,7 +722,7 @@ function getActiveLayerStateFromControls() {
                 autoTransition = null;
                 resetForcesToGrid();
                 DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
-                resetDotMaskAlphas(1);
+                resetDotMaskScales(1);
                 clearMaskCache();
                 renderCurrentSlide();
                 if (typeof precomputeAllTransitionAssetsSync === 'function') precomputeAllTransitionAssetsSync();

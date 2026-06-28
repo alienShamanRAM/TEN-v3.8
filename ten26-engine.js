@@ -96,11 +96,11 @@
                 return inside;
             }
 
-            function resetDotMaskAlphas(value = 1) {
-                maskAlphaTransition = null;
+            function resetDotMaskScales(value = 1) {
+                maskScaleTransition = null;
                 DOT_LAYER_KEYS.forEach(layerKey => {
                     dotGroups[layerKey].dots.forEach(dot => {
-                        dot.maskAlpha = value;
+                        dot.maskScale = value;
                         clearDotMaskTweenState(dot);
                     });
                 });
@@ -143,7 +143,7 @@
             let pendingTargetWarmup = false;
             let activeMaskSlideIndex = null;
             let activeMaskLabel = '';
-            let maskAlphaTransition = null;
+            let maskScaleTransition = null;
             let returnSettleCheckElapsed = 0;
             const RETURN_SETTLE_CHECK_INTERVAL = 0.08;
             const SCREEN_TARGET_CACHE_LIMIT = 24;
@@ -360,14 +360,14 @@
             }
 
             function clearDotMaskTweenState(dot) {
-                delete dot.maskAlphaFrom;
-                delete dot.maskAlphaTo;
+                delete dot.maskScaleFrom;
+                delete dot.maskScaleTo;
             }
 
             function applySlideMaskCache(cache) {
-                maskAlphaTransition = null;
+                maskScaleTransition = null;
                 if (!cache || typeof dotGroups === 'undefined') {
-                    resetDotMaskAlphas(1);
+                    resetDotMaskScales(1);
                     activeMaskSlideIndex = null;
                     activeMaskLabel = '';
                     return false;
@@ -378,7 +378,7 @@
                         const insideFill = !!layerMask[index];
                         dot.maskInsideFill = insideFill;
                         dot.maskCacheKey = cache.key;
-                        dot.maskAlpha = insideFill ? 0 : 1;
+                        dot.maskScale = insideFill ? 0 : 1;
                         clearDotMaskTweenState(dot);
                     });
                 });
@@ -388,10 +388,10 @@
             }
 
             function clearAppliedSlideMask() {
-                maskAlphaTransition = null;
+                maskScaleTransition = null;
                 activeMaskSlideIndex = null;
                 activeMaskLabel = '';
-                resetDotMaskAlphas(1);
+                resetDotMaskScales(1);
             }
 
             function startSlideMaskScaleTransition(fromCache, toCache, duration = getMaskScaleDuration(toCache?.slideType || 'svg')) {
@@ -401,19 +401,19 @@
                     const fromLayer = fromCache?.layers[layerKey] || null;
                     const toLayer = toCache.layers[layerKey] || [];
                     dotGroups[layerKey].dots.forEach((dot, index) => {
-                        const fromAlpha = Number.isFinite(dot.maskAlpha) ? dot.maskAlpha : 1;
-                        const fromHidden = fromLayer ? !!fromLayer[index] : fromAlpha <= 0.5;
+                        const fromScale = Number.isFinite(dot.maskScale) ? dot.maskScale : 1;
+                        const fromHidden = fromLayer ? !!fromLayer[index] : fromScale <= 0.5;
                         const toHidden = !!toLayer[index];
                         dot.maskInsideFill = toHidden;
                         dot.maskCacheKey = toCache.key;
-                        dot.maskAlphaFrom = fromHidden ? 0 : 1;
-                        dot.maskAlphaTo = toHidden ? 0 : 1;
-                        dot.maskAlpha = dot.maskAlphaFrom;
+                        dot.maskScaleFrom = fromHidden ? 0 : 1;
+                        dot.maskScaleTo = toHidden ? 0 : 1;
+                        dot.maskScale = dot.maskScaleFrom;
                     });
                 });
                 activeMaskSlideIndex = toCache.slideIndex;
                 activeMaskLabel = getMaskCacheLabel(toCache);
-                maskAlphaTransition = {
+                maskScaleTransition = {
                     elapsed: 0,
                     duration,
                     cache: toCache
@@ -432,21 +432,21 @@
                 return startSlideMaskScaleTransition(fromCache, targetCache);
             }
 
-            function updateMaskAlphaTransitions(deltaTime) {
-                if (!maskAlphaTransition) return;
-                maskAlphaTransition.elapsed += deltaTime;
-                const progress = clamp(maskAlphaTransition.elapsed / Math.max(0.001, maskAlphaTransition.duration), 0, 1);
+            function updateMaskScaleTransitions(deltaTime) {
+                if (!maskScaleTransition) return;
+                maskScaleTransition.elapsed += deltaTime;
+                const progress = clamp(maskScaleTransition.elapsed / Math.max(0.001, maskScaleTransition.duration), 0, 1);
                 const eased = smoothstep(0, 1, progress);
                 DOT_LAYER_KEYS.forEach(layerKey => {
                     dotGroups[layerKey].dots.forEach(dot => {
-                        const from = Number.isFinite(dot.maskAlphaFrom) ? dot.maskAlphaFrom : (Number.isFinite(dot.maskAlpha) ? dot.maskAlpha : 1);
-                        const to = Number.isFinite(dot.maskAlphaTo) ? dot.maskAlphaTo : from;
-                        dot.maskAlpha = from + (to - from) * eased;
+                        const from = Number.isFinite(dot.maskScaleFrom) ? dot.maskScaleFrom : (Number.isFinite(dot.maskScale) ? dot.maskScale : 1);
+                        const to = Number.isFinite(dot.maskScaleTo) ? dot.maskScaleTo : from;
+                        dot.maskScale = from + (to - from) * eased;
                     });
                 });
                 if (progress >= 1) {
-                    const cache = maskAlphaTransition.cache;
-                    maskAlphaTransition = null;
+                    const cache = maskScaleTransition.cache;
+                    maskScaleTransition = null;
                     if (cache) {
                         DOT_LAYER_KEYS.forEach(layerKey => {
                             const layerMask = cache.layers[layerKey] || [];
@@ -454,7 +454,7 @@
                                 const insideFill = !!layerMask[index];
                                 dot.maskInsideFill = insideFill;
                                 dot.maskCacheKey = cache.key;
-                                dot.maskAlpha = insideFill ? 0 : 1;
+                                dot.maskScale = insideFill ? 0 : 1;
                                 clearDotMaskTweenState(dot);
                             });
                         });
@@ -472,7 +472,7 @@
                 }
                 let cache = getVisualMaskCacheForSlide(slideIndex, { sync });
                 if (cache) return applySlideMaskCache(cache);
-                if (activeMaskSlideIndex !== slideIndex) resetDotMaskAlphas(1);
+                if (activeMaskSlideIndex !== slideIndex) resetDotMaskScales(1);
                 activeMaskSlideIndex = slideIndex;
                 activeMaskLabel = Number.isFinite(slideIndex) ? `slide ${slideIndex + 1}` : '';
                 if (!maskWarmupActive) scheduleMaskWarmup();
@@ -1726,7 +1726,7 @@
             }
 
             function setSpecialOverlayBaseOpacity(value) {
-                specialOverlayBaseOpacity = clamp(value, 0, 1);
+                specialOverlayBaseOpacity = value > 0.5 ? 1 : 0;
                 updateSpecialOverlayOpacity(performance.now());
             }
 
@@ -1879,7 +1879,7 @@
                     autoTransition.deferredMaskTo !== null &&
                     autoTransition.targetIndex === currentSlideIndex &&
                     !autoTransition.deferredMaskApplied;
-                if (!maskAlphaTransition && !deferMaskActivation) activateSlideMask(currentSlideIndex, { sync: !isPerformanceCriticalMotionActive() });
+                if (!maskScaleTransition && !deferMaskActivation) activateSlideMask(currentSlideIndex, { sync: !isPerformanceCriticalMotionActive() });
                 scheduleMaskWarmup();
                 scheduleTargetWarmup();
                 updateViewStatus();
@@ -2275,7 +2275,7 @@
                             size: old ? old.size : cfg.gridSize,
                             targetInfluence: old ? old.targetInfluence : 0,
                             displayInfluence: old ? old.displayInfluence : 0,
-                            maskAlpha: old ? old.maskAlpha : 1,
+                            maskScale: old ? old.maskScale : 1,
                             idleAlpha: old ? old.idleAlpha : 1,
                             targetSlot: old && Number.isFinite(old.targetSlot) ? old.targetSlot : index,
                             shuffleAt: old ? old.shuffleAt : 0,
@@ -2762,7 +2762,7 @@
                 if (resetDots) {
                     holdState = 'return';
                     DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
-                    resetDotMaskAlphas(1);
+                    resetDotMaskScales(1);
                     resetForcesToGrid();
                 }
                 if (slides.length) {
@@ -2944,7 +2944,7 @@
                 setSlideOpacity(0);
                 applyDeferredAutoMask(true);
                 if (autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
-                    resetDotMaskAlphas(1);
+                    resetDotMaskScales(1);
                     autoTransition.travelMaskCleared = true;
                 }
                 setForceState({ svgAlpha: 0, gridAlpha: 0 });
@@ -2979,7 +2979,7 @@
             }
 
             function setSlideOpacity(value) {
-                const next = clamp(value, 0, 1);
+                const next = value > 0.5 ? 1 : 0;
                 if (Math.abs(next - slideOpacity) < 0.001) {
                     setSpecialOverlayBaseOpacity(next);
                     return;
@@ -3103,10 +3103,10 @@
                 const timer = autoTransition
                     ? `${autoTransition.timer.toFixed(1)}/${Math.max(0, phaseDuration).toFixed(1)}s`
                     : '-';
-                const maskProgress = maskAlphaTransition
-                    ? `${Math.round(clamp(maskAlphaTransition.elapsed / Math.max(0.001, maskAlphaTransition.duration), 0, 1) * 100)}%`
+                const maskProgress = maskScaleTransition
+                    ? `${Math.round(clamp(maskScaleTransition.elapsed / Math.max(0.001, maskScaleTransition.duration), 0, 1) * 100)}%`
                     : '';
-                const mask = maskAlphaTransition
+                const mask = maskScaleTransition
                     ? `scaling ${maskProgress}`
                     : activeMaskSlideIndex !== null
                     ? (activeMaskLabel || (Number.isFinite(activeMaskSlideIndex) ? `slide ${activeMaskSlideIndex + 1}` : 'special overlay'))
@@ -3258,28 +3258,24 @@
                 if (cfg.hidden) return;
                 ctx.save();
                 ctx.globalCompositeOperation = 'source-over';
-                let lastAlpha = null;
                 let lastFillStyle = null;
                 const twoPi = Math.PI * 2;
+                const minMaskRadius = 0.1;
                 dotGroups[layerKey].dots.forEach(dot => {
-                    const maskAlpha = Number.isFinite(dot.maskAlpha) ? dot.maskAlpha : 1;
-                    const idleAlpha = Number.isFinite(dot.idleAlpha) ? dot.idleAlpha : 1;
-                    const alpha = maskAlpha * idleAlpha;
-                    if (alpha <= 0.01) return;
+                    const maskScale = Number.isFinite(dot.maskScale) ? dot.maskScale : 1;
+                    if (maskScale <= 0.001) return;
+                    const idleVisible = !Number.isFinite(dot.idleAlpha) || dot.idleAlpha > 0.5;
+                    if (!idleVisible) return;
                     const fillStyle = dot.color || cfg.gridColor;
-                    const scale = clamp(maskAlpha, 0, 1);
-                    const radius = dot.size * scale;
+                    const scale = clamp(maskScale, 0, 1);
+                    const radius = scale >= 1 ? dot.size : Math.max(minMaskRadius, dot.size * scale);
                     if (radius <= 0.05) return;
-                    if (alpha !== lastAlpha) {
-                        ctx.globalAlpha = alpha;
-                        lastAlpha = alpha;
-                    }
                     if (fillStyle !== lastFillStyle) {
                         ctx.fillStyle = fillStyle;
                         lastFillStyle = fillStyle;
                     }
                     ctx.beginPath();
-                    ctx.arc(dot.x, dot.y, Math.max(0.1, radius), 0, twoPi);
+                    ctx.arc(dot.x, dot.y, radius, 0, twoPi);
                     ctx.fill();
                 });
                 ctx.restore();

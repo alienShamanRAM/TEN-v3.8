@@ -581,7 +581,7 @@ function bindEvents() {
                 updateBackground();
                 updateHoldMachine(deltaTime);
                 updateAutoTransition(deltaTime);
-                updateMaskAlphaTransitions(deltaTime);
+                updateMaskScaleTransitions(deltaTime);
                 const mouseFrameState = getMouseInteractionFrameState(timestamp);
                 DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp, mouseFrameState));
                 updateSpecialOverlayFrame(timestamp);
