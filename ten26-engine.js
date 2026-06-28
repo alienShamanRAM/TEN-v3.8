@@ -104,6 +104,7 @@
                         clearDotMaskTweenState(dot);
                     });
                 });
+                if (typeof markAllDotLayersDirty === 'function') markAllDotLayersDirty({ update: false, render: true });
             }
 
             function updateMaskStatus() {
@@ -384,6 +385,7 @@
                 });
                 activeMaskSlideIndex = cache.slideIndex;
                 activeMaskLabel = getMaskCacheLabel(cache);
+                if (typeof markAllDotLayersDirty === 'function') markAllDotLayersDirty({ update: false, render: true });
                 return true;
             }
 
@@ -418,6 +420,7 @@
                     duration,
                     cache: toCache
                 };
+                if (typeof markAllDotLayersDirty === 'function') markAllDotLayersDirty({ update: false, render: true });
                 return true;
             }
 
@@ -462,6 +465,7 @@
                         activeMaskLabel = getMaskCacheLabel(cache);
                     }
                 }
+                if (typeof markAllDotLayersDirty === 'function') markAllDotLayersDirty({ update: false, render: true });
             }
 
             function activateSlideMask(slideIndex = currentSlideIndex, options = {}) {
@@ -781,6 +785,26 @@
                 scheduleTransitionPrewarm();
             }
 
+            function getPriorityWarmupSlideIndexes() {
+                if (!slides.length) return [];
+                const priority = [
+                    currentSlideIndex,
+                    pendingSlideIndex,
+                    slides.length > 1 ? getWrappedSlideIndex(1) : currentSlideIndex,
+                    slides.length > 1 ? getWrappedSlideIndex(-1) : currentSlideIndex,
+                    autoTransition?.targetIndex
+                ];
+                const seen = new Set();
+                const ordered = [];
+                priority.concat(slides.map((_, index) => index)).forEach(index => {
+                    const numeric = Math.round(parseFloat(index));
+                    if (!Number.isFinite(numeric) || numeric < 0 || numeric >= slides.length || seen.has(numeric)) return;
+                    seen.add(numeric);
+                    ordered.push(numeric);
+                });
+                return ordered;
+            }
+
             function scheduleTargetWarmup() {
                 if (isPerformanceCriticalMotionActive()) {
                     requestDeferredWarmups({ target: true });
@@ -790,7 +814,8 @@
                 pendingTargetWarmup = false;
                 if (!slides.length || activeHoldMode || autoTransition || typeof dotGroups === 'undefined') return;
                 const jobs = [];
-                slides.forEach((slide, slideIndex) => {
+                getPriorityWarmupSlideIndexes().forEach(slideIndex => {
+                    const slide = slides[slideIndex];
                     if (!slide) return;
                     if (!slide.domTemplate) jobs.push(() => ensureSlideTemplate(slide));
                     if (!slide.domNode) jobs.push(() => prepareSlideRenderNode(slide));
@@ -804,20 +829,28 @@
                         }
                     });
                 });
-                specialOverlays.forEach(overlay => {
-                    if (!overlay.assignedSlides?.length || overlay.enabled === false) return;
-                    if (!overlay.domTemplate) jobs.push(() => ensureSlideTemplate(overlay));
-                    if (!overlay.domNode) jobs.push(() => prepareSlideRenderNode(overlay));
-                    DOT_LAYER_KEYS.forEach(layerKey => {
-                        const cfg = getLayerRuntimeConfig(layerKey);
-                        const total = getTotalGridDots(cfg);
-                        if (!cfg.hidden && total > 0) {
-                            if (!hasReadyScreenTargetsForSlideLike(overlay, cfg.targetTypes, total)) {
-                                jobs.push(() => getScreenTargetsForSlideLike(overlay, cfg.targetTypes, total));
+                const prioritySlides = new Set(getPriorityWarmupSlideIndexes().slice(0, 4));
+                specialOverlays
+                    .map((overlay, index) => ({
+                        overlay,
+                        index,
+                        priority: overlay.assignedSlides?.some(slideIndex => prioritySlides.has(slideIndex)) ? 0 : 1
+                    }))
+                    .sort((a, b) => a.priority - b.priority || a.index - b.index)
+                    .forEach(({ overlay }) => {
+                        if (!overlay.assignedSlides?.length || overlay.enabled === false) return;
+                        if (!overlay.domTemplate) jobs.push(() => ensureSlideTemplate(overlay));
+                        if (!overlay.domNode) jobs.push(() => prepareSlideRenderNode(overlay));
+                        DOT_LAYER_KEYS.forEach(layerKey => {
+                            const cfg = getLayerRuntimeConfig(layerKey);
+                            const total = getTotalGridDots(cfg);
+                            if (!cfg.hidden && total > 0) {
+                                if (!hasReadyScreenTargetsForSlideLike(overlay, cfg.targetTypes, total)) {
+                                    jobs.push(() => getScreenTargetsForSlideLike(overlay, cfg.targetTypes, total));
+                                }
                             }
-                        }
+                        });
                     });
-                });
                 let index = 0;
                 const run = deadline => {
                     if (token !== targetWarmupToken || activeHoldMode || autoTransition) return;
@@ -895,6 +928,11 @@
                     viewport.style.background = currentBackgroundColor;
                     appliedBackgroundColor = currentBackgroundColor;
                 }
+            }
+
+            function isBackgroundAnimated() {
+                if (!backgroundRuntime) syncBackgroundRuntime();
+                return (backgroundRuntime?.palette?.length || 0) > 1;
             }
 
             let imageState = {
@@ -1399,10 +1437,19 @@
             };
 
             function setForceState(next = {}) {
+                const previousSvgAlpha = forceState.svgAlpha;
+                const previousGridAlpha = forceState.gridAlpha;
                 forceState = {
                     svgAlpha: clamp(next.svgAlpha ?? forceState.svgAlpha, 0, 1),
                     gridAlpha: clamp(next.gridAlpha ?? forceState.gridAlpha, 0, 1)
                 };
+                if (
+                    (Math.abs(forceState.svgAlpha - previousSvgAlpha) > 0.0001 ||
+                    Math.abs(forceState.gridAlpha - previousGridAlpha) > 0.0001) &&
+                    typeof markAllDotLayersDirty === 'function'
+                ) {
+                    markAllDotLayersDirty({ update: true, render: false });
+                }
             }
 
             function resetForcesToGrid() {
@@ -2256,7 +2303,31 @@
                     this.dots = [];
                     this.mode = 'grid';
                     this.targets = [];
+                    this.updateDirty = true;
+                    this.renderDirty = true;
+                    this.staticCanvasValid = false;
                     this.rebuildGrid();
+                }
+
+                markDirty(options = {}) {
+                    const { update = true, render = true } = options;
+                    if (update) this.updateDirty = true;
+                    if (render) {
+                        this.renderDirty = true;
+                        this.staticCanvasValid = false;
+                    }
+                }
+
+                decorateDotRuntimeConstants(dot, index) {
+                    const sharedSeed = index + 1;
+                    dot.variationPullJitter = (pseudoRandom(dot.seed + 11) - 0.5) * 1.2;
+                    dot.variationMassJitter = (pseudoRandom(dot.seed + 17) - 0.5) * 1.4;
+                    dot.shuffleEligibility = pseudoRandom(dot.seed + 311);
+                    dot.shuffleInitialPhase = pseudoRandom(dot.seed + 97);
+                    dot.blinkAffectedSeed = pseudoRandom(sharedSeed + 911);
+                    dot.blinkPhaseSeed = pseudoRandom(sharedSeed + 809);
+                    dot.blinkOnSeed = sharedSeed * 1.71;
+                    dot.blinkOffSeed = sharedSeed * 2.13;
                 }
 
                 rebuildGrid() {
@@ -2265,7 +2336,7 @@
                     const points = buildGridPoints(cfg);
                     this.dots = points.map((point, index) => {
                         const old = oldDots[index];
-                        return {
+                        const dot = {
                             x: old ? old.x : point.x,
                             y: old ? old.y : point.y,
                             vx: old ? old.vx : 0,
@@ -2281,7 +2352,10 @@
                             shuffleAt: old ? old.shuffleAt : 0,
                             seed: old ? old.seed : Math.random() * 1000
                         };
+                        this.decorateDotRuntimeConstants(dot, index);
+                        return dot;
                     });
+                    this.markDirty();
                 }
 
                 updateIdleAlpha(dot, index, cfg, nowSeconds) {
@@ -2297,8 +2371,7 @@
                             return;
                         }
                     }
-                    const sharedSeed = index + 1;
-                    const affected = pseudoRandom(sharedSeed + 911) < clamp(cfg.visibilityProbability, 0, 100) / 100;
+                    const affected = dot.blinkAffectedSeed < clamp(cfg.visibilityProbability, 0, 100) / 100;
                     if (!affected) {
                         dot.idleAlpha = 1;
                         return;
@@ -2307,10 +2380,10 @@
                     const baseOn = Math.max(0.03, cfg.visibilityOn);
                     const baseOff = Math.max(0.03, cfg.visibilityOff);
                     const baseCycle = baseOn + baseOff;
-                    const phaseSeed = pseudoRandom(sharedSeed + 809) * baseCycle;
+                    const phaseSeed = dot.blinkPhaseSeed * baseCycle;
                     const cycleIndex = Math.floor((nowSeconds + phaseSeed) / baseCycle);
-                    const onJitter = 1 + (pseudoRandom(sharedSeed * 1.71 + cycleIndex * 17.31) - 0.5) * 1.5 * randomness;
-                    const offJitter = 1 + (pseudoRandom(sharedSeed * 2.13 + cycleIndex * 23.83) - 0.5) * 1.5 * randomness;
+                    const onJitter = 1 + (pseudoRandom(dot.blinkOnSeed + cycleIndex * 17.31) - 0.5) * 1.5 * randomness;
+                    const offJitter = 1 + (pseudoRandom(dot.blinkOffSeed + cycleIndex * 23.83) - 0.5) * 1.5 * randomness;
                     const onPeriod = Math.max(0.03, baseOn * onJitter);
                     const offPeriod = Math.max(0.03, baseOff * offJitter);
                     const cycle = onPeriod + offPeriod;
@@ -2333,8 +2406,8 @@
                     const baseSize = startSize + (endSize - startSize) * smoothstep(0, 1, legT);
                     let speedResponse = 0;
                     if (cfg.speedSize !== 0) {
-                        const speed = Math.hypot(dot.vx, dot.vy);
-                        speedResponse = smoothstep(0, Math.max(0.1, cfg.speedLimit), speed) * cfg.speedSize;
+                        const speed = Math.sqrt(dot.vx * dot.vx + dot.vy * dot.vy);
+                        speedResponse = smoothstep(0, cfg.speedSizeLimit, speed) * cfg.speedSize;
                     }
                     dot.size = clamp(baseSize + speedResponse, 0.5, MAX_DOT_SIZE);
                 }
@@ -2342,6 +2415,7 @@
                 setAttractorTargets(targets) {
                     this.targets = targets || [];
                     this.mode = 'attract';
+                    this.markDirty();
                     const count = this.targets.length;
                     this.dots.forEach((dot, index) => {
                         dot.targetSlot = count ? index % count : index;
@@ -2353,9 +2427,9 @@
                     if (!targetCount) return 0;
                     if (!Number.isFinite(dot.targetSlot)) dot.targetSlot = index % targetCount;
                     const shuffleAmount = clamp(cfg.shuffle, 0, 100) / 100;
-                    if (shuffleAmount > 0 && pseudoRandom(dot.seed + 311) < shuffleAmount) {
+                    if (shuffleAmount > 0 && dot.shuffleEligibility < shuffleAmount) {
                         const swapsPerSecond = 0.12 + shuffleAmount * 1.35;
-                        if (!dot.shuffleAt) dot.shuffleAt = nowSeconds + pseudoRandom(dot.seed + 97) / swapsPerSecond;
+                        if (!dot.shuffleAt) dot.shuffleAt = nowSeconds + dot.shuffleInitialPhase / swapsPerSecond;
                         if (nowSeconds >= dot.shuffleAt) {
                             dot.targetSlot = Math.floor(pseudoRandom(nowSeconds * 13.7 + dot.seed * 19.11) * targetCount);
                             dot.shuffleAt = nowSeconds + (0.28 + pseudoRandom(nowSeconds + dot.seed * 5.71) * 1.8) / swapsPerSecond;
@@ -2366,39 +2440,83 @@
 
                 returnToGrid() {
                     this.mode = 'grid';
+                    this.markDirty({ update: true, render: false });
                 }
 
                 isSettledToGrid() {
                     const cfg = getLayerRuntimeConfig(this.layerKey);
-                    const settleDistance = cfg.settleDistance;
+                    const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
                     return this.dots.every(dot => {
-                        const distance = Math.hypot(dot.x - dot.gridX, dot.y - dot.gridY);
-                        const velocity = Math.hypot(dot.vx, dot.vy);
-                        return distance <= settleDistance && velocity <= 0.08;
+                        const dx = dot.x - dot.gridX;
+                        const dy = dot.y - dot.gridY;
+                        const velocitySq = dot.vx * dot.vx + dot.vy * dot.vy;
+                        return dx * dx + dy * dy <= settleDistanceSq && velocitySq <= 0.0064;
                     });
+                }
+
+                hasActiveBlink(cfg) {
+                    return cfg.visibilityEnabled && cfg.visibilityProbability > 0;
+                }
+
+                isRuntimeStaticEligible(cfg, mouseForce) {
+                    return !mouseForce &&
+                        !this.hasActiveBlink(cfg) &&
+                        !maskScaleTransition &&
+                        !slideFade &&
+                        !autoTransition &&
+                        !activeHoldMode &&
+                        holdState === 'idle' &&
+                        forceState.svgAlpha <= 0.0001 &&
+                        forceState.gridAlpha >= 0.9999;
+                }
+
+                areDotsGridStatic(cfg) {
+                    const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
+                    return this.dots.every(dot => {
+                        const dx = dot.x - dot.gridX;
+                        const dy = dot.y - dot.gridY;
+                        const velocitySq = dot.vx * dot.vx + dot.vy * dot.vy;
+                        const targetInfluence = Number.isFinite(dot.targetInfluence) ? Math.abs(dot.targetInfluence) : 0;
+                        return dx * dx + dy * dy <= settleDistanceSq &&
+                            velocitySq <= 0.0064 &&
+                            targetInfluence <= 0.0015 &&
+                            !Number.isFinite(dot.maskScaleFrom) &&
+                            !Number.isFinite(dot.maskScaleTo);
+                    });
+                }
+
+                canSkipUpdate(cfg, mouseForce) {
+                    if (!this.updateDirty && this.staticCanvasValid && this.isRuntimeStaticEligible(cfg, mouseForce)) return true;
+                    return !this.updateDirty && this.isRuntimeStaticEligible(cfg, mouseForce) && this.areDotsGridStatic(cfg);
+                }
+
+                canReuseStaticCanvas(cfg) {
+                    return this.isRuntimeStaticEligible(cfg, null) && this.areDotsGridStatic(cfg);
                 }
 
                 update(deltaTime, nowMs = performance.now(), mouseFrameState = null) {
                     const baseConfig = getLayerRuntimeConfig(this.layerKey);
                     const cfg = baseConfig;
                     if (cfg.hidden) return;
+                    const mouseForce = mouseFrameState && (mouseFrameState.strength > 0 || mouseFrameState.svgTargetActive) ? mouseFrameState : null;
+                    if (this.canSkipUpdate(cfg, mouseForce)) return;
                     const frameDt = Math.min(deltaTime * 60, 3);
                     const now = nowMs * 0.012;
                     const nowSeconds = nowMs / 1000;
-                    const boundaryElasticity = clamp(cfg.elasticity, 0, 100) / 100;
-                    const gridElasticity = clamp(cfg.gridElasticity ?? cfg.elasticity, 0, 100) / 100;
-                    const gridCapture = 1 - gridElasticity;
-                    const variation = clamp(cfg.variation, 0, 100) / 100;
-                    const hasVariation = variation > 0.001;
+                    const boundaryElasticity = cfg.boundaryElasticity;
+                    const gridElasticity = cfg.gridElasticityNormalized;
+                    const gridCapture = cfg.gridCapture;
+                    const variation = cfg.variationNormalized;
+                    const hasVariation = cfg.hasVariation;
                     const svgAlpha = clamp(forceState.svgAlpha, 0, 1);
                     const gridAlpha = clamp(forceState.gridAlpha, 0, 1);
                     this.mode = svgAlpha > 0.02 ? 'attract' : 'grid';
-                    const baseDrag = 0.006 + clamp(cfg.friction, 0, 100) * 0.0018;
-                    const frictionFactor = Math.max(0, 1 - baseDrag * frameDt);
+                    const frictionFactor = Math.max(0, 1 - cfg.baseDrag * frameDt);
                     const svgRadius = Math.max(1, cfg.svgRadius);
+                    const svgRadiusSq = cfg.svgRadiusSq;
                     const gridRadius = Math.max(1, cfg.gridRadius);
+                    const gridRadiusSq = cfg.gridRadiusSq;
                     const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
-                    const mouseForce = mouseFrameState && (mouseFrameState.strength > 0 || mouseFrameState.svgTargetActive) ? mouseFrameState : null;
                     const svgMouseTarget = mouseForce?.svgTargetActive && mouseForce.svgTargetStrength > 0 ? mouseForce : null;
                     this.dots.forEach((dot, index) => {
                         let fx = 0;
@@ -2409,8 +2527,8 @@
                         let gridHomeX = dot.gridX;
                         let gridHomeY = dot.gridY;
                         if (hasVariation) {
-                            pullScale += (pseudoRandom(dot.seed + 11) - 0.5) * 1.2 * variation;
-                            massScale += (pseudoRandom(dot.seed + 17) - 0.5) * 1.4 * variation;
+                            pullScale += dot.variationPullJitter * variation;
+                            massScale += dot.variationMassJitter * variation;
                         }
 
                         if ((svgAlpha > 0 || svgMouseTarget) && this.targets && this.targets.length) {
@@ -2423,27 +2541,31 @@
                             const baseTarget = useMouseTarget ? svgMouseTarget : this.targets[targetIndex];
                             const dx = baseTarget.x - dot.x;
                             const dy = baseTarget.y - dot.y;
-                            const distance = Math.max(0.0001, Math.hypot(dx, dy));
-                            const nx = dx / distance;
-                            const ny = dy / distance;
-                            const near = clamp(1 - distance / svgRadius, 0, 1);
-                            const influence = smoothstep(0, 1, near) * targetAlpha;
+                            const distanceSq = dx * dx + dy * dy;
+                            let influence = 0;
 
-                            if (influence > 0) {
-                                fx += dx * cfg.pull * 0.04 * influence * Math.max(0.15, pullScale);
-                                fy += dy * cfg.pull * 0.04 * influence * Math.max(0.15, pullScale);
+                            if (distanceSq < svgRadiusSq) {
+                                const distance = Math.max(0.0001, Math.sqrt(distanceSq));
+                                const near = clamp(1 - distance / svgRadius, 0, 1);
+                                influence = smoothstep(0, 1, near) * targetAlpha;
 
-                                if (cfg.orbit !== 0) {
-                                    const orbitForce = cfg.orbit * (0.16 + near * 0.42) * targetAlpha;
-                                    fx += -ny * orbitForce;
-                                    fy += nx * orbitForce;
-                                }
+                                if (influence > 0) {
+                                    fx += dx * cfg.pull * 0.04 * influence * Math.max(0.15, pullScale);
+                                    fy += dy * cfg.pull * 0.04 * influence * Math.max(0.15, pullScale);
 
-                                if (cfg.targetDamping > 0) {
-                                    const targetDamping = clamp(cfg.targetDamping, 0, 100) / 100;
-                                    const stickyDamp = Math.max(0, 1 - targetDamping * near * near * targetAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
-                                    dot.vx *= stickyDamp;
-                                    dot.vy *= stickyDamp;
+                                    if (cfg.orbit !== 0) {
+                                        const nx = dx / distance;
+                                        const ny = dy / distance;
+                                        const orbitForce = cfg.orbit * (0.16 + near * 0.42) * targetAlpha;
+                                        fx += -ny * orbitForce;
+                                        fy += nx * orbitForce;
+                                    }
+
+                                    if (cfg.targetDampingNormalized > 0) {
+                                        const stickyDamp = Math.max(0, 1 - cfg.targetDampingNormalized * near * near * targetAlpha * (0.2 - boundaryElasticity * 0.08) * frameDt);
+                                        dot.vx *= stickyDamp;
+                                        dot.vy *= stickyDamp;
+                                    }
                                 }
                             }
 
@@ -2457,9 +2579,14 @@
                             gridHomeY = homeY;
                             const dx = homeX - dot.x;
                             const dy = homeY - dot.y;
-                            const distance = Math.max(0.0001, Math.hypot(dx, dy));
-                            const near = clamp(1 - distance / gridRadius, 0, 1);
-                            const catchInfluence = distance > gridRadius ? 0.18 : 0.08;
+                            const distanceSq = dx * dx + dy * dy;
+                            let near = 0;
+                            let catchInfluence = 0.18;
+                            if (distanceSq <= gridRadiusSq) {
+                                const distance = Math.max(0.0001, Math.sqrt(distanceSq));
+                                near = clamp(1 - distance / gridRadius, 0, 1);
+                                catchInfluence = 0.08;
+                            }
                             const influence = (catchInfluence + smoothstep(0, 1, near) * (1 - catchInfluence)) * gridAlpha;
                             fx += dx * cfg.returnPull * 0.065 * influence * Math.max(0.15, pullScale);
                             fy += dy * cfg.returnPull * 0.065 * influence * Math.max(0.15, pullScale);
@@ -2490,13 +2617,11 @@
                         const invMass = 1 / Math.max(0.1, cfg.mass * Math.max(0.2, massScale));
                         dot.vx = (dot.vx + fx * invMass * frameDt) * frictionFactor;
                         dot.vy = (dot.vy + fy * invMass * frameDt) * frictionFactor;
-                        const maxSpeed = Math.max(0.05, cfg.speedLimit);
                         const speedSq = dot.vx * dot.vx + dot.vy * dot.vy;
-                        const maxSpeedSq = maxSpeed * maxSpeed;
-                        if (speedSq > maxSpeedSq) {
+                        if (speedSq > cfg.maxSpeedSq) {
                             const speed = Math.sqrt(speedSq);
-                            dot.vx = dot.vx / speed * maxSpeed;
-                            dot.vy = dot.vy / speed * maxSpeed;
+                            dot.vx = dot.vx / speed * cfg.maxSpeed;
+                            dot.vy = dot.vy / speed * cfg.maxSpeed;
                         }
 
                         dot.x += dot.vx * frameDt;
@@ -2527,6 +2652,9 @@
                         this.updateIdleAlpha(dot, index, cfg, nowSeconds);
                         this.updateDotLook(dot, cfg);
                     });
+                    this.updateDirty = false;
+                    this.renderDirty = true;
+                    this.staticCanvasValid = false;
                 }
             }
 
@@ -2534,6 +2662,19 @@
                 acc[layerKey] = new DotGroup(layerKey);
                 return acc;
             }, {});
+
+            function markDotLayerDirty(layerKey = null, options = {}) {
+                const mark = group => group?.markDirty(options);
+                if (layerKey) {
+                    mark(dotGroups[layerKey]);
+                    return;
+                }
+                DOT_LAYER_KEYS.forEach(key => mark(dotGroups[key]));
+            }
+
+            function markAllDotLayersDirty(options = {}) {
+                markDotLayerDirty(null, options);
+            }
 
             function setMorphStatus(text) {
                 if (morphControls.status) morphControls.status.textContent = text;
@@ -3250,6 +3391,9 @@
             }
 
             function drawDotLayer(layerKey) {
+                const group = dotGroups[layerKey];
+                if (!group) return;
+                if (!group.renderDirty && group.staticCanvasValid) return;
                 const canvas = dotLayerCanvases.get(layerKey);
                 const ctx = dotLayerContexts.get(layerKey);
                 if (!canvas || !ctx) return;
@@ -3279,6 +3423,8 @@
                     ctx.fill();
                 });
                 ctx.restore();
+                group.renderDirty = false;
+                group.staticCanvasValid = group.canReuseStaticCanvas(cfg);
             }
 
             function drawMorphDots() {

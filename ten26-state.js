@@ -854,6 +854,7 @@ const viewport = document.getElementById('canvas-viewport');
                 activeAction: null
             };
             let cachedMouseInteractionConfig = null;
+            let cachedMouseViewportRect = null;
 
             const presetSelect = document.getElementById('preset-select');
             const presetApplyBtn = document.getElementById('preset-apply-btn');
@@ -979,6 +980,18 @@ const viewport = document.getElementById('canvas-viewport');
 
             function invalidateMouseInteractionConfig() {
                 cachedMouseInteractionConfig = null;
+            }
+
+            function invalidateMouseViewportRect() {
+                cachedMouseViewportRect = null;
+            }
+
+            function getMouseViewportRect(forceRefresh = false) {
+                if (!viewport) return null;
+                if (forceRefresh || !cachedMouseViewportRect) {
+                    cachedMouseViewportRect = viewport.getBoundingClientRect();
+                }
+                return cachedMouseViewportRect;
             }
 
             function readClampedControl(control, fallback) {
@@ -1132,9 +1145,9 @@ const viewport = document.getElementById('canvas-viewport');
                     eventPathIncludes(event, panelToggle);
             }
 
-            function getStudioPointFromPointerEvent(event) {
+            function getStudioPointFromPointerEvent(event, options = {}) {
                 if (!viewport || isMouseInteractionUiTarget(event)) return null;
-                const rect = viewport.getBoundingClientRect();
+                const rect = getMouseViewportRect(options.refreshRect === true);
                 if (!rect.width || !rect.height) return null;
                 if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return null;
                 return {
@@ -1143,8 +1156,8 @@ const viewport = document.getElementById('canvas-viewport');
                 };
             }
 
-            function updateMouseInteractionPointer(event) {
-                const point = getStudioPointFromPointerEvent(event);
+            function updateMouseInteractionPointer(event, options = {}) {
+                const point = getStudioPointFromPointerEvent(event, options);
                 mouseInteractionState.pointerInside = !!point;
                 if (!point) return false;
                 mouseInteractionState.x = point.x;
@@ -1194,7 +1207,7 @@ const viewport = document.getElementById('canvas-viewport');
                     }
                 }, { passive: true });
                 window.addEventListener('mousedown', event => {
-                    const overCanvas = updateMouseInteractionPointer(event);
+                    const overCanvas = updateMouseInteractionPointer(event, { refreshRect: true });
                     if (!overCanvas || !isMouseInteractionEnabled()) return;
                     if (event.button === 0) {
                         event.preventDefault();
@@ -1222,11 +1235,13 @@ const viewport = document.getElementById('canvas-viewport');
                     mouseInteractionState.pointerInside = false;
                     syncMouseInteractionStatus();
                 });
+                window.addEventListener('resize', invalidateMouseViewportRect, { passive: true });
+                window.addEventListener('scroll', invalidateMouseViewportRect, { passive: true, capture: true });
                 window.addEventListener('contextmenu', event => {
                     if (!isMouseInteractionUiTarget(event)) event.preventDefault();
                 });
                 window.addEventListener('wheel', event => {
-                    if (!isMouseInteractionEnabled() || !updateMouseInteractionPointer(event)) return;
+                    if (!isMouseInteractionEnabled() || !updateMouseInteractionPointer(event, { refreshRect: true })) return;
                     event.preventDefault();
                     adjustMouseInteractionScrollValues(event.deltaY < 0 ? 1 : -1);
                 }, { passive: false });
@@ -1333,6 +1348,7 @@ const viewport = document.getElementById('canvas-viewport');
                 STUDIO_CENTER_X = STUDIO_WIDTH / 2;
                 STUDIO_CENTER_Y = STUDIO_HEIGHT / 2;
                 syncViewportSize();
+                if (typeof invalidateMouseViewportRect === 'function') invalidateMouseViewportRect();
                 setControlValue(stageControls.width, STUDIO_WIDTH);
                 setControlValue(stageControls.height, STUDIO_HEIGHT);
                 if (!changed && !options.force) {
@@ -1360,6 +1376,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const next = clamp(Math.round(percent), VIEW_SCALE_MIN, VIEW_SCALE_MAX);
                 viewScaleMode = mode;
                 viewport.style.setProperty('--view-scale', String(next / 100));
+                if (typeof invalidateMouseViewportRect === 'function') invalidateMouseViewportRect();
                 if (viewControls.scale) {
                     viewControls.scale.value = String(next);
                     updateRangeIndicator(viewControls.scale);
@@ -2297,9 +2314,11 @@ const viewport = document.getElementById('canvas-viewport');
             function invalidateLayerRuntimeConfig(layerKey = null) {
                 if (layerKey) {
                     delete layerRuntimeConfigCache[layerKey];
+                    if (typeof markDotLayerDirty === 'function') markDotLayerDirty(layerKey);
                     return;
                 }
                 layerRuntimeConfigCache = {};
+                if (typeof markAllDotLayersDirty === 'function') markAllDotLayersDirty();
             }
 
             function getLayerRuntimeConfig(layerKey) {
@@ -2357,6 +2376,18 @@ const viewport = document.getElementById('canvas-viewport');
                     visibilityGridProximity,
                     visibilityGridProximitySq: visibilityGridProximity * visibilityGridProximity
                 };
+                config.boundaryElasticity = clamp(config.elasticity, 0, 100) / 100;
+                config.gridElasticityNormalized = clamp(config.gridElasticity ?? config.elasticity, 0, 100) / 100;
+                config.gridCapture = 1 - config.gridElasticityNormalized;
+                config.variationNormalized = clamp(config.variation, 0, 100) / 100;
+                config.hasVariation = config.variationNormalized > 0.001;
+                config.baseDrag = 0.006 + clamp(config.friction, 0, 100) * 0.0018;
+                config.svgRadiusSq = config.svgRadius * config.svgRadius;
+                config.gridRadiusSq = config.gridRadius * config.gridRadius;
+                config.targetDampingNormalized = clamp(config.targetDamping, 0, 100) / 100;
+                config.maxSpeed = Math.max(0.05, config.speedLimit);
+                config.maxSpeedSq = config.maxSpeed * config.maxSpeed;
+                config.speedSizeLimit = Math.max(0.1, config.speedLimit);
                 layerRuntimeConfigCache[layerKey] = { source: state, config };
                 return config;
             }

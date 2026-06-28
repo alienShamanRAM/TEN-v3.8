@@ -578,7 +578,7 @@ function bindEvents() {
                 if (lastFrameTime !== null && timestamp - lastFrameTime < frameInterval - 0.5) return;
                 const deltaTime = lastFrameTime === null ? 1 / 60 : Math.min((timestamp - lastFrameTime) / 1000, 0.05);
                 lastFrameTime = timestamp;
-                updateBackground();
+                if (isBackgroundAnimated()) updateBackground();
                 updateHoldMachine(deltaTime);
                 updateAutoTransition(deltaTime);
                 updateMaskScaleTransitions(deltaTime);
