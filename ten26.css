@@ -334,8 +334,9 @@ input:focus-visible {
 #drawer-flicker { order: 8; }
 #drawer-bg { order: 9; }
 #drawer-presets { order: 10; }
-#drawer-grid { order: 11; }
-#drawer-help { order: 12; }
+#drawer-save-settings { order: 11; }
+#drawer-grid { order: 12; }
+#drawer-help { order: 13; }
 #drawer-blink-mode { order: 3; }
 #drawer-trigger-help {
     color: var(--ui-pink);
@@ -2365,7 +2366,8 @@ input[type="range"]::-moz-range-thumb {
 #drawer-advanced-options { order: 6; }
 #drawer-bg { order: 7; }
 #drawer-presets { order: 8; }
-#drawer-help { order: 9; }
+#drawer-save-settings { order: 9; }
+#drawer-help { order: 10; }
 
 .drawer-group-content > .drawer {
     margin: 0;

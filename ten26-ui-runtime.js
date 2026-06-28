@@ -74,6 +74,7 @@ function bindEvents() {
                     });
                 });
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
+                settingsSelect?.addEventListener('change', updateSettingsActionState);
                 window.addEventListener('resize', () => {
                     if (viewScaleMode === 'fit') setViewScale(getFitViewScale(), 'fit');
                     else updateViewStatus();
@@ -537,6 +538,24 @@ function bindEvents() {
                 presetImportFile?.addEventListener('change', event => {
                     importPresetCollectionFile(event.target.files?.[0]);
                 });
+                settingsApplyBtn?.addEventListener('click', () => {
+                    applySelectedSettings();
+                });
+                settingsAddBtn?.addEventListener('click', () => {
+                    addCurrentSettings();
+                });
+                settingsDeleteBtn?.addEventListener('click', () => {
+                    deleteSelectedSettings();
+                });
+                settingsExportBtn?.addEventListener('click', () => {
+                    exportSettingsCollection();
+                });
+                settingsImportBtn?.addEventListener('click', () => {
+                    settingsImportFile?.click();
+                });
+                settingsImportFile?.addEventListener('change', event => {
+                    importSettingsCollectionFile(event.target.files?.[0]);
+                });
 
             }
 
@@ -579,6 +598,7 @@ function bindEvents() {
                 }
             }
             createDefaultPresets();
+            loadSavedSettings();
             applyState(defaultState());
             applyLayerPresetState(getStartupPresetState());
             syncFrameInterval();

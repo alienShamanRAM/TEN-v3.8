@@ -856,6 +856,14 @@ const viewport = document.getElementById('canvas-viewport');
             const presetImportBtn = document.getElementById('preset-import-btn');
             const presetImportFile = document.getElementById('preset-import-file');
             const presetStatus = document.getElementById('preset-status');
+            const settingsSelect = document.getElementById('settings-select');
+            const settingsApplyBtn = document.getElementById('settings-apply-btn');
+            const settingsAddBtn = document.getElementById('settings-add-btn');
+            const settingsDeleteBtn = document.getElementById('settings-delete-btn');
+            const settingsExportBtn = document.getElementById('settings-export-btn');
+            const settingsImportBtn = document.getElementById('settings-import-btn');
+            const settingsImportFile = document.getElementById('settings-import-file');
+            const settingsStatus = document.getElementById('settings-status');
             const fullscreenEnterBtn = document.getElementById('fullscreen-enter-btn');
             const fullscreenExitBtn = document.getElementById('fullscreen-exit-btn');
             const viewControls = {
@@ -1302,6 +1310,27 @@ const viewport = document.getElementById('canvas-viewport');
                 updateViewStatus();
             }
 
+            function getViewOptionState() {
+                return {
+                    scale: viewControls.scale?.value || '100',
+                    scaleMode: viewScaleMode === 'fit' ? 'fit' : 'manual',
+                    frameRate: viewControls.frameRate?.value || '60',
+                    overlayOpacity: viewControls.overlayOpacity?.value || '0'
+                };
+            }
+
+            function applyViewOptionState(state = {}) {
+                setControlValue(viewControls.frameRate, state.frameRate || '60');
+                setControlValue(viewControls.overlayOpacity, state.overlayOpacity || '0');
+                if (state.scaleMode === 'fit') {
+                    setViewScale(getFitViewScale(), 'fit');
+                } else {
+                    setViewScale(state.scale || '100', 'manual');
+                }
+                if (typeof syncFrameInterval === 'function') syncFrameInterval();
+                updateViewStatus();
+            }
+
             function readOverlayOpacity() {
                 return clamp(parseInt(viewControls.overlayOpacity?.value, 10) || 0, 0, 100);
             }
@@ -1577,6 +1606,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
                 'drawer-trigger-presets': 'Save and restore layer stacks, random limits, and layer locks.',
+                'drawer-trigger-save-settings': 'Save and restore non-layer settings while keeping layer values untouched.',
                 'drawer-trigger-view-options': 'Preview scale, frame cap, fullscreen, and info overlay.'
             };
 
@@ -1632,6 +1662,12 @@ const viewport = document.getElementById('canvas-viewport');
                 'preset-export-btn': 'Export the current preset list to JSON.',
                 'preset-import-btn': 'Import a saved TEN26 preset JSON file.',
                 'preset-import-file': 'Import a saved TEN26 preset JSON file.',
+                'settings-apply-btn': 'Apply the selected settings without changing grid layer values.',
+                'settings-add-btn': 'Save timing, media, masks, background, mouse, blink, stage, and view settings.',
+                'settings-delete-btn': 'Delete the selected saved settings.',
+                'settings-export-btn': 'Export the saved settings list to JSON.',
+                'settings-import-btn': 'Import a saved TEN26 settings JSON file.',
+                'settings-import-file': 'Import a saved TEN26 settings JSON file.',
                 'view-fit-btn': 'Fit the full canvas inside the current browser window.',
                 'fullscreen-enter-btn': 'Enter browser fullscreen mode.',
                 'fullscreen-exit-btn': 'Exit browser fullscreen mode.',

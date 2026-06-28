@@ -347,6 +347,7 @@ function getActiveLayerStateFromControls() {
                     randomRanges: getRandomRangeState(),
                     randomLocks: getRandomLockState(),
                     stage: getStageState(),
+                    view: typeof getViewOptionState === 'function' ? getViewOptionState() : {},
                     dotLayers: cloneDotLayerStates(),
                     imageLayer: {
                         ...imageState,
@@ -533,6 +534,7 @@ function getActiveLayerStateFromControls() {
                 syncLayerRegistryUi();
                 renderCurrentSlide();
                 if (typeof precomputeAllTransitionAssetsSync === 'function') precomputeAllTransitionAssetsSync();
+                if (state.view && typeof applyViewOptionState === 'function') applyViewOptionState(state.view);
                 document.querySelectorAll('input[type="range"]').forEach(updateRangeIndicator);
             }
 
@@ -729,10 +731,14 @@ function getActiveLayerStateFromControls() {
             }
 
             let presets = [];
+            let savedSettings = [];
             let builtInPresetNames = new Set();
             const APP_VERSION = 'ten26-layer-presets-v1';
             const PRESET_STORAGE_KEY = 'ten26.savedCustomPresets.v3.startupBundle';
             const PRESET_STORAGE_MODE = 'layer-preset-list';
+            const SETTINGS_VERSION = 'ten26-settings-v1';
+            const SETTINGS_STORAGE_KEY = 'ten26.savedSettings.v1';
+            const SETTINGS_STORAGE_MODE = 'settings-list';
             let bundledStartupPresets = null;
 
             function getDefaultAssetBundle() {
@@ -926,6 +932,11 @@ function getActiveLayerStateFromControls() {
                 if (typeof setOverlayStatus === 'function') setOverlayStatus(text);
             }
 
+            function setSettingsStatus(text) {
+                if (settingsStatus) settingsStatus.textContent = text;
+                if (typeof setOverlayStatus === 'function') setOverlayStatus(text);
+            }
+
             function escapeHtml(value = '') {
                 return String(value)
                     .replace(/&/g, '&amp;')
@@ -941,6 +952,81 @@ function getActiveLayerStateFromControls() {
 
             function hasOwnValue(source, key) {
                 return Object.prototype.hasOwnProperty.call(source || {}, key);
+            }
+
+            const SETTINGS_STATE_KEYS = [
+                'autoTransition',
+                'mouse',
+                'blink',
+                'stage',
+                'view',
+                'imageLayer',
+                'bg',
+                'appBackdrop',
+                'slides',
+                'specialOverlays',
+                'mediaMode',
+                'currentSlideIndex',
+                'slide',
+                'mask',
+                'imageSlide',
+                'imageMask'
+            ];
+            const SETTINGS_OBJECT_STATE_KEYS = [
+                'autoTransition',
+                'mouse',
+                'blink',
+                'stage',
+                'view',
+                'imageLayer',
+                'bg',
+                'appBackdrop',
+                'slide',
+                'mask',
+                'imageSlide',
+                'imageMask'
+            ];
+
+            function createSettingsState(state) {
+                const captureCurrentState = state === undefined;
+                const source = captureCurrentState
+                    ? getCurrentState()
+                    : (state && typeof state === 'object' ? state : {});
+                const next = { settingsType: 'non-layer-settings' };
+                SETTINGS_STATE_KEYS.forEach(key => {
+                    if (hasOwnValue(source, key)) next[key] = cloneSerializable(source[key]);
+                });
+                if (captureCurrentState && !hasOwnValue(next, 'view') && typeof getViewOptionState === 'function') {
+                    next.view = getViewOptionState();
+                }
+                return next;
+            }
+
+            function applySettingsState(state = {}) {
+                const current = getCurrentState();
+                const layerPreset = createLayerPresetState(current);
+                const settingsState = createSettingsState(state);
+                const merged = {
+                    ...current,
+                    ...settingsState,
+                    ...layerPreset
+                };
+                SETTINGS_OBJECT_STATE_KEYS.forEach(key => {
+                    if (
+                        settingsState[key] &&
+                        typeof settingsState[key] === 'object' &&
+                        !Array.isArray(settingsState[key]) &&
+                        current[key] &&
+                        typeof current[key] === 'object' &&
+                        !Array.isArray(current[key])
+                    ) {
+                        merged[key] = {
+                            ...current[key],
+                            ...settingsState[key]
+                        };
+                    }
+                });
+                applyState(merged);
             }
 
             function createValuesOnlyImageLayerState(imageLayer = {}) {
@@ -1010,6 +1096,35 @@ function getActiveLayerStateFromControls() {
                 }, []);
             }
 
+            function serializeSettingsForSave(setting) {
+                return {
+                    name: setting.name,
+                    state: createSettingsState(setting.state)
+                };
+            }
+
+            function normalizeSettingsCollection(payload) {
+                const source = Array.isArray(payload)
+                    ? payload
+                    : (Array.isArray(payload?.settings) ? payload.settings : (payload?.name && payload?.state ? [payload] : []));
+                const usedNames = new Set();
+                return source.reduce((list, setting, index) => {
+                    if (!setting || typeof setting !== 'object' || !setting.state || typeof setting.state !== 'object') return list;
+                    try {
+                        const fallback = `Imported Settings ${index + 1}`;
+                        const name = getUniquePresetName(normalizePresetName(setting.name, fallback), usedNames);
+                        usedNames.add(name);
+                        list.push({
+                            name,
+                            state: createSettingsState(setting.state)
+                        });
+                    } catch (error) {
+                        console.warn('Skipped invalid settings:', error);
+                    }
+                    return list;
+                }, []);
+            }
+
             function getCustomPresets(source = presets) {
                 return source.filter(preset => preset && !builtInPresetNames.has(preset.name));
             }
@@ -1046,6 +1161,114 @@ function getActiveLayerStateFromControls() {
                 } catch (error) {
                     console.warn('Preset storage could not be read:', error);
                     return null;
+                }
+            }
+
+            function saveSettingsToStorage(source = savedSettings) {
+                try {
+                    const payload = {
+                        app: 'TEN26',
+                        version: SETTINGS_VERSION,
+                        storageMode: SETTINGS_STORAGE_MODE,
+                        assetMode: 'settings-without-layers',
+                        savedAt: new Date().toISOString(),
+                        settings: source.map(serializeSettingsForSave)
+                    };
+                    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+                    return true;
+                } catch (error) {
+                    console.warn('Settings storage failed:', error);
+                    return false;
+                }
+            }
+
+            function loadSettingsFromStorage() {
+                try {
+                    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+                    if (!raw) return [];
+                    const payload = JSON.parse(raw);
+                    return normalizeSettingsCollection(payload);
+                } catch (error) {
+                    console.warn('Settings storage could not be read:', error);
+                    return [];
+                }
+            }
+
+            function updateSettingsActionState() {
+                const index = parseInt(settingsSelect?.value, 10);
+                const setting = savedSettings[index];
+                const hasSettings = Boolean(setting);
+                if (settingsSelect) settingsSelect.disabled = !savedSettings.length;
+                if (settingsApplyBtn) {
+                    settingsApplyBtn.disabled = !hasSettings;
+                    settingsApplyBtn.classList.toggle('is-muted-action', !hasSettings);
+                    if (typeof setNativeTooltip === 'function') {
+                        setNativeTooltip(settingsApplyBtn, hasSettings ? `Apply "${setting.name}" without changing layer values.` : 'No saved settings to apply.');
+                    }
+                }
+                if (settingsDeleteBtn) {
+                    settingsDeleteBtn.disabled = !hasSettings;
+                    settingsDeleteBtn.classList.toggle('is-muted-action', !hasSettings);
+                    const deleteTitle = hasSettings ? `Delete "${setting.name}"` : 'No saved settings to delete.';
+                    if (typeof setNativeTooltip === 'function') setNativeTooltip(settingsDeleteBtn, deleteTitle);
+                    else settingsDeleteBtn.title = deleteTitle;
+                }
+                if (settingsExportBtn) {
+                    settingsExportBtn.disabled = !savedSettings.length;
+                    settingsExportBtn.classList.toggle('is-muted-action', !savedSettings.length);
+                }
+            }
+
+            function updateSettingsDropdown(selectedIndex = 0) {
+                if (!settingsSelect) return;
+                settingsSelect.innerHTML = savedSettings.length
+                    ? savedSettings.map((setting, index) => `<option value="${index}">${escapeHtml(setting.name)}</option>`).join('')
+                    : '<option value="" disabled>No saved settings</option>';
+                if (savedSettings.length) settingsSelect.value = String(clamp(selectedIndex, 0, savedSettings.length - 1));
+                updateSettingsActionState();
+            }
+
+            function addCurrentSettings() {
+                const usedNames = new Set(savedSettings.map(setting => setting.name));
+                const defaultName = getUniquePresetName(`Settings ${savedSettings.length + 1}`, usedNames);
+                const rawName = prompt('Settings name:', defaultName);
+                if (rawName === null) return;
+                const name = getUniquePresetName(rawName, usedNames);
+                savedSettings.push({
+                    name,
+                    state: createSettingsState()
+                });
+                const saved = saveSettingsToStorage();
+                updateSettingsDropdown(savedSettings.length - 1);
+                setSettingsStatus(saved ? `Saved settings "${name}". Layer values are not included.` : `Saved settings "${name}" for this session. Browser storage is full, so export to keep it.`);
+                if (typeof showUiToast === 'function') {
+                    showUiToast(saved ? `Settings saved: ${name}.` : `Settings saved: ${name}. Export to keep it.`, saved ? 'info' : 'warning');
+                }
+            }
+
+            function applySelectedSettings() {
+                const index = parseInt(settingsSelect?.value, 10);
+                const setting = savedSettings[index];
+                if (!setting) return;
+                applySettingsState(setting.state);
+                setSettingsStatus(`Applied settings "${setting.name}". Layer values kept.`);
+                if (typeof showUiToast === 'function') showUiToast(`Settings applied: ${setting.name}.`);
+            }
+
+            function deleteSelectedSettings() {
+                const index = parseInt(settingsSelect?.value, 10);
+                const setting = savedSettings[index];
+                if (!setting) return;
+                if (!confirm(`Delete settings "${setting.name}"?`)) return;
+                const [deleted] = savedSettings.splice(index, 1);
+                const saved = saveSettingsToStorage();
+                const nextIndex = savedSettings.length ? clamp(Math.min(index, savedSettings.length - 1), 0, savedSettings.length - 1) : 0;
+                updateSettingsDropdown(nextIndex);
+                setSettingsStatus(saved
+                    ? `Deleted settings "${deleted.name}".`
+                    : `Deleted settings "${deleted.name}" for this session. Browser storage could not be updated.`);
+                if (typeof showUiToast === 'function') {
+                    showUiToast(saved ? `Settings deleted: ${deleted.name}.` : `Settings deleted: ${deleted.name}. Export to keep this list.`, saved ? 'info' : 'warning');
                 }
             }
 
@@ -1230,6 +1453,51 @@ function getActiveLayerStateFromControls() {
                     setPresetStatus('Preset import failed. The file could not be read.');
                     if (typeof showUiToast === 'function') showUiToast('Preset import failed.', 'warning');
                     if (presetImportFile) presetImportFile.value = '';
+                };
+                reader.readAsText(file);
+            }
+
+            function exportSettingsCollection() {
+                const payload = {
+                    app: 'TEN26',
+                    version: SETTINGS_VERSION,
+                    storageMode: SETTINGS_STORAGE_MODE,
+                    assetMode: 'settings-without-layers',
+                    exportedAt: new Date().toISOString(),
+                    settings: savedSettings.map(serializeSettingsForSave)
+                };
+                const stamp = getLocalDateStamp();
+                downloadTextFile(`ten26-settings-${stamp}.json`, `${JSON.stringify(payload, null, 2)}\n`);
+                setSettingsStatus(`Exported ${payload.settings.length} saved settings item${payload.settings.length === 1 ? '' : 's'}.`);
+                if (typeof showUiToast === 'function') showUiToast(`Exported ${payload.settings.length} settings item${payload.settings.length === 1 ? '' : 's'}.`);
+            }
+
+            function importSettingsCollectionFile(file) {
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const imported = normalizeSettingsCollection(JSON.parse(String(reader.result || '{}')));
+                        if (!imported.length) throw new Error('No valid settings found.');
+                        savedSettings = imported;
+                        const saved = saveSettingsToStorage();
+                        updateSettingsDropdown(0);
+                        setSettingsStatus(`Imported ${savedSettings.length} settings item${savedSettings.length === 1 ? '' : 's'}.${saved ? '' : ' Browser storage is full, so export to keep this list.'}`);
+                        if (typeof showUiToast === 'function') {
+                            showUiToast(`Imported ${savedSettings.length} settings item${savedSettings.length === 1 ? '' : 's'}.`, saved ? 'info' : 'warning');
+                        }
+                    } catch (error) {
+                        console.error('Settings import failed:', error);
+                        setSettingsStatus('Settings import failed. Choose a TEN26 settings JSON file.');
+                        if (typeof showUiToast === 'function') showUiToast('Settings import failed.', 'warning');
+                    } finally {
+                        if (settingsImportFile) settingsImportFile.value = '';
+                    }
+                };
+                reader.onerror = () => {
+                    setSettingsStatus('Settings import failed. The file could not be read.');
+                    if (typeof showUiToast === 'function') showUiToast('Settings import failed.', 'warning');
+                    if (settingsImportFile) settingsImportFile.value = '';
                 };
                 reader.readAsText(file);
             }
@@ -1476,6 +1744,14 @@ function getActiveLayerStateFromControls() {
                 setPresetStatus(merged.customCount
                     ? `${builtInLabel} loaded with ${merged.customCount} custom layer preset${merged.customCount === 1 ? '' : 's'}.`
                     : `${builtInLabel} loaded. Add, export, or import presets here.`);
+            }
+
+            function loadSavedSettings() {
+                savedSettings = loadSettingsFromStorage();
+                updateSettingsDropdown(0);
+                setSettingsStatus(savedSettings.length
+                    ? `${savedSettings.length} saved settings item${savedSettings.length === 1 ? '' : 's'} loaded.`
+                    : 'No saved settings yet.');
             }
 
             function getStartupPresetState() {

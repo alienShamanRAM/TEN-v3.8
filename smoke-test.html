@@ -77,6 +77,7 @@
                         '#morph-canvas',
                         '#control-panel',
                         '#preset-select',
+                        '#settings-select',
                         '#svg-slide-layer',
                         '#special-svg-layer'
                     ];
@@ -103,7 +104,8 @@
                         ['#drawer-trigger-upload-media', 'Upload Media'],
                         ['#drawer-trigger-special-overlays', 'Special Overlays'],
                         ['#drawer-trigger-timing', 'Timing'],
-                        ['#drawer-trigger-advanced-options', 'Advanced Options']
+                        ['#drawer-trigger-advanced-options', 'Advanced Options'],
+                        ['#drawer-trigger-save-settings', 'Save Settings']
                     ];
                     const brokenLabel = labelChecks.find(([selector, expected]) => {
                         const node = doc.querySelector(selector);
@@ -265,6 +267,45 @@
                         !compactPresetState.randomRanges?.['blink-visibility-on'] &&
                         compactPresetState.randomLocks?.includes('dot-layer-1-pull') &&
                         !compactPresetState.randomLocks?.includes('blink-visibility-on');
+                    const compactSettingsState = typeof win.createSettingsState === 'function'
+                        ? win.createSettingsState({
+                            activeLayerKey: 'layer-1',
+                            layerOrder: ['layer-1'],
+                            svgMediaStackIndex: 1,
+                            mouse: { enabled: true, attractStrength: '240' },
+                            autoTransition: { currentTime: '8' },
+                            blink: { visibilityOn: '2.5' },
+                            bg: { mode: 'cycle3' },
+                            slides: [{ type: 'svg', name: 'sample.svg', svg: '<svg></svg>' }],
+                            specialOverlays: [{ name: 'special.svg', svg: '<svg></svg>', assignedSlides: [0], enabled: true }],
+                            imageLayer: { src: 'data:image/png;base64,AAA', name: 'sample.png', scale: '75', offsetX: '1', offsetY: '2' },
+                            view: { scale: '75', scaleMode: 'manual', frameRate: '30', overlayOpacity: '0' },
+                            dotLayers: {
+                                'layer-1': {
+                                    cols: '11',
+                                    rows: '3',
+                                    spacing: '42'
+                                }
+                            },
+                            randomRanges: {
+                                'dot-layer-1-pull': { randomMin: '0.2', randomMax: '0.9' }
+                            },
+                            randomLocks: ['dot-layer-1-pull']
+                        })
+                        : null;
+                    const compactSettingsReady = !!compactSettingsState &&
+                        compactSettingsState.settingsType === 'non-layer-settings' &&
+                        compactSettingsState.mouse?.attractStrength === '240' &&
+                        compactSettingsState.autoTransition?.currentTime === '8' &&
+                        compactSettingsState.slides?.length === 1 &&
+                        compactSettingsState.specialOverlays?.length === 1 &&
+                        compactSettingsState.view?.frameRate === '30' &&
+                        !compactSettingsState.activeLayerKey &&
+                        !compactSettingsState.layerOrder &&
+                        !compactSettingsState.svgMediaStackIndex &&
+                        !compactSettingsState.dotLayers &&
+                        !compactSettingsState.randomRanges &&
+                        !compactSettingsState.randomLocks;
                     const mouseAttractControl = doc.querySelector('#mouse-attract-strength');
                     const blinkOnControl = doc.querySelector('#blink-visibility-on');
                     const timingCurrentControl = doc.querySelector('#transition-current-time');
@@ -294,6 +335,21 @@
                         mouseAttractControl?.value === '211' &&
                         blinkOnControl?.value === '4.25' &&
                         timingCurrentControl?.value === '6.75';
+                    const gridColsControl = doc.querySelector('#grid-layer-1-cols');
+                    if (gridColsControl) gridColsControl.value = '17';
+                    if (typeof win.applySettingsState === 'function') {
+                        win.applySettingsState({
+                            autoTransition: { currentTime: '5.5' },
+                            mouse: { attractStrength: '99' },
+                            blink: { visibilityOn: '2.5' },
+                            view: { scale: '75', scaleMode: 'manual', frameRate: '30', overlayOpacity: '0' }
+                        });
+                    }
+                    const settingsApplyKeepsLayer = typeof win.applySettingsState === 'function' &&
+                        gridColsControl?.value === '17' &&
+                        mouseAttractControl?.value === '99' &&
+                        blinkOnControl?.value === '2.5' &&
+                        timingCurrentControl?.value === '5.5';
                     const sanitizer = win.TEN26SanitizeSvgText;
                     const unsafeSvg = '<svg onload="alert(1)" xmlns="http://www.w3.org/2000/svg"><scr' + 'ipt>alert(1)</scr' + 'ipt><rect width="10" height="10" /></svg>';
                     const sanitized = typeof sanitizer === 'function' ? sanitizer(unsafeSvg) : '';
@@ -312,8 +368,16 @@
                         fail('Layer-only preset serialization did not initialize.');
                         return;
                     }
+                    if (!compactSettingsReady) {
+                        fail('Settings-only serialization did not initialize.');
+                        return;
+                    }
                     if (!layerApplyKeepsConfig) {
                         fail('Layer preset apply changed mouse, blink, or timing config.');
+                        return;
+                    }
+                    if (!settingsApplyKeepsLayer) {
+                        fail('Settings apply changed layer values or missed non-layer controls.');
                         return;
                     }
                     if (!hasRuntime || !hasOnlyStartupPresets || presetNames.includes('Space Mod') || motionLayerCount < 9 || gridLayerCount < 9) {
