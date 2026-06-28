@@ -1203,6 +1203,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function syncTimingControlRanges() {
+                if (typeof invalidateAutoSettingsCache === 'function') invalidateAutoSettingsCache();
                 [
                     [autoControls.currentTime, autoControls.currentFlickerStart, 3],
                     [autoControls.nextTime, autoControls.nextFlickerStart, 2]
@@ -3101,4 +3102,5 @@ const viewport = document.getElementById('canvas-viewport');
                 maskHitCache.key = '';
                 maskHitCache.version += 1;
                 maskHitCache.points.clear();
+                if (typeof combinedMaskCache !== 'undefined') combinedMaskCache.clear();
             }

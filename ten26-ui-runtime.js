@@ -62,6 +62,17 @@ function bindEvents() {
                 autoControls.currentFlickerStart?.addEventListener('input', syncTimingControlRanges);
                 autoControls.nextTime?.addEventListener('input', syncTimingControlRanges);
                 autoControls.nextFlickerStart?.addEventListener('input', syncTimingControlRanges);
+                [
+                    autoControls.returnGridTime,
+                    autoControls.flickerBias,
+                    autoControls.flickerSpeed,
+                    autoControls.flickerBalance,
+                    autoControls.flickerWildness
+                ].forEach(control => {
+                    control?.addEventListener('input', () => {
+                        if (typeof invalidateAutoSettingsCache === 'function') invalidateAutoSettingsCache();
+                    });
+                });
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
                 window.addEventListener('resize', () => {
                     if (viewScaleMode === 'fit') setViewScale(getFitViewScale(), 'fit');

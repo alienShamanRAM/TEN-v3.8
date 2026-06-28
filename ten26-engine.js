@@ -146,6 +146,10 @@
             let maskAlphaTransition = null;
             let returnSettleCheckElapsed = 0;
             const RETURN_SETTLE_CHECK_INTERVAL = 0.08;
+            const SCREEN_TARGET_CACHE_LIMIT = 24;
+            const GEOMETRY_POINT_CACHE_LIMIT = 16;
+            const COMBINED_MASK_CACHE_LIMIT = 48;
+            const combinedMaskCache = new Map();
 
             function isPerformanceCriticalMotionActive() {
                 return !!autoTransition || activeHoldMode !== null || holdState === 'return';
@@ -171,6 +175,23 @@
             function getMaskWarmupSlideIndexes() {
                 if (!slides.length) return [];
                 return slides.map((_, index) => index);
+            }
+
+            function pruneMapCache(cache, limit) {
+                if (!cache || !Number.isFinite(limit)) return;
+                while (cache.size > limit) {
+                    const firstKey = cache.keys().next().value;
+                    if (firstKey === undefined) break;
+                    cache.delete(firstKey);
+                }
+            }
+
+            function setBoundedCacheEntry(cache, key, value, limit) {
+                if (!cache) return value;
+                if (cache.has(key)) cache.delete(key);
+                cache.set(key, value);
+                pruneMapCache(cache, limit);
+                return value;
             }
 
             function getReadyMaskCacheForSlideLike(slide, cacheIndex, mask = null) {
@@ -277,6 +298,14 @@
                 if (validCaches.length === 1) return validCaches[0];
                 const key = validCaches.map(cache => cache.key).join('+');
                 const signature = getGridMaskSignature();
+                const combinedKey = [
+                    cacheIndex,
+                    maskHitCache.version,
+                    signature,
+                    key,
+                    label
+                ].join('|');
+                if (combinedMaskCache.has(combinedKey)) return combinedMaskCache.get(combinedKey);
                 const cache = {
                     slideIndex: cacheIndex,
                     key: `combined-mask|${key}`,
@@ -293,7 +322,7 @@
                     );
                 });
                 getMaskDotCountFromCache(cache);
-                return cache;
+                return setBoundedCacheEntry(combinedMaskCache, combinedKey, cache, COMBINED_MASK_CACHE_LIMIT);
             }
 
             function getSpecialOverlayMaskCache(overlay, options = {}) {
@@ -1200,12 +1229,12 @@
                 if (targetType === 'anchor') return cyclePoints(state.anchorPoints, totalDots);
                 if (targetType === 'path') {
                     if (!state.pathPointCache.has(totalDots)) {
-                        state.pathPointCache.set(totalDots, buildPathPoints(slide, totalDots));
+                        setBoundedCacheEntry(state.pathPointCache, totalDots, buildPathPoints(slide, totalDots), GEOMETRY_POINT_CACHE_LIMIT);
                     }
                     return state.pathPointCache.get(totalDots);
                 }
                 if (!state.fillPointCache.has(totalDots)) {
-                    state.fillPointCache.set(totalDots, buildFillPoints(slide, totalDots));
+                    setBoundedCacheEntry(state.fillPointCache, totalDots, buildFillPoints(slide, totalDots), GEOMETRY_POINT_CACHE_LIMIT);
                 }
                 return state.fillPointCache.get(totalDots);
             }
@@ -1353,6 +1382,7 @@
             const MAX_SPECIAL_OVERLAYS = 15;
             let specialOverlays = [];
             let specialOverlayBaseOpacity = 1;
+            let lastSpecialOverlayOpacity = '';
             let activeSpecialOverlayId = null;
             let missingSlideNames = [];
             let currentSlideIndex = 0;
@@ -1667,8 +1697,7 @@
                         y: centerY + (mapped.y - centerY) * scaleMultiplier
                     };
                 });
-                slide.screenTargetCache.set(cacheKey, targets);
-                return targets;
+                return setBoundedCacheEntry(slide.screenTargetCache, cacheKey, targets, SCREEN_TARGET_CACHE_LIMIT);
             }
 
             function getSlideScreenTargets(index, targetType, totalDots, scaleMultiplier = 1) {
@@ -1720,11 +1749,18 @@
                 if (!specialSvgLayer) return;
                 const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
                 if (!overlay || activeSpecialOverlayId !== overlay.id) {
-                    specialSvgLayer.style.opacity = '0';
+                    if (lastSpecialOverlayOpacity !== '0') {
+                        specialSvgLayer.style.opacity = '0';
+                        lastSpecialOverlayOpacity = '0';
+                    }
                     return;
                 }
                 const flicker = autoTransition ? 1 : getContinuousSpecialOverlayFlicker(timestamp, overlay);
-                specialSvgLayer.style.opacity = String(specialOverlayBaseOpacity * flicker);
+                const nextOpacity = String(specialOverlayBaseOpacity * flicker);
+                if (nextOpacity !== lastSpecialOverlayOpacity) {
+                    specialSvgLayer.style.opacity = nextOpacity;
+                    lastSpecialOverlayOpacity = nextOpacity;
+                }
             }
 
             function applySpecialOverlayTransform() {
@@ -1753,6 +1789,7 @@
                     activeSpecialOverlayId = null;
                     specialSvgLayer.replaceChildren();
                     specialSvgLayer.style.opacity = '0';
+                    lastSpecialOverlayOpacity = '0';
                     return;
                 }
                 const node = ensureSlideDomNode(overlay);
@@ -1766,7 +1803,6 @@
 
             function updateSpecialOverlayFrame(timestamp = performance.now()) {
                 if (!specialSvgLayer) return;
-                applySpecialOverlayTransform();
                 updateSpecialOverlayOpacity(timestamp);
             }
 
@@ -1810,7 +1846,10 @@
                     activeSpecialOverlayId = null;
                     slideOpacity = 0;
                     slideLayer.style.opacity = 0;
-                    if (specialSvgLayer) specialSvgLayer.style.opacity = 0;
+                    if (specialSvgLayer) {
+                        specialSvgLayer.style.opacity = 0;
+                        lastSpecialOverlayOpacity = '0';
+                    }
                     clearAppliedSlideMask();
                     updateSlideStatus();
                     updateMediaSlideStatus();
@@ -2604,9 +2643,34 @@
                 setControlValue(autoControls.flickerWildness, pickAutoStateValue(state.flickerWildness, state.flickerRandom, '100'));
                 setControlValue(slideControls.autoDuration, pickAutoStateValue(state.autoDuration, state.slideAutoDuration, '4'));
                 syncTimingControlRanges();
+                invalidateAutoSettingsCache();
+            }
+
+            let cachedAutoSettingsKey = '';
+            let cachedAutoSettings = null;
+
+            function getAutoSettingsCacheKey() {
+                return [
+                    getControlValue(autoControls.currentTime),
+                    getControlValue(autoControls.currentFlickerStart),
+                    getControlValue(autoControls.nextTime),
+                    getControlValue(autoControls.nextFlickerStart),
+                    getControlValue(autoControls.returnGridTime),
+                    getControlValue(autoControls.flickerBias),
+                    getControlValue(autoControls.flickerSpeed),
+                    getControlValue(autoControls.flickerBalance),
+                    getControlValue(autoControls.flickerWildness)
+                ].join('|');
+            }
+
+            function invalidateAutoSettingsCache() {
+                cachedAutoSettingsKey = '';
+                cachedAutoSettings = null;
             }
 
             function getAutoSettings() {
+                const cacheKey = getAutoSettingsCacheKey();
+                if (cachedAutoSettings && cachedAutoSettingsKey === cacheKey) return cachedAutoSettings;
                 const flickerBias = read(autoControls.flickerBias) / 100;
                 const flickerSpeed = read(autoControls.flickerSpeed);
                 const flickerBalance = read(autoControls.flickerBalance) / 100;
@@ -2621,7 +2685,8 @@
                 const nextFlickerStart = clamp(read(autoControls.nextFlickerStart), 0, rawNextTime);
                 const currentFlickerWindow = Math.max(0.05, currentTime - currentFlickerStart);
                 const nextFlickerWindow = Math.max(0.05, nextTime - nextFlickerStart);
-                return {
+                cachedAutoSettingsKey = cacheKey;
+                cachedAutoSettings = {
                     currentTime,
                     currentFlickerStart,
                     nextTime,
@@ -2634,6 +2699,7 @@
                     flickerRandom: flickerWildness,
                     flickerResolve: clamp(98 - flickerWildness * 0.62, 25, 98)
                 };
+                return cachedAutoSettings;
             }
 
             function buildFlickerTimeline(duration, mode, settings, seed = 0) {
