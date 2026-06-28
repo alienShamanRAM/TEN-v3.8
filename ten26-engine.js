@@ -121,12 +121,13 @@
                     maskControls.status.textContent = `SVG mask ready for ${svgSlides.length} SVG slide${svgSlides.length === 1 ? '' : 's'}.`;
                     return;
                 }
-                if (!slide.geometry.maskOffsetItems.length) {
+                const activeSpecialOverlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
+                if (!slide.geometry.maskOffsetItems.length && !activeSpecialOverlay?.geometry.maskOffsetItems.length) {
                     maskControls.status.textContent = 'Current slide has no readable painted mask.';
                     return;
                 }
-                const activeIndex = activeMaskSlideIndex ?? currentSlideIndex;
-                maskControls.status.textContent = `Painted slide mask hides grid homes for slide ${activeIndex + 1}.`;
+                const maskLabel = activeMaskLabel || `slide ${currentSlideIndex + 1}`;
+                maskControls.status.textContent = `Painted mask hides grid homes for ${maskLabel}.`;
             }
 
             function scheduleIdleWork(callback) {
@@ -141,6 +142,7 @@
             let pendingMaskWarmup = false;
             let pendingTargetWarmup = false;
             let activeMaskSlideIndex = null;
+            let activeMaskLabel = '';
             let maskAlphaTransition = null;
             let returnSettleCheckElapsed = 0;
             const RETURN_SETTLE_CHECK_INTERVAL = 0.08;
@@ -171,11 +173,10 @@
                 return slides.map((_, index) => index);
             }
 
-            function getReadySlideMaskCache(slideIndex, mask = null) {
-                const slide = slides[slideIndex];
+            function getReadyMaskCacheForSlideLike(slide, cacheIndex, mask = null) {
                 if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') return null;
                 const effectiveMask = mask || getMaskState(slide.type);
-                const key = getMaskCacheKey(slide, effectiveMask, slideIndex);
+                const key = getMaskCacheKey(slide, effectiveMask, cacheIndex);
                 const signature = getGridMaskSignature();
                 const cache = slide.gridMaskCache;
                 if (
@@ -189,12 +190,17 @@
                 return null;
             }
 
+            function getReadySlideMaskCache(slideIndex, mask = null) {
+                return getReadyMaskCacheForSlideLike(slides[slideIndex], slideIndex, mask);
+            }
+
             function isSlideMaskReadyForTransition(slideIndex) {
                 const slide = slides[slideIndex];
-                if (!slide) return true;
-                if (!getMaskState(slide.type).enabled) return true;
-                if (!slide || !slide.geometry.maskOffsetItems.length) return true;
-                return !!getReadySlideMaskCache(slideIndex);
+                const overlay = getActiveSpecialOverlayForSlide(slideIndex);
+                if (!slide && !overlay) return true;
+                if (slide?.geometry.maskOffsetItems.length && !getReadySlideMaskCache(slideIndex, getMaskState(slide.type))) return false;
+                if (overlay?.geometry.maskOffsetItems.length && !getSpecialOverlayMaskCache(overlay)) return false;
+                return true;
             }
 
             function getMaskDotCountFromCache(cache) {
@@ -210,14 +216,21 @@
                 return count;
             }
 
-            function createEmptySlideMaskCache(slideIndex) {
+            function getMaskCacheLabel(cache) {
+                if (cache?.maskLabel) return cache.maskLabel;
+                return Number.isFinite(cache?.slideIndex) ? `slide ${cache.slideIndex + 1}` : 'special overlay';
+            }
+
+            function createEmptyMaskCache(cacheIndex, label = '') {
                 if (typeof dotGroups === 'undefined') return null;
                 const signature = getGridMaskSignature();
                 const cache = {
-                    slideIndex,
-                    key: `empty-mask|${slideIndex}|${signature}`,
+                    slideIndex: cacheIndex,
+                    key: `empty-mask|${cacheIndex}|${signature}`,
                     version: maskHitCache.version,
                     signature,
+                    slideType: 'svg',
+                    maskLabel: label,
                     layers: {},
                     maskDotCount: 0
                 };
@@ -227,26 +240,94 @@
                 return cache;
             }
 
-            function buildSlideMaskCacheSync(slideIndex) {
-                const slide = slides[slideIndex];
+            function createEmptySlideMaskCache(slideIndex) {
+                return createEmptyMaskCache(slideIndex, Number.isFinite(slideIndex) ? `slide ${slideIndex + 1}` : '');
+            }
+
+            function buildMaskCacheSyncForSlideLike(slide, cacheIndex, mask = null, label = '') {
                 if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') return null;
-                const mask = getMaskState(slide.type);
-                const key = getMaskCacheKey(slide, mask, slideIndex);
+                const effectiveMask = mask || getMaskState(slide.type);
+                const key = getMaskCacheKey(slide, effectiveMask, cacheIndex);
                 const cache = {
-                    slideIndex,
+                    slideIndex: cacheIndex,
                     key,
                     version: maskHitCache.version,
                     signature: getGridMaskSignature(),
+                    slideType: slide.type || 'svg',
+                    maskLabel: label,
                     layers: {}
                 };
                 DOT_LAYER_KEYS.forEach(layerKey => {
                     cache.layers[layerKey] = dotGroups[layerKey].dots.map(dot =>
-                        isStudioPointInsideExpandedMask(slide, dot.gridX, dot.gridY, mask, key)
+                        isStudioPointInsideExpandedMask(slide, dot.gridX, dot.gridY, effectiveMask, key)
                     );
                 });
                 getMaskDotCountFromCache(cache);
                 slide.gridMaskCache = cache;
                 return cache;
+            }
+
+            function buildSlideMaskCacheSync(slideIndex) {
+                return buildMaskCacheSyncForSlideLike(slides[slideIndex], slideIndex, getMaskState(slides[slideIndex]?.type || 'svg'), Number.isFinite(slideIndex) ? `slide ${slideIndex + 1}` : '');
+            }
+
+            function combineMaskCaches(caches = [], cacheIndex = currentSlideIndex, label = '') {
+                const validCaches = caches.filter(Boolean);
+                if (!validCaches.length) return null;
+                if (validCaches.length === 1) return validCaches[0];
+                const key = validCaches.map(cache => cache.key).join('+');
+                const signature = getGridMaskSignature();
+                const cache = {
+                    slideIndex: cacheIndex,
+                    key: `combined-mask|${key}`,
+                    version: maskHitCache.version,
+                    signature,
+                    slideType: validCaches.some(item => item.slideType === 'special-svg') ? 'svg' : (validCaches[0].slideType || 'svg'),
+                    maskLabel: label,
+                    layers: {}
+                };
+                DOT_LAYER_KEYS.forEach(layerKey => {
+                    const dotCount = dotGroups[layerKey]?.dots?.length || 0;
+                    cache.layers[layerKey] = Array.from({ length: dotCount }, (_, index) =>
+                        validCaches.some(item => !!item.layers[layerKey]?.[index])
+                    );
+                });
+                getMaskDotCountFromCache(cache);
+                return cache;
+            }
+
+            function getSpecialOverlayMaskCache(overlay, options = {}) {
+                const { sync = false } = options;
+                if (!overlay || !overlay.geometry.maskOffsetItems.length) return null;
+                const cacheIndex = getSpecialOverlayCacheIndex(overlay);
+                const mask = getMaskState('svg');
+                return getReadyMaskCacheForSlideLike(overlay, cacheIndex, mask) ||
+                    (sync ? buildMaskCacheSyncForSlideLike(overlay, cacheIndex, mask, getSpecialOverlayName(overlay)) : null);
+            }
+
+            function getVisualMaskCacheForSlide(slideIndex, options = {}) {
+                const { sync = false, fromVisible = false } = options;
+                const slide = slides[slideIndex];
+                const overlay = getActiveSpecialOverlayForSlide(slideIndex);
+                const caches = [];
+                if (fromVisible) {
+                    caches.push(createEmptySlideMaskCache(slideIndex));
+                } else if (slide?.geometry.maskOffsetItems.length) {
+                    const mask = getMaskState(slide.type);
+                    caches.push(getReadySlideMaskCache(slideIndex, mask) ||
+                        (sync ? buildSlideMaskCacheSync(slideIndex) : null));
+                } else if (slide) {
+                    caches.push(createEmptySlideMaskCache(slideIndex));
+                }
+                if (overlay) {
+                    caches.push(getSpecialOverlayMaskCache(overlay, { sync }));
+                }
+                const validCaches = caches.filter(Boolean);
+                if (!validCaches.length) return null;
+                const labelParts = [];
+                if (slide) labelParts.push(`slide ${slideIndex + 1}`);
+                if (overlay) labelParts.push(getSpecialOverlayName(overlay));
+                return combineMaskCaches(validCaches, slideIndex, labelParts.join(' + '));
             }
 
             function clearDotMaskTweenState(dot) {
@@ -259,6 +340,7 @@
                 if (!cache || typeof dotGroups === 'undefined') {
                     resetDotMaskAlphas(1);
                     activeMaskSlideIndex = null;
+                    activeMaskLabel = '';
                     return false;
                 }
                 DOT_LAYER_KEYS.forEach(layerKey => {
@@ -272,16 +354,18 @@
                     });
                 });
                 activeMaskSlideIndex = cache.slideIndex;
+                activeMaskLabel = getMaskCacheLabel(cache);
                 return true;
             }
 
             function clearAppliedSlideMask() {
                 maskAlphaTransition = null;
                 activeMaskSlideIndex = null;
+                activeMaskLabel = '';
                 resetDotMaskAlphas(1);
             }
 
-            function startSlideMaskScaleTransition(fromCache, toCache, duration = getMaskScaleDuration(slides[toCache?.slideIndex]?.type || 'svg')) {
+            function startSlideMaskScaleTransition(fromCache, toCache, duration = getMaskScaleDuration(toCache?.slideType || 'svg')) {
                 if (!toCache || typeof dotGroups === 'undefined') return false;
                 if (duration <= 0.001) return applySlideMaskCache(toCache);
                 DOT_LAYER_KEYS.forEach(layerKey => {
@@ -299,6 +383,7 @@
                     });
                 });
                 activeMaskSlideIndex = toCache.slideIndex;
+                activeMaskLabel = getMaskCacheLabel(toCache);
                 maskAlphaTransition = {
                     elapsed: 0,
                     duration,
@@ -309,16 +394,8 @@
 
             function transitionSlideMask(fromSlideIndex, toSlideIndex, options = {}) {
                 const { fromVisible = false } = options;
-                const targetSlide = slides[toSlideIndex];
-                const sourceSlide = slides[fromSlideIndex];
-                const targetMask = getMaskState(targetSlide?.type || 'svg');
-                const sourceMask = getMaskState(sourceSlide?.type || 'svg');
-                const targetCache = getReadySlideMaskCache(toSlideIndex, targetMask) ||
-                    (!targetSlide || !targetSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(toSlideIndex) : null);
-                const fromCache = fromVisible
-                    ? createEmptySlideMaskCache(fromSlideIndex)
-                    : (getReadySlideMaskCache(fromSlideIndex, sourceMask) ||
-                        (!sourceSlide || !sourceSlide.geometry.maskOffsetItems.length ? createEmptySlideMaskCache(fromSlideIndex) : null))
+                const targetCache = getVisualMaskCacheForSlide(toSlideIndex);
+                const fromCache = getVisualMaskCacheForSlide(fromSlideIndex, { fromVisible });
                 if (!targetCache) return activateSlideMask(toSlideIndex, { sync: false });
                 if (!fromCache && fromSlideIndex !== toSlideIndex && !isSlideMaskReadyForTransition(fromSlideIndex)) {
                     return false;
@@ -353,36 +430,36 @@
                             });
                         });
                         activeMaskSlideIndex = cache.slideIndex;
+                        activeMaskLabel = getMaskCacheLabel(cache);
                     }
                 }
             }
 
             function activateSlideMask(slideIndex = currentSlideIndex, options = {}) {
                 const { sync = false } = options;
-                const slide = slides[slideIndex];
-                const mask = getMaskState(slide?.type || 'svg');
-                if (!slide || !slide.geometry.maskOffsetItems.length || typeof dotGroups === 'undefined') {
+                if (typeof dotGroups === 'undefined') {
                     clearAppliedSlideMask();
                     return false;
                 }
-                let cache = getReadySlideMaskCache(slideIndex, mask);
-                if (!cache && sync) cache = buildSlideMaskCacheSync(slideIndex);
+                let cache = getVisualMaskCacheForSlide(slideIndex, { sync });
                 if (cache) return applySlideMaskCache(cache);
                 if (activeMaskSlideIndex !== slideIndex) resetDotMaskAlphas(1);
                 activeMaskSlideIndex = slideIndex;
+                activeMaskLabel = Number.isFinite(slideIndex) ? `slide ${slideIndex + 1}` : '';
                 if (!maskWarmupActive) scheduleMaskWarmup();
                 return false;
             }
 
-            function createMaskWarmupJob(slideIndex, mask, signature) {
-                const slide = slides[slideIndex];
+            function createMaskWarmupJobForSlideLike(slide, cacheIndex, mask, signature, label = '') {
                 if (!mask?.enabled) return null;
-                if (!slide || !slide.geometry.maskOffsetItems.length || getReadySlideMaskCache(slideIndex, mask)) return null;
+                if (!slide || !slide.geometry.maskOffsetItems.length || getReadyMaskCacheForSlideLike(slide, cacheIndex, mask)) return null;
                 const cache = {
-                    slideIndex,
-                    key: getMaskCacheKey(slide, mask, slideIndex),
+                    slideIndex: cacheIndex,
+                    key: getMaskCacheKey(slide, mask, cacheIndex),
                     version: maskHitCache.version,
                     signature,
+                    slideType: slide.type || 'svg',
+                    maskLabel: label,
                     layers: {}
                 };
                 return {
@@ -392,6 +469,16 @@
                     layerPosition: 0,
                     dotPosition: 0
                 };
+            }
+
+            function createMaskWarmupJob(slideIndex, mask, signature) {
+                return createMaskWarmupJobForSlideLike(
+                    slides[slideIndex],
+                    slideIndex,
+                    mask,
+                    signature,
+                    Number.isFinite(slideIndex) ? `slide ${slideIndex + 1}` : ''
+                );
             }
 
             function advanceMaskWarmupJob(job, start, deadline) {
@@ -460,12 +547,23 @@
                         return createMaskWarmupJob(slideIndex, getMaskState(slide.type), signature);
                     })
                     .filter(Boolean);
-                const activeSlide = slides[activeMaskSlideIndex];
-                const activeMask = activeSlide ? getMaskState(activeSlide.type) : null;
-                const readyActiveCache = activeMask?.enabled ? getReadySlideMaskCache(activeMaskSlideIndex, activeMask) : null;
+                specialOverlays.forEach(overlay => {
+                    if (!overlay.assignedSlides?.length || overlay.enabled === false) return;
+                    const mask = getMaskState('svg');
+                    const job = createMaskWarmupJobForSlideLike(
+                        overlay,
+                        getSpecialOverlayCacheIndex(overlay),
+                        mask,
+                        signature,
+                        getSpecialOverlayName(overlay)
+                    );
+                    if (job) jobs.push(job);
+                });
+                const readyActiveCache = Number.isFinite(activeMaskSlideIndex)
+                    ? getVisualMaskCacheForSlide(activeMaskSlideIndex)
+                    : null;
                 if (!jobs.length) {
                     if (readyActiveCache) applySlideMaskCache(readyActiveCache);
-                    else if (!activeMask?.enabled) clearAppliedSlideMask();
                     updateViewStatus();
                     return;
                 }
@@ -490,7 +588,10 @@
                         if (!complete) break;
                         getMaskDotCountFromCache(job.cache);
                         job.slide.gridMaskCache = job.cache;
-                        if (activeMaskSlideIndex === job.cache.slideIndex) applySlideMaskCache(job.cache);
+                        if (Number.isFinite(activeMaskSlideIndex)) {
+                            const activeCache = getVisualMaskCacheForSlide(activeMaskSlideIndex);
+                            if (activeCache) applySlideMaskCache(activeCache);
+                        }
                         index++;
                     }
                     if (index < jobs.length) {
@@ -527,12 +628,26 @@
                 return !!slide.screenTargetCache?.has(getSlideScreenTargetCacheKey(slide, targetType, totalDots, scaleMultiplier));
             }
 
+            function hasReadyScreenTargetsForSlideLike(slide, targetType, totalDots, scaleMultiplier = 1) {
+                if (!slide || totalDots <= 0) return true;
+                return !!slide.screenTargetCache?.has(getSlideScreenTargetCacheKey(slide, targetType, totalDots, scaleMultiplier));
+            }
+
             function areSlideTargetsReadyForTransition(slideIndex, scaleMultiplier = 1) {
                 if (!slides[slideIndex] || typeof dotGroups === 'undefined') return true;
                 return DOT_LAYER_KEYS.every(layerKey => {
                     const cfg = getLayerRuntimeConfig(layerKey);
                     if (cfg.hidden) return true;
                     return hasReadySlideScreenTargets(slideIndex, cfg.targetTypes, getTotalGridDots(cfg), scaleMultiplier);
+                });
+            }
+
+            function areSlideLikeTargetsReadyForTransition(slide, scaleMultiplier = 1) {
+                if (!slide || typeof dotGroups === 'undefined') return true;
+                return DOT_LAYER_KEYS.every(layerKey => {
+                    const cfg = getLayerRuntimeConfig(layerKey);
+                    if (cfg.hidden) return true;
+                    return hasReadyScreenTargetsForSlideLike(slide, cfg.targetTypes, getTotalGridDots(cfg), scaleMultiplier);
                 });
             }
 
@@ -593,16 +708,38 @@
                 return !slide || !!slide.domNode;
             }
 
+            function isSpecialOverlayRenderReadyForSlide(slideIndex) {
+                const overlay = getActiveSpecialOverlayForSlide(slideIndex);
+                return !overlay || !!overlay.domNode;
+            }
+
+            function getSpecialTransitionPlan(fromIndex, targetIndex) {
+                const sourceSpecial = getActiveSpecialOverlayForSlide(fromIndex);
+                const targetSpecial = getActiveSpecialOverlayForSlide(targetIndex);
+                return {
+                    sourceSpecial,
+                    targetSpecial,
+                    currentTarget: sourceSpecial && !targetSpecial ? sourceSpecial : null,
+                    nextTarget: targetSpecial && !sourceSpecial ? targetSpecial : null
+                };
+            }
+
             function areTransitionAssetsReady(targetIndex) {
+                const plan = getSpecialTransitionPlan(currentSlideIndex, targetIndex);
                 return isSlideMaskReadyForTransition(currentSlideIndex) &&
                     isSlideMaskReadyForTransition(targetIndex) &&
                     isSlideRenderReadyForTransition(targetIndex) &&
+                    isSpecialOverlayRenderReadyForSlide(currentSlideIndex) &&
+                    isSpecialOverlayRenderReadyForSlide(targetIndex) &&
                     areSlideTargetsReadyForTransition(currentSlideIndex) &&
-                    areSlideTargetsReadyForTransition(targetIndex);
+                    areSlideTargetsReadyForTransition(targetIndex) &&
+                    areSlideLikeTargetsReadyForTransition(plan.currentTarget) &&
+                    areSlideLikeTargetsReadyForTransition(plan.nextTarget);
             }
 
             function clearSlideScreenTargetCaches() {
                 slides.forEach(slide => slide.screenTargetCache?.clear());
+                specialOverlays.forEach(overlay => overlay.screenTargetCache?.clear());
                 targetWarmupToken++;
             }
 
@@ -623,10 +760,8 @@
                 const token = ++targetWarmupToken;
                 pendingTargetWarmup = false;
                 if (!slides.length || activeHoldMode || autoTransition || typeof dotGroups === 'undefined') return;
-                const indexes = slides.map((_, slideIndex) => slideIndex);
                 const jobs = [];
-                indexes.forEach(slideIndex => {
-                    const slide = slides[slideIndex];
+                slides.forEach((slide, slideIndex) => {
                     if (!slide) return;
                     if (!slide.domTemplate) jobs.push(() => ensureSlideTemplate(slide));
                     if (!slide.domNode) jobs.push(() => prepareSlideRenderNode(slide));
@@ -636,6 +771,20 @@
                         if (!cfg.hidden && total > 0) {
                             if (!hasReadySlideScreenTargets(slideIndex, cfg.targetTypes, total)) {
                                 jobs.push(() => getSlideScreenTargets(slideIndex, cfg.targetTypes, total));
+                            }
+                        }
+                    });
+                });
+                specialOverlays.forEach(overlay => {
+                    if (!overlay.assignedSlides?.length || overlay.enabled === false) return;
+                    if (!overlay.domTemplate) jobs.push(() => ensureSlideTemplate(overlay));
+                    if (!overlay.domNode) jobs.push(() => prepareSlideRenderNode(overlay));
+                    DOT_LAYER_KEYS.forEach(layerKey => {
+                        const cfg = getLayerRuntimeConfig(layerKey);
+                        const total = getTotalGridDots(cfg);
+                        if (!cfg.hidden && total > 0) {
+                            if (!hasReadyScreenTargetsForSlideLike(overlay, cfg.targetTypes, total)) {
+                                jobs.push(() => getScreenTargetsForSlideLike(overlay, cfg.targetTypes, total));
                             }
                         }
                     });
@@ -836,6 +985,7 @@
                 const hasMediaSlides = slides.some(slide => isMediaSlideType(slide.type));
                 document.getElementById('drawer-trigger-slides')?.classList.toggle('inactive-title', !hasSvgSlides);
                 document.getElementById('drawer-trigger-image-slides')?.classList.toggle('inactive-title', !hasMediaSlides);
+                document.getElementById('drawer-trigger-special-overlays')?.classList.toggle('inactive-title', !specialOverlays.length);
                 document.getElementById('drawer-trigger-blink-mode')?.classList.toggle('inactive-title', !blinkControls.enabled?.checked);
                 document.getElementById('drawer-trigger-mouse-interaction')?.classList.toggle('inactive-title', !mouseControls.enabled?.checked);
             }
@@ -1200,6 +1350,10 @@
             }
 
             let slides = [];
+            const MAX_SPECIAL_OVERLAYS = 15;
+            let specialOverlays = [];
+            let specialOverlayBaseOpacity = 1;
+            let activeSpecialOverlayId = null;
             let missingSlideNames = [];
             let currentSlideIndex = 0;
             let pendingSlideIndex = null;
@@ -1223,6 +1377,252 @@
 
             function resetForcesToGrid() {
                 setForceState({ svgAlpha: 0, gridAlpha: 1 });
+            }
+
+            function getSpecialOverlayName(overlay) {
+                return overlay?.name || overlay?.fileName || 'Special SVG';
+            }
+
+            function getSpecialOverlayCacheIndex(overlay) {
+                return `special:${overlay?.id || overlay?.specialId || 'overlay'}`;
+            }
+
+            function normalizeSpecialOverlaySlideList(slideIndexes = []) {
+                const seen = new Set();
+                return (Array.isArray(slideIndexes) ? slideIndexes : [])
+                    .map(value => Math.round(parseFloat(value)))
+                    .filter(index => Number.isFinite(index) && index >= 0 && index < slides.length)
+                    .filter(index => {
+                        if (seen.has(index)) return false;
+                        seen.add(index);
+                        return true;
+                    })
+                    .sort((a, b) => a - b);
+            }
+
+            function normalizeSpecialOverlayAssignments() {
+                const usedSlides = new Set();
+                specialOverlays.forEach(overlay => {
+                    overlay.assignedSlides = normalizeSpecialOverlaySlideList(overlay.assignedSlides)
+                        .filter(slideIndex => {
+                            if (usedSlides.has(slideIndex)) return false;
+                            usedSlides.add(slideIndex);
+                            return true;
+                        });
+                });
+            }
+
+            function getSpecialOverlayAssignedOwner(slideIndex) {
+                return specialOverlays.find(overlay => overlay.assignedSlides?.includes(slideIndex)) || null;
+            }
+
+            function getActiveSpecialOverlayForSlide(slideIndex) {
+                const owner = getSpecialOverlayAssignedOwner(slideIndex);
+                return owner && owner.enabled !== false ? owner : null;
+            }
+
+            function createSpecialOverlay(name, svg, options = {}) {
+                const overlay = createSlide(name, svg, { type: 'special-svg' });
+                overlay.specialId = overlay.id;
+                overlay.enabled = options.enabled !== false;
+                overlay.assignedSlides = normalizeSpecialOverlaySlideList(options.assignedSlides || options.slides || []);
+                return overlay;
+            }
+
+            function createSpecialOverlayFromState(entry = {}) {
+                const overlay = createSpecialOverlay(entry.name || entry.fileName || 'Special SVG', entry.svg || '', {
+                    enabled: entry.enabled !== false,
+                    assignedSlides: entry.assignedSlides || entry.slides || []
+                });
+                overlay.fileName = entry.fileName || entry.name || overlay.fileName;
+                return overlay;
+            }
+
+            function applySpecialOverlayState(entries = []) {
+                specialOverlays = (Array.isArray(entries) ? entries : [])
+                    .filter(entry => entry && entry.svg)
+                    .slice(0, MAX_SPECIAL_OVERLAYS)
+                    .map(createSpecialOverlayFromState);
+                normalizeSpecialOverlayAssignments();
+                clearMaskCache();
+                specialOverlays.forEach(overlay => overlay.screenTargetCache?.clear());
+                if (typeof targetWarmupToken !== 'undefined') targetWarmupToken++;
+                renderCurrentSpecialOverlay();
+                renderSpecialOverlayList();
+                updateDrawerTitleStates();
+            }
+
+            function getSpecialOverlayAssignedSlideCount() {
+                return specialOverlays.reduce((sum, overlay) => sum + (overlay.assignedSlides?.length || 0), 0);
+            }
+
+            function updateSpecialOverlayStatus() {
+                if (!specialOverlayControls?.label || !specialOverlayControls?.status) return;
+                const count = specialOverlays.length;
+                const assignedCount = getSpecialOverlayAssignedSlideCount();
+                specialOverlayControls.label.textContent = count
+                    ? `${count}/${MAX_SPECIAL_OVERLAYS} Special SVG${count === 1 ? '' : 's'}`
+                    : 'Upload Special SVGs';
+                if (specialOverlayControls.file) {
+                    specialOverlayControls.file.disabled = count >= MAX_SPECIAL_OVERLAYS;
+                }
+                if (!count) {
+                    specialOverlayControls.status.textContent = 'No special overlays loaded.';
+                    return;
+                }
+                specialOverlayControls.status.textContent =
+                    `${count}/${MAX_SPECIAL_OVERLAYS} special overlay${count === 1 ? '' : 's'} · ${assignedCount} slide assignment${assignedCount === 1 ? '' : 's'} · global flicker.`;
+            }
+
+            function renderSpecialOverlayList() {
+                const list = specialOverlayControls?.list;
+                if (!list) return;
+                normalizeSpecialOverlayAssignments();
+                list.replaceChildren();
+                if (!specialOverlays.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'special-overlay-empty';
+                    empty.textContent = 'Upload SVGs, then assign slide numbers.';
+                    list.appendChild(empty);
+                    updateSpecialOverlayStatus();
+                    return;
+                }
+
+                specialOverlays.forEach(overlay => {
+                    const row = document.createElement('div');
+                    row.className = 'special-overlay-row';
+                    row.classList.toggle('hidden-special-overlay', overlay.enabled === false);
+                    row.dataset.specialOverlayId = String(overlay.id);
+
+                    const eye = document.createElement('button');
+                    eye.type = 'button';
+                    eye.className = 'motion-layer-icon-btn layer-visibility-btn special-overlay-eye-btn';
+                    setIconButton(eye, overlay.enabled === false ? 'eyeOff' : 'eye', `${getSpecialOverlayName(overlay)} ${overlay.enabled === false ? 'hidden' : 'visible'}`);
+                    eye.setAttribute('aria-pressed', String(overlay.enabled !== false));
+                    eye.addEventListener('click', event => {
+                        event.stopPropagation();
+                        setSpecialOverlayEnabled(overlay.id, overlay.enabled === false);
+                    });
+
+                    const name = document.createElement('div');
+                    name.className = 'special-overlay-file';
+                    name.textContent = getSpecialOverlayName(overlay);
+                    setNativeTooltip(name, getSpecialOverlayName(overlay));
+
+                    const del = document.createElement('button');
+                    del.type = 'button';
+                    del.className = 'motion-layer-icon-btn special-overlay-delete-btn';
+                    del.textContent = 'X';
+                    setNativeTooltip(del, `Delete ${getSpecialOverlayName(overlay)}.`);
+                    del.addEventListener('click', event => {
+                        event.stopPropagation();
+                        deleteSpecialOverlay(overlay.id);
+                    });
+
+                    const slideGrid = document.createElement('div');
+                    slideGrid.className = 'special-overlay-slide-grid';
+                    if (!slides.length) {
+                        const empty = document.createElement('div');
+                        empty.className = 'special-overlay-empty';
+                        empty.textContent = 'No slides.';
+                        slideGrid.appendChild(empty);
+                    } else {
+                        slides.forEach((slide, slideIndex) => {
+                            const owner = getSpecialOverlayAssignedOwner(slideIndex);
+                            const checked = owner === overlay;
+                            const disabled = !!owner && owner !== overlay;
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.className = 'special-slide-check';
+                            button.textContent = String(slideIndex + 1);
+                            button.disabled = disabled;
+                            button.classList.toggle('current-slide', slideIndex === currentSlideIndex);
+                            button.setAttribute('role', 'checkbox');
+                            button.setAttribute('aria-checked', String(checked));
+                            const slideName = slide?.name || slide?.fileName || `Slide ${slideIndex + 1}`;
+                            const ownerText = disabled ? ` Assigned to ${getSpecialOverlayName(owner)}.` : '';
+                            setNativeTooltip(button, `Slide ${slideIndex + 1}: ${slideName}.${ownerText}`);
+                            button.addEventListener('click', event => {
+                                event.stopPropagation();
+                                setSpecialOverlaySlideAssignment(overlay.id, slideIndex, !checked);
+                            });
+                            slideGrid.appendChild(button);
+                        });
+                    }
+
+                    row.append(eye, name, del, slideGrid);
+                    list.appendChild(row);
+                });
+                updateSpecialOverlayStatus();
+            }
+
+            function handleSpecialOverlayConfigChanged() {
+                normalizeSpecialOverlayAssignments();
+                clearMaskCache();
+                specialOverlays.forEach(overlay => overlay.screenTargetCache?.clear());
+                if (typeof targetWarmupToken !== 'undefined') targetWarmupToken++;
+                renderCurrentSpecialOverlay();
+                renderSpecialOverlayList();
+                updateDrawerTitleStates();
+                scheduleMaskWarmup();
+                scheduleTargetWarmup();
+                refreshAttractorTargetsIfNeeded();
+                updateViewStatus();
+            }
+
+            function setSpecialOverlayEnabled(overlayId, enabled) {
+                const overlay = specialOverlays.find(item => item.id === overlayId);
+                if (!overlay) return;
+                overlay.enabled = !!enabled;
+                handleSpecialOverlayConfigChanged();
+            }
+
+            function setSpecialOverlaySlideAssignment(overlayId, slideIndex, selected) {
+                const target = specialOverlays.find(item => item.id === overlayId);
+                if (!target) return;
+                specialOverlays.forEach(overlay => {
+                    overlay.assignedSlides = (overlay.assignedSlides || []).filter(index => index !== slideIndex);
+                });
+                if (selected) {
+                    target.assignedSlides = normalizeSpecialOverlaySlideList([...(target.assignedSlides || []), slideIndex]);
+                }
+                handleSpecialOverlayConfigChanged();
+            }
+
+            function deleteSpecialOverlay(overlayId) {
+                const index = specialOverlays.findIndex(item => item.id === overlayId);
+                if (index < 0) return;
+                const [removed] = specialOverlays.splice(index, 1);
+                removed.domNode?.remove?.();
+                removed.domTemplate = null;
+                handleSpecialOverlayConfigChanged();
+                if (typeof showUiToast === 'function') showUiToast(`Deleted special overlay: ${getSpecialOverlayName(removed)}.`);
+            }
+
+            async function loadSpecialOverlayFiles(fileList) {
+                const selectedFiles = Array.from(fileList || []);
+                const files = selectedFiles.filter(file => file.type === 'image/svg+xml' || /\.svg$/i.test(file.name));
+                const remaining = Math.max(0, MAX_SPECIAL_OVERLAYS - specialOverlays.length);
+                const nextFiles = files.slice(0, remaining);
+                let loaded = 0;
+                for (const file of nextFiles) {
+                    try {
+                        const svg = await file.text();
+                        if (!svg.trim()) throw new Error('Empty SVG');
+                        specialOverlays.push(createSpecialOverlay(file.name, svg, { enabled: true }));
+                        loaded++;
+                    } catch (error) {
+                        console.warn('Special overlay failed to load:', error);
+                    }
+                }
+                handleSpecialOverlayConfigChanged();
+                return {
+                    selected: selectedFiles.length,
+                    supported: files.length,
+                    loaded,
+                    ignored: Math.max(0, selectedFiles.length - files.length),
+                    atLimit: files.length > remaining
+                };
             }
 
             function getSlideMapper(slide) {
@@ -1250,8 +1650,7 @@
                 };
             }
 
-            function getSlideScreenTargets(index, targetType, totalDots, scaleMultiplier = 1) {
-                const slide = slides[index];
+            function getScreenTargetsForSlideLike(slide, targetType, totalDots, scaleMultiplier = 1) {
                 if (!slide) return [];
                 if (!slide.screenTargetCache) slide.screenTargetCache = new Map();
                 const cacheKey = getSlideScreenTargetCacheKey(slide, targetType, totalDots, scaleMultiplier);
@@ -1272,8 +1671,13 @@
                 return targets;
             }
 
+            function getSlideScreenTargets(index, targetType, totalDots, scaleMultiplier = 1) {
+                return getScreenTargetsForSlideLike(slides[index], targetType, totalDots, scaleMultiplier);
+            }
+
             function applySlideTransform() {
                 slideLayer.style.opacity = slideOpacity;
+                setSpecialOverlayBaseOpacity(slideOpacity);
                 const slide = slides[currentSlideIndex];
                 const node = slide ? ensureSlideDomNode(slide) : null;
                 if (!node || !slide) return;
@@ -1289,6 +1693,81 @@
                 node.style.transform = `scale(${placement.scale})`;
                 node.style.opacity = '1';
                 node.style.visibility = 'visible';
+                applySpecialOverlayTransform();
+            }
+
+            function setSpecialOverlayBaseOpacity(value) {
+                specialOverlayBaseOpacity = clamp(value, 0, 1);
+                updateSpecialOverlayOpacity(performance.now());
+            }
+
+            function getContinuousSpecialOverlayFlicker(timestamp = performance.now(), overlay = null) {
+                if (!overlay) return 0;
+                const settings = getAutoSettings();
+                const onSeconds = Math.max(0.015, settings.flickerOn / 1000);
+                const offSeconds = Math.max(0.015, settings.flickerOff / 1000);
+                const cycle = Math.max(0.03, onSeconds + offSeconds);
+                const time = timestamp / 1000;
+                const cycleIndex = Math.floor(time / cycle);
+                const jitter = clamp(settings.flickerRandom, 0, 100) / 100;
+                const seed = (overlay.id || 1) * 19.73 + cycleIndex * 37.19;
+                const phase = (time + (pseudoRandom(seed) - 0.5) * cycle * 0.18 * jitter) % cycle;
+                const balance = clamp(onSeconds / cycle + (pseudoRandom(seed + 11.7) - 0.5) * 0.18 * jitter, 0.05, 0.95);
+                return phase / cycle <= balance ? 1 : 0;
+            }
+
+            function updateSpecialOverlayOpacity(timestamp = performance.now()) {
+                if (!specialSvgLayer) return;
+                const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
+                if (!overlay || activeSpecialOverlayId !== overlay.id) {
+                    specialSvgLayer.style.opacity = '0';
+                    return;
+                }
+                const flicker = autoTransition ? 1 : getContinuousSpecialOverlayFlicker(timestamp, overlay);
+                specialSvgLayer.style.opacity = String(specialOverlayBaseOpacity * flicker);
+            }
+
+            function applySpecialOverlayTransform() {
+                if (!specialSvgLayer) return;
+                const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
+                const node = overlay ? ensureSlideDomNode(overlay) : null;
+                if (!node || !overlay || activeSpecialOverlayId !== overlay.id) return;
+                const placement = getSlidePlacement(overlay);
+                node.style.position = 'absolute';
+                node.style.left = `${placement.left}px`;
+                node.style.top = `${placement.top}px`;
+                node.style.width = `${placement.frame.displayWidth}px`;
+                node.style.height = `${placement.frame.displayHeight}px`;
+                node.style.maxWidth = 'none';
+                node.style.maxHeight = 'none';
+                node.style.transformOrigin = '0 0';
+                node.style.transform = `scale(${placement.scale})`;
+                node.style.opacity = '1';
+                node.style.visibility = 'visible';
+            }
+
+            function renderCurrentSpecialOverlay() {
+                if (!specialSvgLayer) return;
+                const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
+                if (!overlay) {
+                    activeSpecialOverlayId = null;
+                    specialSvgLayer.replaceChildren();
+                    specialSvgLayer.style.opacity = '0';
+                    return;
+                }
+                const node = ensureSlideDomNode(overlay);
+                activeSpecialOverlayId = overlay.id;
+                if (node && specialSvgLayer.firstElementChild !== node) {
+                    specialSvgLayer.replaceChildren(node);
+                }
+                applySpecialOverlayTransform();
+                updateSpecialOverlayOpacity(performance.now());
+            }
+
+            function updateSpecialOverlayFrame(timestamp = performance.now()) {
+                if (!specialSvgLayer) return;
+                applySpecialOverlayTransform();
+                updateSpecialOverlayOpacity(timestamp);
             }
 
             function pauseVideoSlide(slide, reset = false) {
@@ -1327,8 +1806,11 @@
                 pauseAllVideos(false);
                 if (!slides.length) {
                     slideLayer.replaceChildren();
+                    specialSvgLayer?.replaceChildren();
+                    activeSpecialOverlayId = null;
                     slideOpacity = 0;
                     slideLayer.style.opacity = 0;
+                    if (specialSvgLayer) specialSvgLayer.style.opacity = 0;
                     clearAppliedSlideMask();
                     updateSlideStatus();
                     updateMediaSlideStatus();
@@ -1336,6 +1818,7 @@
                     updateImageMaskStatus();
                     updateDrawerTitleStates();
                     updateSlideControlStatus();
+                    renderSpecialOverlayList();
                     return;
                 }
                 const slide = slides[currentSlideIndex];
@@ -1344,6 +1827,7 @@
                     slideLayer.replaceChildren(node);
                 }
                 applySlideTransform();
+                renderCurrentSpecialOverlay();
                 if (!autoTransition && options.autoplayVideo !== false && slide?.type === 'video') {
                     playVideoSlide(slide, false);
                 }
@@ -1361,6 +1845,7 @@
                 scheduleTargetWarmup();
                 updateViewStatus();
                 updateSlideControlStatus();
+                renderSpecialOverlayList();
             }
 
             function getSlideTypeLabel(type) {
@@ -2251,6 +2736,7 @@
                 }
                 const sourceSlide = slides[fromIndex];
                 const targetSlide = slides[targetIndex];
+                const specialTransitionPlan = getSpecialTransitionPlan(fromIndex, targetIndex);
                 const mediaTransitionMode = isMediaSlideType(sourceSlide?.type) ? getMediaTransitionMode() : 'full';
                 const needsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
                 let deferredMaskFrom = null;
@@ -2280,7 +2766,9 @@
                     deferredMaskTo,
                     travelMaskCleared: false,
                     deferredMaskApplied: false,
-                    mediaTransitionMode
+                    mediaTransitionMode,
+                    specialCurrentTarget: specialTransitionPlan.currentTarget,
+                    specialNextTarget: specialTransitionPlan.nextTarget
                 };
                 activeHoldMode = 'auto';
                 activeHoldCode = direction > 0 ? 'next' : 'previous';
@@ -2320,7 +2808,13 @@
                 autoTransition.targetSlideIndex = slideIndex;
                 autoTransition.dynamicTargetScale = scaleMultiplier;
                 holdState = 'attract';
-                const activeLayers = applyVisibleLayerTargetsForSlide(slideIndex, scaleMultiplier, { activateMask: false });
+                const targetSource =
+                    slideIndex === autoTransition.fromIndex && autoTransition.specialCurrentTarget
+                        ? autoTransition.specialCurrentTarget
+                        : (slideIndex === autoTransition.targetIndex && autoTransition.specialNextTarget
+                            ? autoTransition.specialNextTarget
+                            : slideIndex);
+                const activeLayers = applyVisibleLayerTargetsForSlide(targetSource, scaleMultiplier, { activateMask: false });
                 setAutoStatus(activeLayers ? statusText : 'Transition running; all dot layers are hidden.');
                 return activeLayers;
             }
@@ -2420,9 +2914,13 @@
 
             function setSlideOpacity(value) {
                 const next = clamp(value, 0, 1);
-                if (Math.abs(next - slideOpacity) < 0.001) return;
+                if (Math.abs(next - slideOpacity) < 0.001) {
+                    setSpecialOverlayBaseOpacity(next);
+                    return;
+                }
                 slideOpacity = next;
                 slideLayer.style.opacity = slideOpacity;
+                setSpecialOverlayBaseOpacity(slideOpacity);
             }
 
             function updateFlickerTransition(deltaTime, settings) {
@@ -2545,7 +3043,7 @@
                 const mask = maskAlphaTransition
                     ? `scaling ${maskProgress}`
                     : activeMaskSlideIndex !== null
-                    ? `slide ${activeMaskSlideIndex + 1}`
+                    ? (activeMaskLabel || (Number.isFinite(activeMaskSlideIndex) ? `slide ${activeMaskSlideIndex + 1}` : 'special overlay'))
                     : 'clear';
                 const visibleLayerCount = DOT_LAYER_KEYS.filter(layerKey => !dotLayerStates[layerKey]?.hidden).length;
                 const dotCount = typeof dotGroups === 'undefined'
@@ -2576,8 +3074,8 @@
                 const readMaskCount = slideIndex => {
                     const targetSlide = slides[slideIndex];
                     if (!targetSlide) return null;
-                    if (!targetSlide.geometry.maskOffsetItems.length) return 0;
-                    return getMaskDotCountFromCache(getReadySlideMaskCache(slideIndex, getMaskState(targetSlide.type)));
+                    const cache = getVisualMaskCacheForSlide(slideIndex);
+                    return getMaskDotCountFromCache(cache) ?? 0;
                 };
                 const oldMaskDots = readMaskCount(oldIndex);
                 const newMaskDots = readMaskCount(newIndex);

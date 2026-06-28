@@ -16,6 +16,7 @@
         <div class="layer-container" id="svg-slide-layer"></div>
         <canvas id="svg-geometry-canvas" class="grid-canvas-instance"></canvas>
         <canvas id="morph-canvas" class="grid-canvas-instance"></canvas>
+        <div class="layer-container" id="special-svg-layer"></div>
     </main>
     <div id="view-resolution-overlay" class="view-resolution-overlay hidden-ui-node">Canvas 1280 x 720 · View 100%</div>
     <div id="ui-toast-region" class="ui-toast-region" aria-live="polite" aria-atomic="true"></div>
@@ -129,6 +130,21 @@
                 <div class="slider-group"><span>Offset X</span><input type="range" id="image-slide-offset-x" min="-640" max="640" value="0"><span class="val-indicator" id="val-image-slide-offset-x">0</span></div>
                 <div class="slider-group"><span>Offset Y</span><input type="range" id="image-slide-offset-y" min="-360" max="360" value="0"><span class="val-indicator" id="val-image-slide-offset-y">0</span></div>
                 <div class="geometry-status" id="image-mask-status">Mask hides dots whose grid homes sit inside the media rectangle.</div>
+            </div>
+        </div>
+
+        <!-- Special SVG Overlay Drawer -->
+        <div class="drawer collapsed" id="drawer-special-overlays">
+            <button class="drawer-trigger" id="drawer-trigger-special-overlays">Special Overlays</button>
+            <div class="drawer-content">
+                <div class="layer-control-row">
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-btn" id="label-special-overlays">Upload Special SVGs</div>
+                        <input type="file" class="file-input" id="file-special-overlays" accept=".svg,image/svg+xml" multiple>
+                    </div>
+                </div>
+                <div class="special-overlay-list" id="special-overlay-list"></div>
+                <div class="geometry-status" id="special-overlays-status">No special overlays loaded.</div>
             </div>
         </div>
 

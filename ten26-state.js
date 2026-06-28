@@ -316,6 +316,7 @@ const viewport = document.getElementById('canvas-viewport');
                 buildDrawerGroup('drawer-upload-media', 'drawer-trigger-upload-media', 'Upload Media', [
                     'drawer-slides',
                     'drawer-image-slides',
+                    'drawer-special-overlays',
                     'drawer-masks'
                 ]);
                 buildDrawerGroup('drawer-advanced-options', 'drawer-trigger-advanced-options', 'Advanced Options', [
@@ -395,6 +396,7 @@ const viewport = document.getElementById('canvas-viewport');
 
             const imageLayer = document.getElementById('image-layer');
             const slideLayer = document.getElementById('svg-slide-layer');
+            const specialSvgLayer = document.getElementById('special-svg-layer');
             const staticGridCanvas = document.getElementById('grid-canvas-primary');
             const geometryCanvas = document.getElementById('svg-geometry-canvas');
             const morphCanvas = document.getElementById('morph-canvas');
@@ -758,6 +760,13 @@ const viewport = document.getElementById('canvas-viewport');
                 transitionMode: document.getElementById('media-transition-mode')
             };
             const imageSlideControls = mediaControls;
+
+            const specialOverlayControls = {
+                file: document.getElementById('file-special-overlays'),
+                label: document.getElementById('label-special-overlays'),
+                list: document.getElementById('special-overlay-list'),
+                status: document.getElementById('special-overlays-status')
+            };
 
             const slideControlControls = {
                 grid: document.getElementById('slide-button-grid')
@@ -1561,6 +1570,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
                 'drawer-trigger-slides': 'Vector SVG artwork used as dot targets.',
                 'drawer-trigger-image-slides': 'Raster images and videos used as rectangular dot targets.',
+                'drawer-trigger-special-overlays': 'Top-layer SVG overlays assigned to individual slide numbers.',
                 'drawer-trigger-slide-control': 'Direct slide navigation and current slide inspection.',
                 'drawer-trigger-flicker': 'Visual flicker rhythm, balance, wildness, and old/new bias.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
@@ -1585,6 +1595,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'label-slides': 'Load SVG files as slide artwork.',
                 'file-image-slides': 'Load PNG, JPG, or supported video files as media slide targets.',
                 'label-image-slides': 'Load PNG, JPG, or supported video files as media slide targets.',
+                'file-special-overlays': 'Load special SVG overlays that flicker above every grid and slide layer.',
+                'label-special-overlays': 'Load special SVG overlays that flicker above every grid and slide layer.',
                 'file-image': 'Load an image behind the dots.',
                 'label-image': 'Load an image behind the dots.',
                 'image-visibility-toggle': 'Show or hide the background image without removing it.',
@@ -3040,21 +3052,25 @@ const viewport = document.getElementById('canvas-viewport');
                 setLayerTargetsFromSlide(activeLayerKey, slideIndex, getHeldTargetScale());
             }
 
-            function setLayerTargetsFromSlide(layerKey, slideIndex, scaleMultiplier = 1) {
+            function setLayerTargetsFromSlide(layerKey, slideSource, scaleMultiplier = 1) {
                 const cfg = getLayerRuntimeConfig(layerKey);
                 if (cfg.hidden) {
                     dotGroups[layerKey].returnToGrid();
                     return 0;
                 }
-                const targets = getSlideScreenTargets(slideIndex, cfg.targetTypes, getTotalGridDots(cfg), scaleMultiplier);
+                const targets = typeof slideSource === 'number'
+                    ? getSlideScreenTargets(slideSource, cfg.targetTypes, getTotalGridDots(cfg), scaleMultiplier)
+                    : getScreenTargetsForSlideLike(slideSource, cfg.targetTypes, getTotalGridDots(cfg), scaleMultiplier);
                 dotGroups[layerKey].setAttractorTargets(targets);
                 return targets.length ? 1 : 0;
             }
 
-            function applyVisibleLayerTargetsForSlide(slideIndex, scaleMultiplier = 1, options = {}) {
+            function applyVisibleLayerTargetsForSlide(slideSource, scaleMultiplier = 1, options = {}) {
                 const { activateMask = true } = options;
-                if (activateMask && typeof activateSlideMask === 'function') activateSlideMask(slideIndex, { sync: true });
-                return DOT_LAYER_KEYS.reduce((count, layerKey) => count + setLayerTargetsFromSlide(layerKey, slideIndex, scaleMultiplier), 0);
+                if (activateMask && typeof activateSlideMask === 'function' && typeof slideSource === 'number') {
+                    activateSlideMask(slideSource, { sync: true });
+                }
+                return DOT_LAYER_KEYS.reduce((count, layerKey) => count + setLayerTargetsFromSlide(layerKey, slideSource, scaleMultiplier), 0);
             }
 
             function refreshAttractorTargetsIfNeeded() {

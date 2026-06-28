@@ -233,6 +233,23 @@ function bindEvents() {
                     clearMediaSlides();
                     if (typeof showUiToast === 'function') showUiToast('Media slides cleared.');
                 });
+                specialOverlayControls.file?.addEventListener('change', event => {
+                    const selectedFiles = Array.from(event.target.files || []);
+                    const svgCount = selectedFiles.filter(file => file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)).length;
+                    trackRightPanelLoading(loadSpecialOverlayFiles(event.target.files)).then(result => {
+                        if (specialOverlayControls.file) specialOverlayControls.file.value = '';
+                        if (!selectedFiles.length || typeof showUiToast !== 'function') return;
+                        if (!svgCount || !result.loaded) {
+                            showUiToast('No special overlays loaded. Choose SVG files.', 'warning');
+                            return;
+                        }
+                        const limitText = result.atLimit ? ` Max ${MAX_SPECIAL_OVERLAYS} kept.` : '';
+                        showUiToast(`${result.loaded} special overlay${result.loaded === 1 ? '' : 's'} loaded.${limitText}`, result.atLimit ? 'warning' : 'info');
+                    }).catch(() => {
+                        if (specialOverlayControls.file) specialOverlayControls.file.value = '';
+                        if (typeof showUiToast === 'function') showUiToast('Special overlays could not be loaded.', 'warning');
+                    });
+                });
                 [imageSlideControls.scale, imageSlideControls.offsetX, imageSlideControls.offsetY].forEach(control => {
                     control?.addEventListener('input', () => {
                         slides.forEach(slide => {
@@ -537,6 +554,7 @@ function bindEvents() {
                 updateMaskAlphaTransitions(deltaTime);
                 const mouseFrameState = getMouseInteractionFrameState(timestamp);
                 DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp, mouseFrameState));
+                updateSpecialOverlayFrame(timestamp);
                 updateOverlayRuntimeTick(deltaTime);
                 drawMorphDots();
             }

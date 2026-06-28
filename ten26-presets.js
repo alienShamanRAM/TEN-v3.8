@@ -122,6 +122,17 @@ function getActiveLayerStateFromControls() {
                 return entry;
             }
 
+            function serializeSpecialOverlayEntry(overlay) {
+                return {
+                    type: 'special-svg',
+                    name: overlay.name || overlay.fileName || 'Special SVG',
+                    fileName: overlay.fileName || overlay.name || 'Special SVG',
+                    svg: overlay.svg || '',
+                    enabled: overlay.enabled !== false,
+                    assignedSlides: normalizeSpecialOverlaySlideList(overlay.assignedSlides || [])
+                };
+            }
+
             function isLoadablePresetSlideEntry(slide) {
                 if (!slide) return false;
                 if (slide.type === 'image') return !!slide.svg && !!slide.imageSrc;
@@ -354,6 +365,7 @@ function getActiveLayerStateFromControls() {
                     },
                     appBackdrop: getAppBackdropState(),
                     slides: slides.map(serializeSlideEntry),
+                    specialOverlays: specialOverlays.map(serializeSpecialOverlayEntry),
                     mediaMode,
                     currentSlideIndex,
                     slide: {
@@ -623,6 +635,7 @@ function getActiveLayerStateFromControls() {
                     const nextSlideIndex = hasOwnValue(state, 'currentSlideIndex') ? state.currentSlideIndex : currentSlideIndex;
                     currentSlideIndex = clamp(nextSlideIndex || 0, 0, Math.max(0, slides.length - 1));
                 }
+                applySpecialOverlayState(Array.isArray(state.specialOverlays) ? state.specialOverlays : []);
                 pendingSlideIndex = null;
                 slideOpacity = slides.length ? 1 : 0;
                 slideFade = null;
@@ -649,6 +662,7 @@ function getActiveLayerStateFromControls() {
             function getSvgState() {
                 return {
                     slides: slides.map(serializeSlideEntry),
+                    specialOverlays: specialOverlays.map(serializeSpecialOverlayEntry),
                     mediaMode,
                     currentSlideIndex,
                     slide: {
@@ -696,6 +710,7 @@ function getActiveLayerStateFromControls() {
                     slides = [];
                     currentSlideIndex = 0;
                 }
+                applySpecialOverlayState(Array.isArray(state.specialOverlays) ? state.specialOverlays : []);
                 pendingSlideIndex = null;
                 slideOpacity = slides.length ? 1 : 0;
                 slideFade = null;
@@ -896,6 +911,7 @@ function getActiveLayerStateFromControls() {
                         color: '#02006c'
                     },
                     slides: defaultSlides,
+                    specialOverlays: [],
                     mediaMode: getDefaultAssetBundle().mediaMode === 'videos' ? 'videos' : 'images',
                     currentSlideIndex: clamp(getDefaultAssetBundle().currentSlideIndex || 0, 0, Math.max(0, defaultSlides.length - 1)),
                     slide: getDefaultSlideState(),

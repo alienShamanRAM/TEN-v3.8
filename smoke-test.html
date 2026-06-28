@@ -77,7 +77,8 @@
                         '#morph-canvas',
                         '#control-panel',
                         '#preset-select',
-                        '#svg-slide-layer'
+                        '#svg-slide-layer',
+                        '#special-svg-layer'
                     ];
                     const missing = required.filter(selector => !doc.querySelector(selector));
                     if (missing.length) {
@@ -85,7 +86,7 @@
                         return;
                     }
                     const nestedGroups = [
-                        ['#drawer-upload-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-masks']],
+                        ['#drawer-upload-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-special-overlays', '#drawer-masks']],
                         ['#drawer-advanced-options', ['#drawer-grid', '#drawer-flicker', '#drawer-blink-mode']]
                     ];
                     const brokenGroup = nestedGroups.find(([parentSelector, childSelectors]) => {
@@ -100,6 +101,7 @@
                         ['#drawer-trigger-view-options', 'View Options'],
                         ['#drawer-trigger-masks', 'Grid Masking'],
                         ['#drawer-trigger-upload-media', 'Upload Media'],
+                        ['#drawer-trigger-special-overlays', 'Special Overlays'],
                         ['#drawer-trigger-timing', 'Timing'],
                         ['#drawer-trigger-advanced-options', 'Advanced Options']
                     ];
@@ -162,6 +164,58 @@
                     const imageMaskState = typeof win.getMaskState === 'function' ? win.getMaskState('image') : null;
                     if (!maskState?.enabled || !imageMaskState?.enabled) {
                         fail('Mask warmup is not enabled.');
+                        return;
+                    }
+                    if (typeof win.applySpecialOverlayState !== 'function' || typeof win.getSvgState !== 'function') {
+                        fail('Special overlay runtime functions are missing.');
+                        return;
+                    }
+                    win.applySpecialOverlayState([
+                        {
+                            name: 'special-a.svg',
+                            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="white"/></svg>',
+                            assignedSlides: [0],
+                            enabled: true
+                        },
+                        {
+                            name: 'special-b.svg',
+                            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="white"/></svg>',
+                            assignedSlides: [0, 1],
+                            enabled: true
+                        }
+                    ]);
+                    const specialRows = doc.querySelectorAll('#special-overlay-list .special-overlay-row');
+                    const firstRowFirstSlide = specialRows[0]?.querySelector('.special-slide-check');
+                    const secondRowFirstSlide = specialRows[1]?.querySelector('.special-slide-check');
+                    const secondRowSecondSlide = specialRows[1]?.querySelectorAll('.special-slide-check')[1];
+                    const svgStateWithSpecial = win.getSvgState();
+                    const specialAssignmentReady = specialRows.length === 2 &&
+                        firstRowFirstSlide?.getAttribute('aria-checked') === 'true' &&
+                        secondRowFirstSlide?.disabled === true &&
+                        secondRowSecondSlide?.getAttribute('aria-checked') === 'true' &&
+                        svgStateWithSpecial.specialOverlays?.length === 2 &&
+                        svgStateWithSpecial.specialOverlays[0]?.assignedSlides?.includes(0) &&
+                        svgStateWithSpecial.specialOverlays[1]?.assignedSlides?.includes(1);
+                    if (!specialAssignmentReady) {
+                        fail('Special overlay assignment UI did not initialize.');
+                        return;
+                    }
+                    if (typeof win.getSpecialTransitionPlan !== 'function') {
+                        fail('Special transition planner is missing.');
+                        return;
+                    }
+                    const sameSpecialClassPlan = win.getSpecialTransitionPlan(0, 1);
+                    const outgoingSpecialPlan = win.getSpecialTransitionPlan(1, 2);
+                    const incomingSpecialPlan = win.getSpecialTransitionPlan(2, 1);
+                    if (
+                        sameSpecialClassPlan.currentTarget ||
+                        sameSpecialClassPlan.nextTarget ||
+                        !outgoingSpecialPlan.currentTarget ||
+                        outgoingSpecialPlan.nextTarget ||
+                        incomingSpecialPlan.currentTarget ||
+                        !incomingSpecialPlan.nextTarget
+                    ) {
+                        fail('Special transition exception did not resolve correctly.');
                         return;
                     }
                     const canvas = doc.querySelector('#morph-canvas');
