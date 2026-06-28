@@ -1565,7 +1565,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-flicker': 'Visual flicker rhythm, balance, wildness, and old/new bias.',
                 'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
                 'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
-                'drawer-trigger-presets': 'Save and restore full scene settings.',
+                'drawer-trigger-presets': 'Save and restore layer stacks, random limits, and layer locks.',
                 'drawer-trigger-view-options': 'Preview scale, frame cap, fullscreen, and info overlay.'
             };
 
@@ -1613,8 +1613,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
                 'svg-media-stack-down': 'Move SVG/media below the next grid layer.',
                 'grid-apply-all': 'Apply the selected grid layout to every active layer.',
-                'preset-apply-btn': 'Apply the selected full-scene preset to the canvas.',
-                'preset-add-btn': 'Save the current settings as a new preset.',
+                'preset-apply-btn': 'Apply the selected layer preset without changing timing, masks, blink, mouse, media, or background.',
+                'preset-add-btn': 'Save the current layer stack as a new preset.',
                 'preset-delete-btn': 'Delete the selected preset unless it is the last one.',
                 'preset-export-btn': 'Export the current preset list to JSON.',
                 'preset-import-btn': 'Import a saved TEN26 preset JSON file.',

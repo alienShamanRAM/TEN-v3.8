@@ -174,16 +174,72 @@
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
                     const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');
-                    const compactPresetState = typeof win.createValuesOnlyPresetState === 'function'
-                        ? win.createValuesOnlyPresetState({
+                    const compactPresetState = typeof win.createLayerPresetState === 'function'
+                        ? win.createLayerPresetState({
+                            activeLayerKey: 'layer-1',
+                            layerOrder: ['layer-1'],
+                            svgMediaStackIndex: 1,
+                            mouse: { enabled: true, attractStrength: '240' },
+                            autoTransition: { currentTime: '8' },
+                            bg: { mode: 'cycle3' },
+                            slides: [{ type: 'svg', name: 'sample.svg', svg: '<svg></svg>' }],
                             imageLayer: { src: 'data:image/png;base64,AAA', name: 'sample.png', scale: '75', offsetX: '1', offsetY: '2' },
-                            slides: [{ type: 'svg', name: 'sample.svg', svg: '<svg></svg>' }]
+                            dotLayers: {
+                                'layer-1': {
+                                    cols: '11',
+                                    rows: '3',
+                                    spacing: '42',
+                                    visibilityOn: '0.25'
+                                }
+                            },
+                            randomRanges: {
+                                'dot-layer-1-pull': { randomMin: '0.2', randomMax: '0.9' },
+                                'blink-visibility-on': { randomMin: '0.1', randomMax: '2' }
+                            },
+                            randomLocks: ['dot-layer-1-pull', 'blink-visibility-on']
                         })
                         : null;
                     const compactExportReady = !!compactPresetState &&
+                        compactPresetState.presetType === 'layers' &&
                         !compactPresetState.slides &&
-                        !compactPresetState.imageLayer?.src &&
-                        compactPresetState.imageLayer?.scale === '75';
+                        !compactPresetState.imageLayer &&
+                        !compactPresetState.mouse &&
+                        !compactPresetState.autoTransition &&
+                        compactPresetState.dotLayers?.['layer-1']?.cols === '11' &&
+                        compactPresetState.dotLayers?.['layer-1']?.visibilityOn === undefined &&
+                        !!compactPresetState.randomRanges?.['dot-layer-1-pull'] &&
+                        !compactPresetState.randomRanges?.['blink-visibility-on'] &&
+                        compactPresetState.randomLocks?.includes('dot-layer-1-pull') &&
+                        !compactPresetState.randomLocks?.includes('blink-visibility-on');
+                    const mouseAttractControl = doc.querySelector('#mouse-attract-strength');
+                    const blinkOnControl = doc.querySelector('#blink-visibility-on');
+                    const timingCurrentControl = doc.querySelector('#transition-current-time');
+                    if (mouseAttractControl) mouseAttractControl.value = '211';
+                    if (blinkOnControl) blinkOnControl.value = '4.25';
+                    if (timingCurrentControl) timingCurrentControl.value = '6.75';
+                    if (typeof win.applyLayerPresetState === 'function') {
+                        win.applyLayerPresetState({
+                            activeLayerKey: 'layer-1',
+                            layerOrder: ['layer-1'],
+                            dotLayers: {
+                                'layer-1': {
+                                    cols: '12',
+                                    rows: '4',
+                                    spacing: '36',
+                                    pull: '0.9'
+                                }
+                            },
+                            randomRanges: {
+                                'dot-layer-1-pull': { randomMin: '0.2', randomMax: '0.9' },
+                                'blink-visibility-on': { randomMin: '0.1', randomMax: '2' }
+                            },
+                            randomLocks: ['dot-layer-1-pull', 'blink-visibility-on']
+                        });
+                    }
+                    const layerApplyKeepsConfig = typeof win.applyLayerPresetState === 'function' &&
+                        mouseAttractControl?.value === '211' &&
+                        blinkOnControl?.value === '4.25' &&
+                        timingCurrentControl?.value === '6.75';
                     const sanitizer = win.TEN26SanitizeSvgText;
                     const unsafeSvg = '<svg onload="alert(1)" xmlns="http://www.w3.org/2000/svg"><scr' + 'ipt>alert(1)</scr' + 'ipt><rect width="10" height="10" /></svg>';
                     const sanitized = typeof sanitizer === 'function' ? sanitizer(unsafeSvg) : '';
@@ -199,7 +255,11 @@
                         return;
                     }
                     if (!compactExportReady) {
-                        fail('Values-only preset compaction did not initialize.');
+                        fail('Layer-only preset serialization did not initialize.');
+                        return;
+                    }
+                    if (!layerApplyKeepsConfig) {
+                        fail('Layer preset apply changed mouse, blink, or timing config.');
                         return;
                     }
                     if (!hasRuntime || !hasOnlyStartupPresets || presetNames.includes('Space Mod') || motionLayerCount < 9 || gridLayerCount < 9) {

@@ -489,9 +489,9 @@ function bindEvents() {
                 presetApplyBtn?.addEventListener('click', () => {
                     const index = parseInt(presetSelect.value, 10);
                     if (!Number.isNaN(index) && presets[index]) {
-                        applyState(presets[index].state);
-                        setPresetStatus(`Applied "${presets[index].name}".`);
-                        if (typeof showUiToast === 'function') showUiToast(`Preset applied: ${presets[index].name}.`);
+                        applyLayerPresetState(presets[index].state);
+                        setPresetStatus(`Applied layer preset "${presets[index].name}".`);
+                        if (typeof showUiToast === 'function') showUiToast(`Layer preset applied: ${presets[index].name}.`);
                     }
                 });
                 presetAddBtn?.addEventListener('click', () => {
@@ -550,7 +550,8 @@ function bindEvents() {
                 }
             }
             createDefaultPresets();
-            applyState(getStartupPresetState());
+            applyState(defaultState());
+            applyLayerPresetState(getStartupPresetState());
             syncFrameInterval();
             updateDrawerTitleStates();
             updateFullscreenUi();

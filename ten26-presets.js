@@ -367,6 +367,163 @@ function getActiveLayerStateFromControls() {
                 };
             }
 
+            const LAYER_PRESET_CONFIG_LAYER_KEYS = [
+                'visibilityEnabled',
+                'visibilityOn',
+                'visibilityOff',
+                'visibilityRandomness',
+                'visibilityProbability',
+                'visibilityGridProximity',
+                'visibilityRespawn'
+            ];
+
+            function stripConfigFieldsFromLayerState(layer = {}) {
+                const next = { ...layer };
+                LAYER_PRESET_CONFIG_LAYER_KEYS.forEach(key => delete next[key]);
+                return next;
+            }
+
+            function getLayerPresetControlPrefix(layerKey) {
+                return `dot-${layerKey}-`;
+            }
+
+            function isLayerPresetControlId(id, layerOrder = ALL_DOT_LAYER_KEYS) {
+                if (typeof id !== 'string' || !id) return false;
+                return layerOrder.some(layerKey => id.startsWith(getLayerPresetControlPrefix(layerKey)));
+            }
+
+            function remapLayerPresetControlId(id, sourceToTarget = {}) {
+                if (typeof id !== 'string' || !id) return '';
+                const entries = Object.entries(sourceToTarget)
+                    .filter(([sourceKey, targetKey]) => sourceKey && targetKey)
+                    .sort((a, b) => b[0].length - a[0].length);
+                for (const [sourceKey, targetKey] of entries) {
+                    const sourcePrefix = getLayerPresetControlPrefix(sourceKey);
+                    if (id.startsWith(sourcePrefix)) {
+                        return `${getLayerPresetControlPrefix(targetKey)}${id.slice(sourcePrefix.length)}`;
+                    }
+                }
+                return id;
+            }
+
+            function filterLayerPresetRandomRanges(state = {}, layerOrder = ALL_DOT_LAYER_KEYS, sourceToTarget = {}) {
+                if (!state || typeof state !== 'object') return {};
+                return Object.entries(state).reduce((acc, [id, range]) => {
+                    const remappedId = remapLayerPresetControlId(id, sourceToTarget);
+                    if (!isLayerPresetControlId(remappedId, layerOrder)) return acc;
+                    if (!range || range.randomMin === undefined || range.randomMax === undefined) return acc;
+                    acc[remappedId] = {
+                        randomMin: String(range.randomMin),
+                        randomMax: String(range.randomMax)
+                    };
+                    return acc;
+                }, {});
+            }
+
+            function filterLayerPresetRandomLocks(state = [], layerOrder = ALL_DOT_LAYER_KEYS, sourceToTarget = {}) {
+                const source = Array.isArray(state)
+                    ? state
+                    : Object.entries(state || {}).filter(([, locked]) => locked).map(([id]) => id);
+                return Array.from(new Set(source
+                    .map(id => remapLayerPresetControlId(id, sourceToTarget))
+                    .filter(id => isLayerPresetControlId(id, layerOrder))));
+            }
+
+            function clampLayerPresetStackIndex(value, layerOrder = []) {
+                const numeric = Number.isFinite(parseFloat(value)) ? Math.round(parseFloat(value)) : layerOrder.length;
+                return Math.max(0, Math.min(layerOrder.length, numeric));
+            }
+
+            function createLayerPresetState(state = {}) {
+                const sourceState = state && typeof state === 'object' ? state : {};
+                const incomingLayers = sourceState.dotLayers || buildLegacyLayerState(sourceState);
+                let normalizedLayers = normalizeLayerCollection(incomingLayers, sourceState.layerOrder);
+                if (!normalizedLayers.layerOrder.length) {
+                    normalizedLayers = normalizeLayerCollection({
+                        [DEFAULT_LAYER_KEY]: createDefaultLayerState(DEFAULT_LAYER_KEY, { name: 'Grid 1' })
+                    }, [DEFAULT_LAYER_KEY]);
+                }
+                const layerOrder = normalizedLayers.layerOrder.length ? normalizedLayers.layerOrder : [DEFAULT_LAYER_KEY];
+                const dotLayers = layerOrder.reduce((acc, layerKey) => {
+                    const incoming = normalizedLayers.dotLayers[layerKey] || {};
+                    const coerced = coerceLayerStateForV12(createDefaultLayerState(layerKey, incoming), incoming);
+                    acc[layerKey] = stripConfigFieldsFromLayerState(coerced);
+                    return acc;
+                }, {});
+                const mappedActiveLayerKey = normalizedLayers.sourceToTarget[sourceState.activeLayerKey] || sourceState.activeLayerKey;
+                const activePresetLayerKey = layerOrder.includes(mappedActiveLayerKey) ? mappedActiveLayerKey : layerOrder[0];
+                return {
+                    presetType: 'layers',
+                    activeLayerKey: activePresetLayerKey || DEFAULT_LAYER_KEY,
+                    layerOrder,
+                    svgMediaStackIndex: clampLayerPresetStackIndex(sourceState.svgMediaStackIndex ?? layerOrder.length, layerOrder),
+                    dotLayers,
+                    randomRanges: filterLayerPresetRandomRanges(sourceState.randomRanges || {}, layerOrder, normalizedLayers.sourceToTarget),
+                    randomLocks: filterLayerPresetRandomLocks(sourceState.randomLocks || [], layerOrder, normalizedLayers.sourceToTarget)
+                };
+            }
+
+            function getCurrentLayerPresetState() {
+                return createLayerPresetState(getCurrentState());
+            }
+
+            function applyLayerPresetRandomState(layerPreset = {}) {
+                const preservedRanges = Object.entries(getRandomRangeState())
+                    .filter(([id]) => !isLayerPresetControlId(id))
+                    .reduce((acc, [id, range]) => {
+                        acc[id] = range;
+                        return acc;
+                    }, {});
+                applyRandomRangeState({
+                    ...preservedRanges,
+                    ...(layerPreset.randomRanges || {})
+                });
+
+                const preservedLocks = getRandomLockState().filter(id => !isLayerPresetControlId(id));
+                applyRandomLockState([
+                    ...preservedLocks,
+                    ...(layerPreset.randomLocks || [])
+                ]);
+            }
+
+            function applyLayerPresetState(state) {
+                if (!state) return;
+                const layerPreset = createLayerPresetState(state);
+                const blinkState = forceBlinkRespawnState(getBlinkStateFromControls());
+                const layerOrder = layerPreset.layerOrder.length ? layerPreset.layerOrder : [DEFAULT_LAYER_KEY];
+                DOT_LAYER_KEYS = layerOrder;
+                svgMediaStackIndex = clampSvgMediaStackIndex(layerPreset.svgMediaStackIndex ?? DOT_LAYER_KEYS.length);
+                dotLayerStates = ALL_DOT_LAYER_KEYS.reduce((acc, layerKey) => {
+                    const incoming = {
+                        ...(layerPreset.dotLayers[layerKey] || {}),
+                        ...blinkState
+                    };
+                    acc[layerKey] = coerceLayerStateForV12(createDefaultLayerState(layerKey, incoming), incoming);
+                    return acc;
+                }, {});
+                invalidateLayerRuntimeConfig();
+                activeLayerKey = DOT_LAYER_KEYS.includes(layerPreset.activeLayerKey) ? layerPreset.activeLayerKey : DOT_LAYER_KEYS[0];
+                pendingSlideIndex = null;
+                slideFade = null;
+                holdState = 'idle';
+                activeHoldMode = null;
+                activeHoldCode = null;
+                autoTransition = null;
+                resetForcesToGrid();
+                setAutoStatus(INTERACTION_HELP_TEXT);
+                ALL_DOT_LAYER_KEYS.forEach(layerKey => {
+                    dotGroups[layerKey].rebuildGrid();
+                    dotGroups[layerKey].returnToGrid();
+                });
+                resetDotMaskAlphas(1);
+                loadActiveLayerIntoUi();
+                applyLayerPresetRandomState(layerPreset);
+                syncLayerRegistryUi();
+                renderCurrentSlide();
+                if (typeof precomputeAllTransitionAssetsSync === 'function') precomputeAllTransitionAssetsSync();
+                document.querySelectorAll('input[type="range"]').forEach(updateRangeIndicator);
+            }
+
             function applyState(state) {
                 if (!state) return;
                 const stage = state.stage || {};
@@ -558,9 +715,9 @@ function getActiveLayerStateFromControls() {
 
             let presets = [];
             let builtInPresetNames = new Set();
-            const APP_VERSION = 'ten26-presets-v2';
+            const APP_VERSION = 'ten26-layer-presets-v1';
             const PRESET_STORAGE_KEY = 'ten26.savedCustomPresets.v3.startupBundle';
-            const PRESET_STORAGE_MODE = 'full-preset-list';
+            const PRESET_STORAGE_MODE = 'layer-preset-list';
             let bundledStartupPresets = null;
 
             function getDefaultAssetBundle() {
@@ -795,6 +952,13 @@ function getActiveLayerStateFromControls() {
                 };
             }
 
+            function serializePresetForLayerSave(preset) {
+                return {
+                    name: preset.name,
+                    state: createLayerPresetState(preset.state)
+                };
+            }
+
             function normalizePresetName(value, fallback = 'Custom Preset') {
                 const name = String(value || '').replace(/\s+/g, ' ').trim();
                 return (name || fallback).slice(0, 80);
@@ -840,9 +1004,9 @@ function getActiveLayerStateFromControls() {
                         app: 'TEN26',
                         version: APP_VERSION,
                         storageMode: PRESET_STORAGE_MODE,
-                        assetMode: 'values-only',
+                        assetMode: 'layers-only',
                         savedAt: new Date().toISOString(),
-                        presets: source.map(serializePresetForValuesOnlySave)
+                        presets: source.map(serializePresetForLayerSave)
                     };
                     localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(payload));
                     return true;
@@ -872,48 +1036,16 @@ function getActiveLayerStateFromControls() {
             function getPresetWarnings(preset) {
                 const state = preset?.state || {};
                 const warnings = [];
-                if (!state.dotLayers && state.autoTransition !== undefined) warnings.push('grid layer values');
-                const normalizedLayers = state.dotLayers ? normalizeLayerCollection(state.dotLayers, state.layerOrder) : null;
+                const normalizedLayers = state.dotLayers
+                    ? normalizeLayerCollection(state.dotLayers, state.layerOrder)
+                    : normalizeLayerCollection(buildLegacyLayerState(state), state.layerOrder);
                 const presetLayerOrder = normalizedLayers?.layerOrder?.length ? normalizedLayers.layerOrder : [];
-                if (state.dotLayers && !presetLayerOrder.length) warnings.push('one or more grid layers');
-                if (state.dotLayers && !state.blink && presetLayerOrder.some(layerKey => normalizedLayers.dotLayers[layerKey]?.visibilityEnabled === undefined)) warnings.push('blink values');
-                if (state.autoTransition === undefined && state.dotLayers) warnings.push('flicker values');
-                if (state.bg === undefined && state.dotLayers) warnings.push('background values');
-                if (state.slide === undefined && state.slides !== undefined) warnings.push('SVG placement');
-                if (state.mask === undefined && state.slides !== undefined) warnings.push('mask values');
-                const missingSlides = (state.slides || [])
-                    .filter(slide => slide?.type === 'svg' && (slide?.name || slide?.fileName) && !slide.svg)
-                    .map(slide => slide.fileName || slide.name);
-                if (missingSlides.length) warnings.push(`missing SVG: ${missingSlides.join(', ')}`);
-                const missingImageSlides = (state.slides || [])
-                    .filter(slide => slide?.type === 'image' && (slide.name || slide.fileName) && !slide.imageSrc)
-                    .map(slide => slide.fileName || slide.name);
-                if (missingImageSlides.length) warnings.push(`missing image slide: ${missingImageSlides.join(', ')}`);
-                const missingVideoSlides = (state.slides || [])
-                    .filter(slide => slide?.type === 'video' && (slide.name || slide.fileName || slide.videoFileName))
-                    .map(slide => slide.videoFileName || slide.fileName || slide.name);
-                if (missingVideoSlides.length) warnings.push(`missing media: ${missingVideoSlides.join(', ')}`);
-                const imageName = state.imageLayer?.fileName || state.imageLayer?.name || '';
-                if (imageName && !state.imageLayer?.src) warnings.push(`missing image: ${imageName}`);
+                if (!presetLayerOrder.length) warnings.push('grid layer values');
                 return warnings;
             }
 
             function styleDefaultPreset(preset) {
-                const state = preset.state || {};
-                if (state.blink) state.blink = forceBlinkRespawnState(state.blink);
-                if (state.dotLayers) {
-                    const normalizedLayers = normalizeLayerCollection(state.dotLayers, state.layerOrder);
-                    state.layerOrder = normalizedLayers.layerOrder;
-                    state.activeLayerKey = normalizedLayers.sourceToTarget[state.activeLayerKey] || state.activeLayerKey;
-                    if (!state.layerOrder.includes(state.activeLayerKey)) state.activeLayerKey = state.layerOrder[0] || DEFAULT_LAYER_KEY;
-                    state.dotLayers = normalizedLayers.dotLayers;
-                    state.layerOrder.forEach(layerKey => {
-                        state.dotLayers[layerKey] = coerceLayerStateForV12(
-                            createDefaultLayerState(layerKey, state.dotLayers[layerKey]),
-                            state.dotLayers[layerKey]
-                        );
-                    });
-                }
+                const state = createLayerPresetState(preset.state || {});
                 return { ...preset, state };
             }
 
@@ -992,14 +1124,14 @@ function getActiveLayerStateFromControls() {
                 const name = getUniquePresetName(rawName, usedNames);
                 const preset = {
                     name,
-                    state: createValuesOnlyPresetState(getCurrentState())
+                    state: getCurrentLayerPresetState()
                 };
                 presets.push(styleDefaultPreset(preset));
                 const saved = savePresetsToStorage();
                 updatePresetDropdown(presets.length - 1);
-                setPresetStatus(saved ? `Added "${name}".` : `Added "${name}" for this session. Browser storage is full, so export to keep it.`);
+                setPresetStatus(saved ? `Added layer preset "${name}".` : `Added layer preset "${name}" for this session. Browser storage is full, so export to keep it.`);
                 if (typeof showUiToast === 'function') {
-                    showUiToast(saved ? `Preset added: ${name}.` : `Preset added: ${name}. Export to keep it.`, saved ? 'info' : 'warning');
+                    showUiToast(saved ? `Layer preset added: ${name}.` : `Layer preset added: ${name}. Export to keep it.`, saved ? 'info' : 'warning');
                 }
             }
 
@@ -1045,14 +1177,15 @@ function getActiveLayerStateFromControls() {
                 const payload = {
                     app: 'TEN26',
                     version: APP_VERSION,
-                    assetMode: 'values-only',
+                    storageMode: PRESET_STORAGE_MODE,
+                    assetMode: 'layers-only',
                     exportedAt: new Date().toISOString(),
-                    presets: presets.map(serializePresetForValuesOnlySave)
+                    presets: presets.map(serializePresetForLayerSave)
                 };
                 const stamp = getLocalDateStamp();
                 downloadTextFile(`ten26-presets-${stamp}.json`, `${JSON.stringify(payload, null, 2)}\n`);
-                setPresetStatus(`Exported ${payload.presets.length} preset${payload.presets.length === 1 ? '' : 's'}.`);
-                if (typeof showUiToast === 'function') showUiToast(`Exported ${payload.presets.length} preset${payload.presets.length === 1 ? '' : 's'}.`);
+                setPresetStatus(`Exported ${payload.presets.length} layer preset${payload.presets.length === 1 ? '' : 's'}.`);
+                if (typeof showUiToast === 'function') showUiToast(`Exported ${payload.presets.length} layer preset${payload.presets.length === 1 ? '' : 's'}.`);
             }
 
             function importPresetCollectionFile(file) {
@@ -1065,9 +1198,9 @@ function getActiveLayerStateFromControls() {
                         presets = imported;
                         const saved = savePresetsToStorage();
                         updatePresetDropdown(0);
-                        setPresetStatus(`Imported ${presets.length} preset${presets.length === 1 ? '' : 's'}.${saved ? '' : ' Browser storage is full, so export to keep this list.'}`);
+                        setPresetStatus(`Imported ${presets.length} layer preset${presets.length === 1 ? '' : 's'}.${saved ? '' : ' Browser storage is full, so export to keep this list.'}`);
                         if (typeof showUiToast === 'function') {
-                            showUiToast(`Imported ${presets.length} preset${presets.length === 1 ? '' : 's'}.`, saved ? 'info' : 'warning');
+                            showUiToast(`Imported ${presets.length} layer preset${presets.length === 1 ? '' : 's'}.`, saved ? 'info' : 'warning');
                         }
                     } catch (error) {
                         console.error('Preset import failed:', error);
@@ -1323,9 +1456,9 @@ function getActiveLayerStateFromControls() {
                 const merged = mergePresetsWithBuiltIns(stored?.presets || [], { fullList: stored?.isFullList });
                 presets = merged.presets;
                 updatePresetDropdown();
-                const builtInLabel = `${merged.builtInCount} startup preset${merged.builtInCount === 1 ? '' : 's'}`;
+                const builtInLabel = `${merged.builtInCount} startup layer preset${merged.builtInCount === 1 ? '' : 's'}`;
                 setPresetStatus(merged.customCount
-                    ? `${builtInLabel} loaded with ${merged.customCount} custom preset${merged.customCount === 1 ? '' : 's'}.`
+                    ? `${builtInLabel} loaded with ${merged.customCount} custom layer preset${merged.customCount === 1 ? '' : 's'}.`
                     : `${builtInLabel} loaded. Add, export, or import presets here.`);
             }
 
