@@ -44,11 +44,38 @@
         <h1>TEN26 Smoke Test</h1>
         <div id="status">Starting...</div>
     </header>
-    <iframe id="app-frame" src="index.html" title="TEN26 app smoke test"></iframe>
+    <iframe id="app-frame" title="TEN26 app smoke test"></iframe>
     <script>
         const statusNode = document.getElementById('status');
         const frame = document.getElementById('app-frame');
         const failures = [];
+        const legacyStartupPresetNames = ['ram1', 'ram3', 'ram22', 'Ram4', 'ram0', 'ram00', 'ram5', 'ram7', 'ram S', 'ram O', 'ram X', 'eraser', 'ram'];
+
+        try {
+            localStorage.setItem('ten26.savedCustomPresets.v3.startupBundle', JSON.stringify({
+                app: 'TEN26',
+                version: 'ten26-layer-presets-v1',
+                storageMode: 'layer-preset-list',
+                presets: legacyStartupPresetNames.map(name => ({
+                    name,
+                    state: {
+                        activeLayerKey: 'layer-1',
+                        layerOrder: ['layer-1'],
+                        dotLayers: {
+                            'layer-1': {
+                                cols: '4',
+                                rows: '2',
+                                spacing: '22'
+                            }
+                        }
+                    }
+                }))
+            }));
+        } catch (error) {
+            failures.push(`Preset storage setup failed: ${error.message}`);
+        }
+
+        frame.src = 'index.html';
 
         window.addEventListener('error', event => {
             failures.push(event.message || 'Unhandled error');
@@ -168,9 +195,16 @@
                         mouseStepNode?.value === '20';
                     const mouseRuntimeReady = typeof win.getMouseInteractionFrameState === 'function' &&
                         typeof win.getMouseInteractionControlState === 'function' &&
+                        typeof win.prepareMouseSvgTargetTargets === 'function' &&
                         typeof win.cycleMouseInteractionMode !== 'function';
-                    if (missingMouseControl || legacyMouseLock || removedAttractNode || !mouseDefaultsReady || !mouseRuntimeReady) {
-                        fail(`Mouse interaction missing or malformed: ${missingMouseControl || (legacyMouseLock ? 'legacy locks' : (removedAttractNode ? 'attract control' : (!mouseDefaultsReady ? 'defaults' : 'runtime')))}`);
+                    const keyboardShortcutFocusReady = typeof win.isTypingTarget === 'function' &&
+                        !win.isTypingTarget(mouseRepelNode) &&
+                        win.isTypingTarget(doc.querySelector('#bg-static-hex')) &&
+                        win.isTypingTarget(doc.querySelector('#preset-select'));
+                    const mouseTargetPrepReady = typeof win.prepareMouseSvgTargetTargets === 'function' &&
+                        win.prepareMouseSvgTargetTargets() > 0;
+                    if (missingMouseControl || legacyMouseLock || removedAttractNode || !mouseDefaultsReady || !mouseRuntimeReady || !keyboardShortcutFocusReady || !mouseTargetPrepReady) {
+                        fail(`Mouse interaction missing or malformed: ${missingMouseControl || (legacyMouseLock ? 'legacy locks' : (removedAttractNode ? 'attract control' : (!mouseDefaultsReady ? 'defaults' : (!mouseRuntimeReady ? 'runtime' : (!keyboardShortcutFocusReady ? 'keyboard focus' : 'target prep')))))}`);
                         return;
                     }
                     const mouseToggle = doc.querySelector('#mouse-interaction-enabled');
@@ -287,9 +321,10 @@
                     const presetOptions = Array.from(doc.querySelector('#preset-select')?.options || []);
                     const presetCount = presetOptions.length;
                     const presetNames = presetOptions.map(option => (option.textContent || '').replace(/^!\s*/, ''));
-                    const startupPresetNames = ['ram1', 'ram3', 'ram22', 'Ram4', 'ram0', 'ram00', 'ram5', 'ram7', 'ram S', 'ram O', 'ram X', 'eraser', 'ram'];
+                    const startupPresetNames = ['Orbit Confetti-4', 'Pink Spiral Swarm-3', 'Bubble Veil-3', 'Pink Bloom-2', 'Soft Orbit-2', 'Chaos Orbit-2', 'Clean Orbit-2', 'Stacked Orbit-4', 'Soft Comet-1', 'Blue Bloom-1', 'Jitter Shards-1', 'Eraser Storm-7', 'Nebula Scatter-2'];
                     const hasOnlyStartupPresets = presetNames.length === startupPresetNames.length &&
-                        startupPresetNames.every((name, index) => presetNames[index] === name);
+                        startupPresetNames.every((name, index) => presetNames[index] === name) &&
+                        legacyStartupPresetNames.every(name => !presetNames.includes(name));
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
                     const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');

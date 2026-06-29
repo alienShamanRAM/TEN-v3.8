@@ -976,7 +976,14 @@ const viewport = document.getElementById('canvas-viewport');
                 const parsed = parseFloat(value);
                 return Number.isFinite(parsed) ? parsed : fallback;
             };
-            const isTypingTarget = el => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+            function isTypingTarget(el) {
+                if (!el) return false;
+                if (el.isContentEditable || el.closest?.('[contenteditable="true"]')) return true;
+                if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+                if (el.tagName !== 'INPUT') return false;
+                const type = (el.type || 'text').toLowerCase();
+                return !['range', 'button', 'checkbox', 'color', 'file', 'radio', 'reset', 'submit'].includes(type);
+            }
 
             function invalidateMouseInteractionConfig() {
                 cachedMouseInteractionConfig = null;
@@ -1165,6 +1172,13 @@ const viewport = document.getElementById('canvas-viewport');
                 return true;
             }
 
+            function prepareMouseSvgTargetTargets() {
+                if (!slides.length || typeof dotGroups === 'undefined') return 0;
+                const slideIndex = clamp(Math.round(currentSlideIndex || 0), 0, slides.length - 1);
+                if (!slides[slideIndex]) return 0;
+                return applyVisibleLayerTargetsForSlide(slideIndex, 1, { activateMask: false });
+            }
+
             function getMouseScrollEntryForAction(action = getActiveMouseInteractionAction() || 'svg-target') {
                 if (action === 'repel') return { control: mouseControls.radius, label: 'Radius' };
                 return { control: mouseControls.svgTargetCount, label: 'SVG Targets' };
@@ -1186,6 +1200,7 @@ const viewport = document.getElementById('canvas-viewport');
                 mouseControls.enabled?.addEventListener('change', () => {
                     clearMouseHeldState();
                     invalidateMouseInteractionConfig();
+                    if (isMouseInteractionEnabled()) prepareMouseSvgTargetTargets();
                     syncMouseInteractionStatus();
                 });
                 [
@@ -1211,8 +1226,9 @@ const viewport = document.getElementById('canvas-viewport');
                     if (!overCanvas || !isMouseInteractionEnabled()) return;
                     if (event.button === 0) {
                         event.preventDefault();
+                        const preparedTargets = prepareMouseSvgTargetTargets();
                         setMouseHeldAction('svg-target', true);
-                        syncMouseInteractionStatus('SVG Target active.');
+                        syncMouseInteractionStatus(preparedTargets ? 'SVG Target active.' : 'Load a slide for SVG target mode.');
                     }
                     if (event.button === 2) {
                         event.preventDefault();

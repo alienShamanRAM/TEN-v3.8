@@ -1284,6 +1284,7 @@ function getActiveLayerStateFromControls() {
             function normalizeVisiblePresetList(source = []) {
                 const usedNames = new Set();
                 return normalizePresetCollection(source).reduce((list, preset) => {
+                    if (isRetiredBuiltInPresetName(preset.name)) return list;
                     const name = getUniquePresetName(preset.name, usedNames);
                     usedNames.add(name);
                     list.push(styleDefaultPreset({ name, state: preset.state }));
@@ -1298,8 +1299,12 @@ function getActiveLayerStateFromControls() {
                 const storedPresets = options.fullList
                     ? normalizeVisiblePresetList(stored)
                     : normalizePresetCollection(stored);
+                let retiredCount = 0;
                 const customPresets = storedPresets.reduce((list, preset) => {
-                    if (builtInPresetNames.has(preset.name) || isRetiredBuiltInPresetName(preset.name)) return list;
+                    if (builtInPresetNames.has(preset.name) || isRetiredBuiltInPresetName(preset.name)) {
+                        if (isRetiredBuiltInPresetName(preset.name)) retiredCount += 1;
+                        return list;
+                    }
                     const name = getUniquePresetName(preset.name, usedNames);
                     usedNames.add(name);
                     list.push(styleDefaultPreset({ name, state: preset.state }));
@@ -1308,7 +1313,8 @@ function getActiveLayerStateFromControls() {
                 return {
                     presets: [...builtIns, ...customPresets],
                     customCount: customPresets.length,
-                    builtInCount: builtIns.length
+                    builtInCount: builtIns.length,
+                    retiredCount
                 };
             }
 
@@ -1495,8 +1501,25 @@ function getActiveLayerStateFromControls() {
                 reader.readAsText(file);
             }
 
+            const RETIRED_BUILT_IN_PRESET_NAMES = new Set([
+                'Space Mod',
+                'ram1',
+                'ram3',
+                'ram22',
+                'Ram4',
+                'ram0',
+                'ram00',
+                'ram5',
+                'ram7',
+                'ram S',
+                'ram O',
+                'ram X',
+                'eraser',
+                'ram'
+            ]);
+
             function isRetiredBuiltInPresetName(name) {
-                return name === 'Space Mod';
+                return RETIRED_BUILT_IN_PRESET_NAMES.has(name);
             }
 
             // Bundled startup presets come from the exported preset asset; generated samples stay as fallback.
@@ -1732,6 +1755,7 @@ function getActiveLayerStateFromControls() {
                 const stored = loadPresetsFromStorage();
                 const merged = mergePresetsWithBuiltIns(stored?.presets || [], { fullList: stored?.isFullList });
                 presets = merged.presets;
+                if (merged.retiredCount > 0) savePresetsToStorage(presets);
                 updatePresetDropdown();
                 const builtInLabel = `${merged.builtInCount} startup layer preset${merged.builtInCount === 1 ? '' : 's'}`;
                 setPresetStatus(merged.customCount
