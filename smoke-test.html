@@ -164,8 +164,13 @@
                             (expectedMax !== null && node.max !== expectedMax) ||
                             !Number.isFinite(parseFloat(node.value));
                     });
+                    const autoplaySchedulerReady = typeof win.TEN26OnAutoTransitionComplete === 'function';
                     if (missingTransitionControl) {
                         fail(`Transition control missing or malformed: ${missingTransitionControl[0]}`);
+                        return;
+                    }
+                    if (!autoplaySchedulerReady) {
+                        fail('Autoplay scheduler callback is missing.');
                         return;
                     }
                     const mouseControls = [
@@ -303,18 +308,28 @@
                         fail('Special transition planner is missing.');
                         return;
                     }
+                    if (typeof win.getDisplayedSpecialOverlayForFrame !== 'function' || typeof win.getSpecialOverlayTransitionFlicker !== 'function') {
+                        fail('Special overlay transition flicker helpers are missing.');
+                        return;
+                    }
                     const sameSpecialClassPlan = win.getSpecialTransitionPlan(0, 1);
                     const outgoingSpecialPlan = win.getSpecialTransitionPlan(1, 2);
                     const incomingSpecialPlan = win.getSpecialTransitionPlan(2, 1);
-                    if (
-                        sameSpecialClassPlan.currentTarget ||
-                        sameSpecialClassPlan.nextTarget ||
-                        !outgoingSpecialPlan.currentTarget ||
-                        outgoingSpecialPlan.nextTarget ||
-                        incomingSpecialPlan.currentTarget ||
-                        !incomingSpecialPlan.nextTarget
-                    ) {
-                        fail('Special transition exception did not resolve correctly.');
+                    const specialTransitionIsVisualOnly =
+                        sameSpecialClassPlan.sourceSpecial &&
+                        sameSpecialClassPlan.targetSpecial &&
+                        !sameSpecialClassPlan.currentTarget &&
+                        !sameSpecialClassPlan.nextTarget &&
+                        outgoingSpecialPlan.sourceSpecial &&
+                        !outgoingSpecialPlan.targetSpecial &&
+                        !outgoingSpecialPlan.currentTarget &&
+                        !outgoingSpecialPlan.nextTarget &&
+                        !incomingSpecialPlan.sourceSpecial &&
+                        incomingSpecialPlan.targetSpecial &&
+                        !incomingSpecialPlan.currentTarget &&
+                        !incomingSpecialPlan.nextTarget;
+                    if (!specialTransitionIsVisualOnly) {
+                        fail('Special transition overlays should be visual-only and not dot targets.');
                         return;
                     }
                     const canvas = doc.querySelector('#morph-canvas');
@@ -325,6 +340,24 @@
                     const hasOnlyStartupPresets = presetNames.length === startupPresetNames.length &&
                         startupPresetNames.every((name, index) => presetNames[index] === name) &&
                         legacyStartupPresetNames.every(name => !presetNames.includes(name));
+                    const presetExportPayload = typeof win.buildPresetCollectionPayload === 'function'
+                        ? win.buildPresetCollectionPayload(new Date('2026-01-02T03:04:05.000Z'))
+                        : null;
+                    const presetExportNames = presetExportPayload?.presets?.map(preset => preset.name) || [];
+                    const presetExportMatchesList = presetExportPayload?.storageMode === 'layer-preset-list' &&
+                        presetExportNames.length === presetNames.length &&
+                        presetNames.every((name, index) => presetExportNames[index] === name);
+                    if (!presetExportMatchesList) {
+                        fail('Preset export payload does not match the visible preset list.');
+                        return;
+                    }
+                    const settingsExportPayload = typeof win.buildSettingsCollectionPayload === 'function'
+                        ? win.buildSettingsCollectionPayload(new Date('2026-01-02T03:04:05.000Z'))
+                        : null;
+                    if (!settingsExportPayload || settingsExportPayload.storageMode !== 'settings-list' || !Array.isArray(settingsExportPayload.settings)) {
+                        fail('Settings export payload is not available.');
+                        return;
+                    }
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
                     const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');

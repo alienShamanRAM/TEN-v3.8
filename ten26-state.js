@@ -1650,7 +1650,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'mask-scale-time': 'Seconds used for masked dots to shrink out or grow back during slide changes.',
                 'image-mask-expansion': 'Expand the image slide mask outward from the rectangle edges.',
                 'image-mask-scale-time': 'Seconds used for image-slide masked dots to shrink out or grow back.',
-                'slide-auto-duration': 'Seconds between automatic slide advances.',
+                'slide-auto-duration': 'Seconds each SVG slide stays visible before automatic advance.',
                 'transition-current-time': 'Length of the current-slide phase.',
                 'transition-current-flicker-start': 'When current-slide flicker starts inside the current phase. The max follows Current Time.',
                 'transition-next-time': 'Length of the next-slide phase.',

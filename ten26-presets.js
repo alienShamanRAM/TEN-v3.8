@@ -1187,6 +1187,47 @@ function getActiveLayerStateFromControls() {
                 }
             }
 
+            function getEntriesInSelectOrder(select, source = []) {
+                const options = Array.from(select?.options || []);
+                if (!options.length) return source.slice();
+                const ordered = options.reduce((list, option) => {
+                    const index = parseInt(option.value, 10);
+                    if (Number.isInteger(index) && source[index]) list.push(source[index]);
+                    return list;
+                }, []);
+                return ordered.length || !source.length ? ordered : source.slice();
+            }
+
+            function getPresetExportItems() {
+                return getEntriesInSelectOrder(presetSelect, presets).map(serializePresetForLayerSave);
+            }
+
+            function getSettingsExportItems() {
+                return getEntriesInSelectOrder(settingsSelect, savedSettings).map(serializeSettingsForSave);
+            }
+
+            function buildPresetCollectionPayload(date = new Date()) {
+                return {
+                    app: 'TEN26',
+                    version: APP_VERSION,
+                    storageMode: PRESET_STORAGE_MODE,
+                    assetMode: 'layers-only',
+                    exportedAt: date.toISOString(),
+                    presets: getPresetExportItems()
+                };
+            }
+
+            function buildSettingsCollectionPayload(date = new Date()) {
+                return {
+                    app: 'TEN26',
+                    version: SETTINGS_VERSION,
+                    storageMode: SETTINGS_STORAGE_MODE,
+                    assetMode: 'settings-without-layers',
+                    exportedAt: date.toISOString(),
+                    settings: getSettingsExportItems()
+                };
+            }
+
             function updateSettingsActionState() {
                 const index = parseInt(settingsSelect?.value, 10);
                 const setting = savedSettings[index];
@@ -1295,10 +1336,19 @@ function getActiveLayerStateFromControls() {
             function mergePresetsWithBuiltIns(stored = [], options = {}) {
                 const builtIns = buildDefaultPresets().map(styleDefaultPreset);
                 builtInPresetNames = new Set(builtIns.map(preset => preset.name));
+                if (options.fullList) {
+                    const storedPresets = normalizeVisiblePresetList(stored);
+                    const visibleBuiltInCount = storedPresets.filter(preset => builtInPresetNames.has(preset.name)).length;
+                    const retiredCount = normalizePresetCollection(stored).filter(preset => isRetiredBuiltInPresetName(preset.name)).length;
+                    return {
+                        presets: storedPresets.length ? storedPresets : builtIns,
+                        customCount: storedPresets.filter(preset => !builtInPresetNames.has(preset.name)).length,
+                        builtInCount: storedPresets.length ? visibleBuiltInCount : builtIns.length,
+                        retiredCount
+                    };
+                }
                 const usedNames = new Set(builtInPresetNames);
-                const storedPresets = options.fullList
-                    ? normalizeVisiblePresetList(stored)
-                    : normalizePresetCollection(stored);
+                const storedPresets = normalizePresetCollection(stored);
                 let retiredCount = 0;
                 const customPresets = storedPresets.reduce((list, preset) => {
                     if (builtInPresetNames.has(preset.name) || isRetiredBuiltInPresetName(preset.name)) {
@@ -1412,14 +1462,7 @@ function getActiveLayerStateFromControls() {
             }
 
             function exportPresetCollection() {
-                const payload = {
-                    app: 'TEN26',
-                    version: APP_VERSION,
-                    storageMode: PRESET_STORAGE_MODE,
-                    assetMode: 'layers-only',
-                    exportedAt: new Date().toISOString(),
-                    presets: presets.map(serializePresetForLayerSave)
-                };
+                const payload = buildPresetCollectionPayload();
                 const stamp = getLocalDateStamp();
                 downloadTextFile(`ten26-presets-${stamp}.json`, `${JSON.stringify(payload, null, 2)}\n`);
                 setPresetStatus(`Exported ${payload.presets.length} layer preset${payload.presets.length === 1 ? '' : 's'}.`);
@@ -1457,14 +1500,7 @@ function getActiveLayerStateFromControls() {
             }
 
             function exportSettingsCollection() {
-                const payload = {
-                    app: 'TEN26',
-                    version: SETTINGS_VERSION,
-                    storageMode: SETTINGS_STORAGE_MODE,
-                    assetMode: 'settings-without-layers',
-                    exportedAt: new Date().toISOString(),
-                    settings: savedSettings.map(serializeSettingsForSave)
-                };
+                const payload = buildSettingsCollectionPayload();
                 const stamp = getLocalDateStamp();
                 downloadTextFile(`ten26-settings-${stamp}.json`, `${JSON.stringify(payload, null, 2)}\n`);
                 setSettingsStatus(`Exported ${payload.settings.length} saved settings item${payload.settings.length === 1 ? '' : 's'}.`);

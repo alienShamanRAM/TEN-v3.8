@@ -675,15 +675,6 @@
                 });
             }
 
-            function areSlideLikeTargetsReadyForTransition(slide, scaleMultiplier = 1) {
-                if (!slide || typeof dotGroups === 'undefined') return true;
-                return DOT_LAYER_KEYS.every(layerKey => {
-                    const cfg = getLayerRuntimeConfig(layerKey);
-                    if (cfg.hidden) return true;
-                    return hasReadyScreenTargetsForSlideLike(slide, cfg.targetTypes, getTotalGridDots(cfg), scaleMultiplier);
-                });
-            }
-
             function prepareSlideRenderNode(slide) {
                 ensureSlideDomNode(slide);
             }
@@ -752,22 +743,19 @@
                 return {
                     sourceSpecial,
                     targetSpecial,
-                    currentTarget: sourceSpecial && !targetSpecial ? sourceSpecial : null,
-                    nextTarget: targetSpecial && !sourceSpecial ? targetSpecial : null
+                    currentTarget: null,
+                    nextTarget: null
                 };
             }
 
             function areTransitionAssetsReady(targetIndex) {
-                const plan = getSpecialTransitionPlan(currentSlideIndex, targetIndex);
                 return isSlideMaskReadyForTransition(currentSlideIndex) &&
                     isSlideMaskReadyForTransition(targetIndex) &&
                     isSlideRenderReadyForTransition(targetIndex) &&
                     isSpecialOverlayRenderReadyForSlide(currentSlideIndex) &&
                     isSpecialOverlayRenderReadyForSlide(targetIndex) &&
                     areSlideTargetsReadyForTransition(currentSlideIndex) &&
-                    areSlideTargetsReadyForTransition(targetIndex) &&
-                    areSlideLikeTargetsReadyForTransition(plan.currentTarget) &&
-                    areSlideLikeTargetsReadyForTransition(plan.nextTarget);
+                    areSlideTargetsReadyForTransition(targetIndex);
             }
 
             function clearSlideScreenTargetCaches() {
@@ -1777,6 +1765,23 @@
                 updateSpecialOverlayOpacity(performance.now());
             }
 
+            function getTransitionSpecialOverlayForFrame() {
+                if (!autoTransition) return null;
+                const source = autoTransition.specialSourceOverlay?.enabled !== false
+                    ? autoTransition.specialSourceOverlay
+                    : null;
+                const target = autoTransition.specialTargetOverlay?.enabled !== false
+                    ? autoTransition.specialTargetOverlay
+                    : null;
+                if (autoTransition.phase === 'currentPhase') return source;
+                if (autoTransition.phase === 'nextPhase' || autoTransition.phase === 'returnPhase') return target;
+                return target || source;
+            }
+
+            function getDisplayedSpecialOverlayForFrame() {
+                return getTransitionSpecialOverlayForFrame() || getActiveSpecialOverlayForSlide(currentSlideIndex);
+            }
+
             function getContinuousSpecialOverlayFlicker(timestamp = performance.now(), overlay = null) {
                 if (!overlay) return 0;
                 const settings = getAutoSettings();
@@ -1792,18 +1797,59 @@
                 return phase / cycle <= balance ? 1 : 0;
             }
 
+            function getSpecialOverlayTransitionFlicker(timestamp = performance.now(), overlay = null) {
+                if (!autoTransition || !overlay) return null;
+                const settings = autoTransition.settings || getAutoSettings();
+                if (autoTransition.phase === 'currentPhase') {
+                    return samplePhaseFlicker(
+                        autoTransition.timer,
+                        settings.currentTime,
+                        settings.currentFlickerStart,
+                        autoTransition.outTimeline,
+                        settings.outFlicker,
+                        'out'
+                    );
+                }
+                if (autoTransition.phase === 'nextPhase') {
+                    return samplePhaseFlicker(
+                        autoTransition.timer,
+                        settings.nextTime,
+                        settings.nextFlickerStart,
+                        autoTransition.inTimeline,
+                        settings.inFlicker,
+                        'in'
+                    );
+                }
+                return getContinuousSpecialOverlayFlicker(timestamp, overlay);
+            }
+
+            function syncSpecialOverlayNode(overlay) {
+                if (!specialSvgLayer || !overlay) return null;
+                const node = ensureSlideDomNode(overlay);
+                const changed = activeSpecialOverlayId !== overlay.id || specialSvgLayer.firstElementChild !== node;
+                activeSpecialOverlayId = overlay.id;
+                if (node && changed) {
+                    specialSvgLayer.replaceChildren(node);
+                }
+                return { node, changed };
+            }
+
             function updateSpecialOverlayOpacity(timestamp = performance.now()) {
                 if (!specialSvgLayer) return;
-                const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
-                if (!overlay || activeSpecialOverlayId !== overlay.id) {
+                const overlay = getDisplayedSpecialOverlayForFrame();
+                if (!overlay) {
                     if (lastSpecialOverlayOpacity !== '0') {
                         specialSvgLayer.style.opacity = '0';
                         lastSpecialOverlayOpacity = '0';
                     }
                     return;
                 }
-                const flicker = autoTransition ? 1 : getContinuousSpecialOverlayFlicker(timestamp, overlay);
-                const nextOpacity = String(specialOverlayBaseOpacity * flicker);
+                const rendered = syncSpecialOverlayNode(overlay);
+                if (!rendered?.node) return;
+                if (rendered.changed) applySpecialOverlayTransform();
+                const flicker = getSpecialOverlayTransitionFlicker(timestamp, overlay) ?? getContinuousSpecialOverlayFlicker(timestamp, overlay);
+                const baseOpacity = autoTransition ? 1 : specialOverlayBaseOpacity;
+                const nextOpacity = String(baseOpacity * flicker);
                 if (nextOpacity !== lastSpecialOverlayOpacity) {
                     specialSvgLayer.style.opacity = nextOpacity;
                     lastSpecialOverlayOpacity = nextOpacity;
@@ -1812,7 +1858,7 @@
 
             function applySpecialOverlayTransform() {
                 if (!specialSvgLayer) return;
-                const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
+                const overlay = getDisplayedSpecialOverlayForFrame();
                 const node = overlay ? ensureSlideDomNode(overlay) : null;
                 if (!node || !overlay || activeSpecialOverlayId !== overlay.id) return;
                 const placement = getSlidePlacement(overlay);
@@ -1831,7 +1877,7 @@
 
             function renderCurrentSpecialOverlay() {
                 if (!specialSvgLayer) return;
-                const overlay = getActiveSpecialOverlayForSlide(currentSlideIndex);
+                const overlay = getDisplayedSpecialOverlayForFrame();
                 if (!overlay) {
                     activeSpecialOverlayId = null;
                     specialSvgLayer.replaceChildren();
@@ -1839,11 +1885,7 @@
                     lastSpecialOverlayOpacity = '0';
                     return;
                 }
-                const node = ensureSlideDomNode(overlay);
-                activeSpecialOverlayId = overlay.id;
-                if (node && specialSvgLayer.firstElementChild !== node) {
-                    specialSvgLayer.replaceChildren(node);
-                }
+                syncSpecialOverlayNode(overlay);
                 applySpecialOverlayTransform();
                 updateSpecialOverlayOpacity(performance.now());
             }
@@ -2891,6 +2933,7 @@
                 autoTransition.flags = {};
                 autoTransition.phaseTargetIndex = phaseTargetIndex;
                 autoTransition.phaseStarted = false;
+                if (typeof updateSpecialOverlayOpacity === 'function') updateSpecialOverlayOpacity(performance.now());
             }
 
             function stopAutoTransition(resetDots = true) {
@@ -2917,18 +2960,18 @@
             function startAutoTransition(direction = 1, options = {}) {
                 if (!slides.length) {
                     setAutoStatus('Upload at least one slide first.');
-                    return;
+                    return false;
                 }
                 if (activeHoldMode && activeHoldMode !== 'auto') {
                     setAutoStatus('Release Space or Up hold before running Flicker.');
-                    return;
+                    return false;
                 }
                 if (autoTransition) {
                     if (options.interruptActive) {
                         stopAutoTransition(false);
                     } else {
                         setAutoStatus('Flicker is already running. Press Esc to stop.');
-                        return;
+                        return false;
                     }
                 }
 
@@ -2939,7 +2982,7 @@
                     scheduleTransitionPrewarm();
                     setAutoStatus(`Preparing slide ${targetIndex + 1} before transition. Try again in a moment.`);
                     setMorphStatus('Preparing the next slide mask and targets before animation starts.');
-                    return;
+                    return false;
                 }
                 const sourceSlide = slides[fromIndex];
                 const targetSlide = slides[targetIndex];
@@ -2974,8 +3017,8 @@
                     travelMaskCleared: false,
                     deferredMaskApplied: false,
                     mediaTransitionMode,
-                    specialCurrentTarget: specialTransitionPlan.currentTarget,
-                    specialNextTarget: specialTransitionPlan.nextTarget
+                    specialSourceOverlay: specialTransitionPlan.sourceSpecial,
+                    specialTargetOverlay: specialTransitionPlan.targetSpecial
                 };
                 activeHoldMode = 'auto';
                 activeHoldCode = direction > 0 ? 'next' : 'previous';
@@ -2995,12 +3038,13 @@
                     pauseVideoSlide(slides[autoTransition.fromIndex], false);
                     if (autoTransition.mediaTransitionMode === 'cut') {
                         finishMediaFrameCutTransition();
-                        return;
+                        return true;
                     }
                     setForceState({ svgAlpha: 1, gridAlpha: 0 });
                     setAutoStatus('Current slide phase.');
                 }
                 updateViewStatus();
+                return true;
             }
 
             function applyDeferredAutoMask(fromVisible = true) {
@@ -3015,13 +3059,7 @@
                 autoTransition.targetSlideIndex = slideIndex;
                 autoTransition.dynamicTargetScale = scaleMultiplier;
                 holdState = 'attract';
-                const targetSource =
-                    slideIndex === autoTransition.fromIndex && autoTransition.specialCurrentTarget
-                        ? autoTransition.specialCurrentTarget
-                        : (slideIndex === autoTransition.targetIndex && autoTransition.specialNextTarget
-                            ? autoTransition.specialNextTarget
-                            : slideIndex);
-                const activeLayers = applyVisibleLayerTargetsForSlide(targetSource, scaleMultiplier, { activateMask: false });
+                const activeLayers = applyVisibleLayerTargetsForSlide(slideIndex, scaleMultiplier, { activateMask: false });
                 setAutoStatus(activeLayers ? statusText : 'Transition running; all dot layers are hidden.');
                 return activeLayers;
             }
@@ -3074,6 +3112,9 @@
                 requestDeferredWarmups({ mask: true, target: true });
                 updateViewStatus();
                 updateSlideControlStatus();
+                if (typeof window.TEN26OnAutoTransitionComplete === 'function') {
+                    window.TEN26OnAutoTransitionComplete();
+                }
             }
 
             function startAutoNextPhase() {
@@ -3321,7 +3362,7 @@
                 const skipCurrentLock = options.skipCurrentLock !== undefined
                     ? options.skipCurrentLock
                     : manualAdvance;
-                startAutoTransition(direction, {
+                return startAutoTransition(direction, {
                     skipCurrentLock,
                     interruptActive: manualAdvance
                 });

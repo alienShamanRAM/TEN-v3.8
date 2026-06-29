@@ -80,6 +80,10 @@ function bindEvents() {
                     else updateViewStatus();
                 });
                 let headerAutoTimer = null;
+                let headerAutoActive = false;
+                let headerAutoWaitingForTransition = false;
+                const HEADER_AUTO_RETRY_SECONDS = 0.25;
+                const HEADER_AUTO_EMPTY_RETRY_SECONDS = 1;
                 const getHeaderAutoSeconds = () => {
                     const slide = slides[currentSlideIndex];
                     if (slide?.type === 'video') {
@@ -95,32 +99,61 @@ function bindEvents() {
                     const seconds = getHeaderAutoSeconds();
                     return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)} second${seconds === 1 ? '' : 's'}`;
                 };
-                const startHeaderAutoTimer = () => {
-                    if (headerAutoTimer) window.clearInterval(headerAutoTimer);
-                    headerAutoTimer = window.setInterval(runHeaderAutoStep, getHeaderAutoSeconds() * 1000);
+                const clearHeaderAutoTimer = () => {
+                    if (headerAutoTimer) window.clearTimeout(headerAutoTimer);
+                    headerAutoTimer = null;
+                };
+                const startHeaderAutoTimer = (delaySeconds = getHeaderAutoSeconds()) => {
+                    clearHeaderAutoTimer();
+                    if (!headerAutoActive) return;
+                    headerAutoTimer = window.setTimeout(() => {
+                        headerAutoTimer = null;
+                        runHeaderAutoStep();
+                    }, Math.max(0, delaySeconds * 1000));
                 };
                 const setHeaderAutoState = active => {
                     if (typeof setHeaderAutoplayStatus === 'function') setHeaderAutoplayStatus(active);
                     performanceControlGroups.forEach(controls => {
                         controls.auto?.classList.toggle('active', active);
                         controls.auto?.setAttribute('aria-pressed', String(active));
-                        const autoTitle = active ? 'Stop automatic slide advance' : `Automatically advance to the next slide every ${formatHeaderAutoSeconds()}`;
+                        const autoTitle = active ? 'Stop automatic slide advance' : `Automatically advance after ${formatHeaderAutoSeconds()} per slide`;
                         if (typeof setNativeTooltip === 'function') setNativeTooltip(controls.auto, autoTitle);
                         else controls.auto?.setAttribute('title', autoTitle);
                     });
                 };
                 const stopHeaderAuto = () => {
-                    if (headerAutoTimer) window.clearInterval(headerAutoTimer);
-                    headerAutoTimer = null;
+                    headerAutoActive = false;
+                    headerAutoWaitingForTransition = false;
+                    clearHeaderAutoTimer();
                     setHeaderAutoState(false);
                 };
                 const runHeaderAutoStep = () => {
-                    if (!slides.length || autoTransition || activeHoldMode || holdState !== 'idle') return;
-                    beginHoldAdvance(1, 'header-auto');
+                    if (!headerAutoActive) return;
+                    if (!slides.length) {
+                        beginHoldAdvance(1, 'header-auto');
+                        startHeaderAutoTimer(HEADER_AUTO_EMPTY_RETRY_SECONDS);
+                        return;
+                    }
+                    if (autoTransition || activeHoldMode || holdState !== 'idle') {
+                        startHeaderAutoTimer(HEADER_AUTO_RETRY_SECONDS);
+                        return;
+                    }
+                    headerAutoWaitingForTransition = true;
+                    const started = beginHoldAdvance(1, 'header-auto');
+                    if (!started) {
+                        headerAutoWaitingForTransition = false;
+                        startHeaderAutoTimer(HEADER_AUTO_RETRY_SECONDS);
+                    }
                 };
                 const refreshHeaderAutoTiming = () => {
-                    if (headerAutoTimer) startHeaderAutoTimer();
-                    setHeaderAutoState(!!headerAutoTimer);
+                    if (headerAutoActive && !headerAutoWaitingForTransition) startHeaderAutoTimer();
+                    setHeaderAutoState(headerAutoActive);
+                };
+                window.TEN26OnAutoTransitionComplete = () => {
+                    if (!headerAutoActive) return;
+                    headerAutoWaitingForTransition = false;
+                    startHeaderAutoTimer();
+                    setHeaderAutoState(true);
                 };
                 slideControls.autoDuration?.addEventListener('input', refreshHeaderAutoTiming);
                 mediaControls.duration?.addEventListener('input', refreshHeaderAutoTiming);
@@ -136,15 +169,16 @@ function bindEvents() {
                     });
                     controls.auto?.addEventListener('click', event => {
                         event.preventDefault();
-                        if (headerAutoTimer) {
+                        if (headerAutoActive) {
                             stopHeaderAuto();
                             if (typeof showUiToast === 'function') showUiToast('Automatic slide advance stopped.');
                             return;
                         }
+                        headerAutoActive = true;
+                        headerAutoWaitingForTransition = false;
                         setHeaderAutoState(true);
-                        runHeaderAutoStep();
                         startHeaderAutoTimer();
-                        if (typeof showUiToast === 'function') showUiToast(`Automatic slide advance: every ${formatHeaderAutoSeconds()}.`);
+                        if (typeof showUiToast === 'function') showUiToast(`Automatic slide advance: ${formatHeaderAutoSeconds()} per slide.`);
                     });
                     let headerHoldActive = false;
                     const startHeaderHold = event => {
@@ -292,11 +326,6 @@ function bindEvents() {
                 mediaControls.duration?.addEventListener('input', () => {
                     updateSlideControlStatus();
                 });
-                slideControls.autoDuration?.addEventListener('input', () => {
-                    setHeaderAutoState(!!headerAutoTimer);
-                    if (headerAutoTimer) startHeaderAutoTimer();
-                });
-
                 Object.entries(gridControls.layers).forEach(([layerKey, controls]) => {
                     [controls.cols, controls.rows, controls.spacing, controls.offsetX, controls.offsetY].forEach(control => {
                         control?.addEventListener('input', () => {
