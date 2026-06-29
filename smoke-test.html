@@ -274,10 +274,23 @@
                         fail('Special overlay runtime functions are missing.');
                         return;
                     }
+                    const styleLeakProbeSvg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    styleLeakProbeSvg.setAttribute('width', '1');
+                    styleLeakProbeSvg.setAttribute('height', '1');
+                    styleLeakProbeSvg.style.position = 'absolute';
+                    styleLeakProbeSvg.style.left = '-20px';
+                    styleLeakProbeSvg.style.top = '-20px';
+                    const styleLeakProbeRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    styleLeakProbeRect.setAttribute('class', 'special-style-leak-probe');
+                    styleLeakProbeRect.setAttribute('width', '1');
+                    styleLeakProbeRect.setAttribute('height', '1');
+                    styleLeakProbeRect.setAttribute('fill', '#ffffff');
+                    styleLeakProbeSvg.appendChild(styleLeakProbeRect);
+                    doc.body.appendChild(styleLeakProbeSvg);
                     win.applySpecialOverlayState([
                         {
                             name: 'special-a.svg',
-                            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="white"/></svg>',
+                            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><style>.special-style-leak-probe{fill:#ffc5f4!important}</style><rect width="20" height="20" fill="white"/></svg>',
                             assignedSlides: [0],
                             enabled: true
                         },
@@ -288,6 +301,13 @@
                             enabled: true
                         }
                     ]);
+                    const specialVisualNode = doc.querySelector('#special-svg-layer .special-svg-node');
+                    const probeFill = win.getComputedStyle(styleLeakProbeRect).fill;
+                    styleLeakProbeSvg.remove();
+                    if (specialVisualNode?.tagName?.toLowerCase() !== 'img' || /255,\s*197,\s*244|255,\s*212,\s*245/i.test(probeFill)) {
+                        fail('Special overlay SVG styles leaked into the slide document.');
+                        return;
+                    }
                     const specialRows = doc.querySelectorAll('#special-overlay-list .special-overlay-row');
                     const firstRowFirstSlide = specialRows[0]?.querySelector('.special-slide-check');
                     const secondRowFirstSlide = specialRows[1]?.querySelector('.special-slide-check');

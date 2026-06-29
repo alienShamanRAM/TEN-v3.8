@@ -711,6 +711,18 @@
                         slide.domNode = video;
                         return slide.domNode;
                     }
+                    if (slide.type === 'special-svg') {
+                        const img = document.createElement('img');
+                        img.src = getSpecialOverlayImageSrc(slide);
+                        img.alt = slide.name || slide.fileName || 'Special SVG';
+                        img.className = 'special-svg-node';
+                        img.dataset.slideId = String(slide.id);
+                        img.decoding = 'async';
+                        img.draggable = false;
+                        img.style.display = 'block';
+                        slide.domNode = img;
+                        return slide.domNode;
+                    }
                     const fragment = ensureSlideTemplate(slide).content.cloneNode(true);
                     const svg = fragment.querySelector('svg');
                     if (!svg) return null;
@@ -1448,6 +1460,25 @@
                 return overlay?.name || overlay?.fileName || 'Special SVG';
             }
 
+            function getSpecialOverlayImageSrc(overlay) {
+                if (!overlay) return '';
+                if (!overlay.specialSvgObjectUrl) {
+                    overlay.specialSvgObjectUrl = URL.createObjectURL(new Blob([overlay.svg || ''], { type: 'image/svg+xml' }));
+                }
+                return overlay.specialSvgObjectUrl;
+            }
+
+            function releaseSpecialOverlayVisualResource(overlay) {
+                if (!overlay) return;
+                if (overlay.specialSvgObjectUrl) {
+                    URL.revokeObjectURL(overlay.specialSvgObjectUrl);
+                    overlay.specialSvgObjectUrl = '';
+                }
+                overlay.domNode?.remove?.();
+                overlay.domNode = null;
+                overlay.domTemplate = null;
+            }
+
             function getSpecialOverlayCacheIndex(overlay) {
                 return `special:${overlay?.id || overlay?.specialId || 'overlay'}`;
             }
@@ -1504,6 +1535,7 @@
             }
 
             function applySpecialOverlayState(entries = []) {
+                specialOverlays.forEach(releaseSpecialOverlayVisualResource);
                 specialOverlays = (Array.isArray(entries) ? entries : [])
                     .filter(entry => entry && entry.svg)
                     .slice(0, MAX_SPECIAL_OVERLAYS)
@@ -1658,8 +1690,7 @@
                 const index = specialOverlays.findIndex(item => item.id === overlayId);
                 if (index < 0) return;
                 const [removed] = specialOverlays.splice(index, 1);
-                removed.domNode?.remove?.();
-                removed.domTemplate = null;
+                releaseSpecialOverlayVisualResource(removed);
                 handleSpecialOverlayConfigChanged();
                 if (typeof showUiToast === 'function') showUiToast(`Deleted special overlay: ${getSpecialOverlayName(removed)}.`);
             }
