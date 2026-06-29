@@ -877,6 +877,7 @@ function getActiveLayerStateFromControls() {
                         returnGridTime: '0',
                         flickerBias: '6',
                         flickerSpeed: '10',
+                        overlayFlickerSpeed: '10',
                         flickerBalance: '75',
                         flickerWildness: '100',
                         autoDuration: '4'

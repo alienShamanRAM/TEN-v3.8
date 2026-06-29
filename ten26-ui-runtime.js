@@ -66,6 +66,7 @@ function bindEvents() {
                     autoControls.returnGridTime,
                     autoControls.flickerBias,
                     autoControls.flickerSpeed,
+                    autoControls.overlayFlickerSpeed,
                     autoControls.flickerBalance,
                     autoControls.flickerWildness
                 ].forEach(control => {

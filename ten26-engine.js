@@ -760,6 +760,15 @@
                 };
             }
 
+            function isVideoToVideoTransition(sourceSlide, targetSlide) {
+                return sourceSlide?.type === 'video' && targetSlide?.type === 'video';
+            }
+
+            function getTransitionMediaModeForSlides(sourceSlide, targetSlide) {
+                if (isVideoToVideoTransition(sourceSlide, targetSlide)) return 'video-chain';
+                return isMediaSlideType(sourceSlide?.type) ? getMediaTransitionMode() : 'full';
+            }
+
             function areTransitionAssetsReady(targetIndex) {
                 return isSlideMaskReadyForTransition(currentSlideIndex) &&
                     isSlideMaskReadyForTransition(targetIndex) &&
@@ -1816,8 +1825,8 @@
             function getContinuousSpecialOverlayFlicker(timestamp = performance.now(), overlay = null) {
                 if (!overlay) return 0;
                 const settings = getAutoSettings();
-                const onSeconds = Math.max(0.015, settings.flickerOn / 1000);
-                const offSeconds = Math.max(0.015, settings.flickerOff / 1000);
+                const onSeconds = Math.max(0.015, (settings.overlayFlickerOn ?? settings.flickerOn) / 1000);
+                const offSeconds = Math.max(0.015, (settings.overlayFlickerOff ?? settings.flickerOff) / 1000);
                 const cycle = Math.max(0.03, onSeconds + offSeconds);
                 const time = timestamp / 1000;
                 const cycleIndex = Math.floor(time / cycle);
@@ -1836,7 +1845,7 @@
                         autoTransition.timer,
                         settings.currentTime,
                         settings.currentFlickerStart,
-                        autoTransition.outTimeline,
+                        autoTransition.overlayOutTimeline || autoTransition.outTimeline,
                         settings.outFlicker,
                         'out'
                     );
@@ -1846,7 +1855,7 @@
                         autoTransition.timer,
                         settings.nextTime,
                         settings.nextFlickerStart,
-                        autoTransition.inTimeline,
+                        autoTransition.overlayInTimeline || autoTransition.inTimeline,
                         settings.inFlicker,
                         'in'
                     );
@@ -1937,6 +1946,35 @@
                 }
             }
 
+            function seekVideoSlideToTime(slide, time = 0, pauseAfterSeek = true) {
+                if (slide?.type !== 'video') return false;
+                const video = slide.videoElement || slide.domNode || ensureSlideDomNode(slide);
+                if (!video) return false;
+                try {
+                    const duration = Number.isFinite(video.duration) && video.duration > 0
+                        ? video.duration
+                        : (Number.isFinite(slide.duration) && slide.duration > 0 ? slide.duration : 0);
+                    const targetTime = duration > 0
+                        ? clamp(time, 0, Math.max(0, duration - 0.04))
+                        : Math.max(0, time);
+                    if (pauseAfterSeek) video.pause();
+                    video.currentTime = targetTime;
+                    return true;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function seekVideoSlideToTransitionEdge(slide, direction = 1) {
+                if (slide?.type !== 'video') return false;
+                const video = slide.videoElement || slide.domNode || ensureSlideDomNode(slide);
+                const duration = Number.isFinite(video?.duration) && video.duration > 0
+                    ? video.duration
+                    : (Number.isFinite(slide.duration) && slide.duration > 0 ? slide.duration : 0);
+                const targetTime = direction >= 0 && duration > 0 ? duration - 0.04 : 0;
+                return seekVideoSlideToTime(slide, targetTime, true);
+            }
+
             function playVideoSlide(slide, reset = false) {
                 if (slide?.type !== 'video') return;
                 const video = ensureSlideDomNode(slide);
@@ -1956,6 +1994,22 @@
 
             function pauseAllVideos(reset = false) {
                 slides.forEach(slide => pauseVideoSlide(slide, reset));
+            }
+
+            function pauseInactiveVideos(activeIndex = currentSlideIndex, reset = false) {
+                slides.forEach((slide, index) => {
+                    if (index !== activeIndex) pauseVideoSlide(slide, reset);
+                });
+            }
+
+            function pauseVideosForAdvance(direction = 1, preserveCurrentVideoEdge = false) {
+                slides.forEach((slide, index) => {
+                    if (preserveCurrentVideoEdge && index === currentSlideIndex && slide?.type === 'video') {
+                        seekVideoSlideToTransitionEdge(slide, direction);
+                    } else {
+                        pauseVideoSlide(slide, true);
+                    }
+                });
             }
 
             function renderCurrentSlide(options = {}) {
@@ -2794,6 +2848,7 @@
                     returnGridTime: autoControls.returnGridTime?.value || '0',
                     flickerBias: autoControls.flickerBias.value,
                     flickerSpeed: autoControls.flickerSpeed.value,
+                    overlayFlickerSpeed: autoControls.overlayFlickerSpeed?.value || autoControls.flickerSpeed.value,
                     flickerBalance: autoControls.flickerBalance.value,
                     flickerWildness: autoControls.flickerWildness.value,
                     autoDuration: slideControls.autoDuration?.value || '4'
@@ -2853,6 +2908,7 @@
                 setControlValue(autoControls.returnGridTime, pickAutoStateValue(state.returnGridTime, state.gridTime, '0'));
                 setControlValue(autoControls.flickerBias, deriveFlickerBias(state));
                 setControlValue(autoControls.flickerSpeed, deriveFlickerSpeed(state));
+                setControlValue(autoControls.overlayFlickerSpeed, pickAutoStateValue(state.overlayFlickerSpeed, state.specialFlickerSpeed, state.flickerSpeed, deriveFlickerSpeed(state)));
                 setControlValue(autoControls.flickerBalance, deriveFlickerBalance(state));
                 setControlValue(autoControls.flickerWildness, pickAutoStateValue(state.flickerWildness, state.flickerRandom, '100'));
                 setControlValue(slideControls.autoDuration, pickAutoStateValue(state.autoDuration, state.slideAutoDuration, '4'));
@@ -2872,6 +2928,7 @@
                     getControlValue(autoControls.returnGridTime),
                     getControlValue(autoControls.flickerBias),
                     getControlValue(autoControls.flickerSpeed),
+                    getControlValue(autoControls.overlayFlickerSpeed),
                     getControlValue(autoControls.flickerBalance),
                     getControlValue(autoControls.flickerWildness)
                 ].join('|');
@@ -2887,9 +2944,11 @@
                 if (cachedAutoSettings && cachedAutoSettingsKey === cacheKey) return cachedAutoSettings;
                 const flickerBias = read(autoControls.flickerBias) / 100;
                 const flickerSpeed = read(autoControls.flickerSpeed);
+                const overlayFlickerSpeed = autoControls.overlayFlickerSpeed ? read(autoControls.overlayFlickerSpeed) : flickerSpeed;
                 const flickerBalance = read(autoControls.flickerBalance) / 100;
                 const flickerWildness = read(autoControls.flickerWildness);
                 const cycleMs = clamp(1000 / Math.max(0.01, flickerSpeed), 30, 1800);
+                const overlayCycleMs = clamp(1000 / Math.max(0.01, overlayFlickerSpeed), 30, 1800);
                 const rawCurrentTime = Math.max(0.1, read(autoControls.currentTime));
                 const rawNextTime = Math.max(0.1, read(autoControls.nextTime));
                 const returnGridTime = clamp(readStateFloat(getControlValue(autoControls.returnGridTime), 0), 0, 8);
@@ -2910,18 +2969,20 @@
                     inFlicker: Math.max(0.05, nextFlickerWindow * (1 + flickerBias * 0.35)),
                     flickerOn: clamp(cycleMs * flickerBalance, 15, 900),
                     flickerOff: clamp(cycleMs * (1 - flickerBalance), 15, 900),
+                    overlayFlickerOn: clamp(overlayCycleMs * flickerBalance, 15, 900),
+                    overlayFlickerOff: clamp(overlayCycleMs * (1 - flickerBalance), 15, 900),
                     flickerRandom: flickerWildness,
                     flickerResolve: clamp(98 - flickerWildness * 0.62, 25, 98)
                 };
                 return cachedAutoSettings;
             }
 
-            function buildFlickerTimeline(duration, mode, settings, seed = 0) {
+            function buildFlickerTimeline(duration, mode, settings, seed = 0, options = {}) {
                 const finalState = mode === 'out' ? 0 : 1;
                 const jitter = clamp(settings.flickerRandom, 0, 100) / 100;
                 const resolve = clamp(settings.flickerResolve, 0, 100) / 100;
-                const onBase = Math.max(0.015, settings.flickerOn / 1000);
-                const offBase = Math.max(0.015, settings.flickerOff / 1000);
+                const onBase = Math.max(0.015, (options.flickerOn ?? settings.flickerOn) / 1000);
+                const offBase = Math.max(0.015, (options.flickerOff ?? settings.flickerOff) / 1000);
                 const total = Math.max(0.001, duration);
                 const timeline = [];
                 let cursor = 0;
@@ -2945,6 +3006,13 @@
                 }
                 timeline.push({ end: total + 1, visible: finalState });
                 return timeline;
+            }
+
+            function buildOverlayFlickerTimeline(duration, mode, settings, seed = 0) {
+                return buildFlickerTimeline(duration, mode, settings, seed, {
+                    flickerOn: settings.overlayFlickerOn ?? settings.flickerOn,
+                    flickerOff: settings.overlayFlickerOff ?? settings.flickerOff
+                });
             }
 
             function sampleFlickerTimeline(time, duration, timeline, mode) {
@@ -3018,7 +3086,7 @@
                 const sourceSlide = slides[fromIndex];
                 const targetSlide = slides[targetIndex];
                 const specialTransitionPlan = getSpecialTransitionPlan(fromIndex, targetIndex);
-                const mediaTransitionMode = isMediaSlideType(sourceSlide?.type) ? getMediaTransitionMode() : 'full';
+                const mediaTransitionMode = getTransitionMediaModeForSlides(sourceSlide, targetSlide);
                 const needsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
                 let deferredMaskFrom = null;
                 let deferredMaskTo = null;
@@ -3042,6 +3110,8 @@
                     flickerSeed,
                     outTimeline: buildFlickerTimeline(settings.outFlicker, 'out', settings, flickerSeed),
                     inTimeline: buildFlickerTimeline(settings.inFlicker, 'in', settings, flickerSeed + 193.7),
+                    overlayOutTimeline: buildOverlayFlickerTimeline(settings.outFlicker, 'out', settings, flickerSeed + 389.3),
+                    overlayInTimeline: buildOverlayFlickerTimeline(settings.inFlicker, 'in', settings, flickerSeed + 571.9),
                     phaseStarted: false,
                     deferredMaskFrom,
                     deferredMaskTo,
@@ -3062,9 +3132,6 @@
                 beginAutoDotTarget(currentSlideIndex, `Flicker: dots locking to current slide ${currentSlideIndex + 1}.`);
                 setMorphStatus(`Flicker started: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
                 setAutoStatus(`Flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
-                if (sourceSlide?.type === 'video') {
-                    playVideoSlide(sourceSlide, true);
-                }
                 if (skipCurrentLock) {
                     pauseVideoSlide(slides[autoTransition.fromIndex], false);
                     if (autoTransition.mediaTransitionMode === 'cut') {
@@ -3102,6 +3169,9 @@
                 slideOpacity = 0;
                 slideFade = null;
                 renderCurrentSlide();
+                if (slides[currentSlideIndex]?.type === 'video') {
+                    playVideoSlide(slides[currentSlideIndex], true);
+                }
                 holdState = 'attract';
                 autoTransition.targetSlideIndex = currentSlideIndex;
                 autoTransition.revealedNew = true;
@@ -3135,7 +3205,7 @@
                 resetForcesToGrid();
                 slideOpacity = slides.length ? 1 : 0;
                 applySlideTransform();
-                pauseAllVideos(false);
+                pauseInactiveVideos(currentSlideIndex, false);
                 if (slides[currentSlideIndex]?.type === 'video') {
                     playVideoSlide(slides[currentSlideIndex], false);
                 }
@@ -3388,8 +3458,8 @@
             }
 
             function beginHoldAdvance(direction = 1, code = 'button-next', options = {}) {
-                pauseAllVideos(true);
                 const manualAdvance = code !== 'header-auto';
+                pauseVideosForAdvance(direction, slides[currentSlideIndex]?.type === 'video');
                 const skipCurrentLock = options.skipCurrentLock !== undefined
                     ? options.skipCurrentLock
                     : manualAdvance;

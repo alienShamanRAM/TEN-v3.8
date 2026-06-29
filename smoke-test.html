@@ -155,7 +155,9 @@
                         ['#transition-current-flicker-start', '0', null],
                         ['#transition-next-time', '0.1', '12'],
                         ['#transition-next-flicker-start', '0', null],
-                        ['#transition-return-grid-time', '0', '8']
+                        ['#transition-return-grid-time', '0', '8'],
+                        ['#transition-flicker-speed', '1', '30'],
+                        ['#transition-overlay-flicker-speed', '1', '30']
                     ];
                     const missingTransitionControl = newTransitionControls.find(([selector, expectedMin, expectedMax]) => {
                         const node = doc.querySelector(selector);
@@ -171,6 +173,13 @@
                     }
                     if (!autoplaySchedulerReady) {
                         fail('Autoplay scheduler callback is missing.');
+                        return;
+                    }
+                    const flickerStateReady = typeof win.getAutoTransitionControlState === 'function' &&
+                        win.getAutoTransitionControlState().flickerSpeed === doc.querySelector('#transition-flicker-speed')?.value &&
+                        win.getAutoTransitionControlState().overlayFlickerSpeed === doc.querySelector('#transition-overlay-flicker-speed')?.value;
+                    if (!flickerStateReady) {
+                        fail('Separate slide/overlay flicker speed state is missing.');
                         return;
                     }
                     const mouseControls = [
@@ -350,6 +359,18 @@
                         !incomingSpecialPlan.nextTarget;
                     if (!specialTransitionIsVisualOnly) {
                         fail('Special transition overlays should be visual-only and not dot targets.');
+                        return;
+                    }
+                    const videoTransitionReady =
+                        typeof win.isVideoToVideoTransition === 'function' &&
+                        typeof win.getTransitionMediaModeForSlides === 'function' &&
+                        typeof win.seekVideoSlideToTransitionEdge === 'function' &&
+                        win.isVideoToVideoTransition({ type: 'video' }, { type: 'video' }) === true &&
+                        win.isVideoToVideoTransition({ type: 'video' }, { type: 'image' }) === false &&
+                        win.getTransitionMediaModeForSlides({ type: 'video' }, { type: 'video' }) === 'video-chain' &&
+                        win.getTransitionMediaModeForSlides({ type: 'video' }, { type: 'image' }) !== 'video-chain';
+                    if (!videoTransitionReady) {
+                        fail('Video transition helpers are missing or malformed.');
                         return;
                     }
                     const canvas = doc.querySelector('#morph-canvas');

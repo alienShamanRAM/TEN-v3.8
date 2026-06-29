@@ -825,6 +825,7 @@ const viewport = document.getElementById('canvas-viewport');
                 returnGridTime: document.getElementById('transition-return-grid-time'),
                 flickerBias: document.getElementById('transition-flicker-bias'),
                 flickerSpeed: document.getElementById('transition-flicker-speed'),
+                overlayFlickerSpeed: document.getElementById('transition-overlay-flicker-speed'),
                 flickerBalance: document.getElementById('transition-flicker-balance'),
                 flickerWildness: document.getElementById('transition-flicker-wildness')
             };
@@ -1657,7 +1658,8 @@ const viewport = document.getElementById('canvas-viewport');
                 'transition-next-flicker-start': 'When next-slide flicker starts inside the next phase. The max follows Next Time.',
                 'transition-return-grid-time': 'Seconds used to fade from the revealed slide target back to grid homes.',
                 'transition-flicker-bias': 'Favor old-out or new-in.',
-                'transition-flicker-speed': 'Visual flicker pulses per second.',
+                'transition-flicker-speed': 'Slide flicker pulses per second.',
+                'transition-overlay-flicker-speed': 'Special overlay flicker pulses per second.',
                 'transition-flicker-balance': 'Visible vs hidden ratio.',
                 'transition-flicker-wildness': 'Randomness in flicker timing.',
                 'mouse-interaction-enabled': 'Enable pointer forces on the canvas.',
