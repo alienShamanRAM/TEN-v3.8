@@ -421,6 +421,10 @@ function bindEvents() {
                         event.stopPropagation();
                         setLayerVisibility(layerKey, !dotLayerStates[layerKey].hidden);
                     });
+                    controls.solo?.addEventListener('click', event => {
+                        event.stopPropagation();
+                        toggleLayerSolo(layerKey);
+                    });
                     controls.randomize?.addEventListener('click', event => {
                         event.stopPropagation();
                         randomizeMotionLayer(layerKey);

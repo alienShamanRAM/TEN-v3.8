@@ -202,6 +202,15 @@
                     </label>
                 </div>
                 <div class="geometry-status" id="mouse-interaction-status">Mouse forces off.</div>
+                <div class="timing-mode-row">
+                    <span>Input</span>
+                    <select id="mouse-input-mode" aria-label="Mouse input mode">
+                        <option value="manual" selected>Manual Only</option>
+                        <option value="auto">Auto Only</option>
+                        <option value="both-override">Both: Manual Wins</option>
+                        <option value="both-additive">Both: Add Forces</option>
+                    </select>
+                </div>
                 <div class="slider-group"><span>Repel</span><input type="range" id="mouse-repel-strength" min="10" max="300" value="300" step="1"><span class="val-indicator" id="val-mouse-repel-strength">300</span></div>
                 <div class="slider-group"><span>SVG Targets</span><input type="range" id="mouse-svg-target-count" min="1" max="400" value="400" step="1"><span class="val-indicator" id="val-mouse-svg-target-count">400</span></div>
                 <div class="slider-group"><span>Radius</span><input type="range" id="mouse-interaction-radius" min="100" max="520" value="520" step="5"><span class="val-indicator" id="val-mouse-interaction-radius">520</span></div>
@@ -234,8 +243,8 @@
                     </select>
                 </div>
                 <div class="slider-group"><span>Auto Speed</span><input type="range" id="mouse-auto-speed" min="10" max="300" value="100" step="5"><span class="val-indicator" id="val-mouse-auto-speed">100%</span></div>
-                <div class="slider-group"><span>Path Width</span><input type="range" id="mouse-auto-width" min="5" max="100" value="70" step="1"><span class="val-indicator" id="val-mouse-auto-width">70%</span></div>
-                <div class="slider-group"><span>Path Height</span><input type="range" id="mouse-auto-height" min="5" max="100" value="55" step="1"><span class="val-indicator" id="val-mouse-auto-height">55%</span></div>
+                <div class="slider-group"><span>Path Width</span><input type="range" id="mouse-auto-width" min="20" max="1280" value="896" step="10"><span class="val-indicator" id="val-mouse-auto-width">896</span></div>
+                <div class="slider-group"><span>Path Height</span><input type="range" id="mouse-auto-height" min="20" max="720" value="396" step="10"><span class="val-indicator" id="val-mouse-auto-height">396</span></div>
                 <div class="slider-group"><span>Pulse Duty</span><input type="range" id="mouse-auto-duty" min="5" max="95" value="50" step="1"><span class="val-indicator" id="val-mouse-auto-duty">50%</span></div>
             </div>
         </div>
@@ -333,7 +342,7 @@
                 </section>
                 <section>
                     <h3>Overview</h3>
-                    <p>TEN26 animates active dot layers between grid homes, SVG targets, raster targets, and special overlays on one shared stage. The main drawers are Layer Lab, View Options, Media, Timing, Mouse Interaction, Flicker, Blink, Look, Save, and Help.</p>
+                    <p>TEN26 animates active dot layers between grid homes, SVG targets, raster targets, and special overlays on one shared stage. The main drawers are Layer Lab, View Options, Media, Timing, Mouse Interaction, Flicker, Blink, Background, Grid, Load & Save, and Help.</p>
                 </section>
                 <section>
                     <h3>Header Controls</h3>
@@ -341,7 +350,7 @@
                 </section>
                 <section>
                     <h3>Layer Lab</h3>
-                    <p>Layer Lab starts with All Layers, a batch editor that pushes motion, size, color, and target values into every active layer, including hidden layers. Force lets it overwrite locked values. Each layer keeps controls for visibility, copy above, copy below, rename, delete, reorder, target type, colors, size, and motion.</p>
+                    <p>Layer Lab starts with All Layers, a batch editor that pushes motion, size, color, and target values into every active layer, including hidden layers. Its header includes hide/show all, randomize all, lock all, unlock all, and reset all. Each layer keeps controls for visibility, solo, copy above, copy below, rename, delete, reorder, target type, colors, size, and motion.</p>
                 </section>
                 <section class="creative-use">
                     <h3>Creative Use</h3>
@@ -373,11 +382,11 @@
                 </section>
                 <section>
                     <h3>Mouse Interaction</h3>
-                    <p>Mouse Interaction is a main drawer. Left hold pulls a limited set of SVG target dots toward the pointer. Right hold repels dots inside the radius. Strength, target count, radius, softness, and scroll step tune how direct or loose the pointer feels.</p>
+                    <p>Mouse Interaction is a main drawer. Left hold pulls a limited set of SVG target dots toward the pointer. Right hold repels dots inside the radius. The input mode can use manual pointer control, the virtual auto cursor, manual override, or additive manual plus auto forces.</p>
                 </section>
                 <section>
                     <h3>Grid</h3>
-                    <p>Grid lives inside Look. It sets columns, rows, spacing, and X/Y offset for each active layer. Apply To All copies the selected layer grid setup to every active layer.</p>
+                    <p>Grid is a top-level drawer. It sets columns, rows, spacing, and X/Y offset for each active layer. Apply To All copies the selected layer grid setup to every active layer.</p>
                 </section>
                 <section>
                     <h3>Flicker</h3>

@@ -2741,7 +2741,8 @@
                     const baseConfig = getLayerRuntimeConfig(this.layerKey);
                     const cfg = baseConfig;
                     if (cfg.hidden) return;
-                    const mouseForce = mouseFrameState && (mouseFrameState.strength > 0 || mouseFrameState.svgTargetActive) ? mouseFrameState : null;
+                    const mouseForces = mouseFrameState?.forces?.length ? mouseFrameState.forces : null;
+                    const mouseForce = mouseFrameState && (mouseForces || mouseFrameState.strength > 0 || mouseFrameState.svgTargetActive) ? mouseFrameState : null;
                     if (this.canSkipUpdate(cfg, mouseForce)) return;
                     const frameDt = Math.min(deltaTime * 60, 3);
                     const now = nowMs * 0.012;
@@ -2760,7 +2761,19 @@
                     const gridRadius = Math.max(1, cfg.gridRadius);
                     const gridRadiusSq = cfg.gridRadiusSq;
                     const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
-                    const svgMouseTarget = mouseForce?.svgTargetActive && mouseForce.svgTargetStrength > 0 ? mouseForce : null;
+                    let svgMouseTarget = null;
+                    if (mouseForces) {
+                        for (let i = 0; i < mouseForces.length; i++) {
+                            const candidate = mouseForces[i];
+                            if (candidate?.svgTargetActive && candidate.svgTargetStrength > 0) {
+                                svgMouseTarget = candidate;
+                                break;
+                            }
+                        }
+                    } else if (mouseForce?.svgTargetActive && mouseForce.svgTargetStrength > 0) {
+                        svgMouseTarget = mouseForce;
+                    }
+                    const mouseForceCount = mouseForces ? mouseForces.length : (mouseForce ? 1 : 0);
                     this.dots.forEach((dot, index) => {
                         let fx = 0;
                         let fy = 0;
@@ -2840,19 +2853,23 @@
                             }
                         }
 
-                        if (mouseForce) {
-                            const mdx = mouseForce.x - dot.x;
-                            const mdy = mouseForce.y - dot.y;
-                            const mouseDistanceSq = mdx * mdx + mdy * mdy;
-                            if (mouseDistanceSq < mouseForce.radiusSq) {
-                                const mouseDistance = Math.max(0.0001, Math.sqrt(mouseDistanceSq));
-                                const near = clamp(1 - mouseDistance / mouseForce.radius, 0, 1);
-                                const influence = Math.pow(smoothstep(0, 1, near), mouseForce.softness) * mouseForce.strength;
-                                if (influence > 0.0001) {
-                                    const direction = mouseForce.mode === 'repel' ? -1 : 1;
-                                    const forceScale = mouseForce.mode === 'repel' ? 0.045 : 0.032;
-                                    fx += mdx * direction * forceScale * influence;
-                                    fy += mdy * direction * forceScale * influence;
+                        if (mouseForceCount) {
+                            for (let mouseIndex = 0; mouseIndex < mouseForceCount; mouseIndex++) {
+                                const pointerForce = mouseForces ? mouseForces[mouseIndex] : mouseForce;
+                                if (!pointerForce || pointerForce.strength <= 0) continue;
+                                const mdx = pointerForce.x - dot.x;
+                                const mdy = pointerForce.y - dot.y;
+                                const mouseDistanceSq = mdx * mdx + mdy * mdy;
+                                if (mouseDistanceSq < pointerForce.radiusSq) {
+                                    const mouseDistance = Math.max(0.0001, Math.sqrt(mouseDistanceSq));
+                                    const near = clamp(1 - mouseDistance / pointerForce.radius, 0, 1);
+                                    const influence = Math.pow(smoothstep(0, 1, near), pointerForce.softness) * pointerForce.strength;
+                                    if (influence > 0.0001) {
+                                        const direction = pointerForce.mode === 'repel' ? -1 : 1;
+                                        const forceScale = pointerForce.mode === 'repel' ? 0.045 : 0.032;
+                                        fx += mdx * direction * forceScale * influence;
+                                        fy += mdy * direction * forceScale * influence;
+                                    }
                                 }
                             }
                         }
@@ -3695,7 +3712,11 @@
                     : activeMaskSlideIndex !== null
                     ? (activeMaskLabel || (Number.isFinite(activeMaskSlideIndex) ? `slide ${activeMaskSlideIndex + 1}` : 'special overlay'))
                     : 'clear';
-                const visibleLayerCount = DOT_LAYER_KEYS.filter(layerKey => !dotLayerStates[layerKey]?.hidden).length;
+                const visibleLayerCount = DOT_LAYER_KEYS.filter(layerKey => (
+                    typeof isLayerEffectivelyHidden === 'function'
+                        ? !isLayerEffectivelyHidden(layerKey)
+                        : !dotLayerStates[layerKey]?.hidden
+                )).length;
                 const dotCount = typeof dotGroups === 'undefined'
                     ? '-'
                     : DOT_LAYER_KEYS.reduce((sum, layerKey) => sum + (dotGroups[layerKey]?.dots?.length || 0), 0);

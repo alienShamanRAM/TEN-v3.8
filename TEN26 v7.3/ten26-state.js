@@ -105,6 +105,12 @@ const viewport = document.getElementById('canvas-viewport');
                 toggle.type = 'button';
                 setNativeTooltip(toggle, 'Show or hide this grid layer.');
                 toggle.textContent = 'Eye';
+                const solo = document.createElement('button');
+                solo.className = 'motion-layer-icon-btn layer-solo-btn';
+                solo.id = `motion-solo-layer-${layerKey}`;
+                solo.type = 'button';
+                setNativeTooltip(solo, 'Solo this grid layer.');
+                solo.textContent = 'S';
                 const trigger = document.createElement('button');
                 trigger.className = 'motion-layer-trigger';
                 trigger.id = `motion-trigger-${layerKey}`;
@@ -113,7 +119,7 @@ const viewport = document.getElementById('canvas-viewport');
                 triggerText.className = 'motion-layer-name';
                 triggerText.textContent = 'Grid';
                 trigger.appendChild(triggerText);
-                header.append(toggle, trigger);
+                header.append(toggle, solo, trigger);
 
                 const content = document.createElement('div');
                 content.className = 'motion-layer-content';
@@ -245,9 +251,12 @@ const viewport = document.getElementById('canvas-viewport');
 
                 const header = document.createElement('div');
                 header.className = 'motion-layer-header global-layer-header';
-                const badge = document.createElement('span');
-                badge.className = 'global-layer-badge';
-                badge.textContent = 'All';
+                const visibility = document.createElement('button');
+                visibility.className = 'motion-layer-icon-btn layer-visibility-btn global-layer-visibility-btn';
+                visibility.id = 'global-layer-visibility';
+                visibility.type = 'button';
+                visibility.textContent = 'Eye';
+                setNativeTooltip(visibility, 'Show or hide all grid layers.');
                 const trigger = document.createElement('button');
                 trigger.className = 'motion-layer-trigger global-layer-trigger';
                 trigger.id = 'global-layer-trigger';
@@ -256,33 +265,26 @@ const viewport = document.getElementById('canvas-viewport');
                 triggerText.className = 'motion-layer-name';
                 triggerText.textContent = 'All Layers';
                 trigger.appendChild(triggerText);
-                const forceWrap = document.createElement('label');
-                forceWrap.className = 'global-layer-force';
-                const forceInput = document.createElement('input');
-                forceInput.type = 'checkbox';
-                forceInput.id = 'global-layer-force';
-                forceWrap.append(forceInput, document.createTextNode('Force'));
-                header.append(badge, trigger, forceWrap);
-
-                const content = document.createElement('div');
-                content.className = 'motion-layer-content global-layer-content';
-
-                const actions = document.createElement('div');
-                actions.className = 'global-layer-actions';
+                const headerActions = document.createElement('div');
+                headerActions.className = 'motion-layer-actions global-layer-header-actions';
                 [
-                    ['global-layer-random', 'Random All', 'pink-action'],
-                    ['global-layer-lock', 'Lock All', ''],
-                    ['global-layer-unlock', 'Unlock All', ''],
-                    ['global-layer-reset', 'Reset Ranges', '']
-                ].forEach(([id, label, tone]) => {
+                    ['global-layer-random', 'Random All', 'Rand', 'pink-action'],
+                    ['global-layer-lock', 'Lock All', 'Lock', ''],
+                    ['global-layer-unlock', 'Unlock All', 'Free', ''],
+                    ['global-layer-reset', 'Reset All', 'Reset', '']
+                ].forEach(([id, label, text, tone]) => {
                     const button = document.createElement('button');
                     button.id = id;
                     button.type = 'button';
-                    button.className = `preset-action-btn ${tone}`.trim();
-                    button.textContent = label;
-                    actions.appendChild(button);
+                    button.className = `preset-action-btn motion-layer-text-action ${tone}`.trim();
+                    button.textContent = text;
+                    setNativeTooltip(button, label);
+                    headerActions.appendChild(button);
                 });
-                content.appendChild(actions);
+                header.append(visibility, trigger, headerActions);
+
+                const content = document.createElement('div');
+                content.className = 'motion-layer-content global-layer-content';
 
                 const topRow = document.createElement('div');
                 topRow.className = 'motion-layer-top-row global-layer-top-row';
@@ -441,11 +443,11 @@ const viewport = document.getElementById('canvas-viewport');
                     'drawer-special-overlays',
                     'drawer-masks'
                 ]);
-                buildDrawerGroup('drawer-look', 'drawer-trigger-look', 'Look', [
-                    'drawer-bg',
-                    'drawer-grid'
-                ]);
-                buildDrawerGroup('drawer-save', 'drawer-trigger-save', 'Save', [
+                ['drawer-bg', 'drawer-grid'].forEach(drawerId => {
+                    const drawer = document.getElementById(drawerId);
+                    drawer?.classList.remove('nested-drawer');
+                });
+                buildDrawerGroup('drawer-save', 'drawer-trigger-save', 'Load & Save', [
                     'drawer-presets',
                     'drawer-save-settings',
                     'drawer-project'
@@ -456,7 +458,7 @@ const viewport = document.getElementById('canvas-viewport');
                 getLeftPanelForDrawer(drawerId)?.querySelectorAll('.motion-layer-drawer:not(.svg-media-stack-drawer)').forEach(drawer => drawer.classList.add('collapsed'));
             }
 
-            // Layer Lab owns the companion layer editor surface; grid setup stays inside Look.
+            // Layer Lab owns the companion layer editor surface; grid setup stays in its top-level drawer.
             function syncLeftPanels() {
                 const panelIsHidden = controlPanel.classList.contains('minimized');
                 LEFT_PANEL_DRAWER_IDS.forEach(drawerId => {
@@ -586,6 +588,7 @@ const viewport = document.getElementById('canvas-viewport');
             const UI_ICONS = {
                 eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c5.2 0 8.8 4.5 9.7 5.8.2.3.2.6 0 .9C20.8 13 17.2 17.5 12 17.5S3.2 13 2.3 11.7a.8.8 0 0 1 0-.9C3.2 9.5 6.8 5 12 5Zm0 2C8.4 7 5.6 9.6 4.4 11.2 5.6 12.9 8.4 15.5 12 15.5s6.4-2.6 7.6-4.3C18.4 9.6 15.6 7 12 7Zm0 1.5a2.7 2.7 0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4Z"/></svg>',
                 eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.3 2.4 21.6 20.7l-1.3 1.3-3.2-3.2A10.8 10.8 0 0 1 12 20C6.8 20 3.2 15.5 2.3 14.2a.8.8 0 0 1 0-.9 17 17 0 0 1 4-4.1L2 4l1.3-1.6Zm6.1 9.3a2.7 2.7 0 0 0 3.4 3.4l-3.4-3.4Zm2.6-6.2c5.2 0 8.8 4.5 9.7 5.8.2.3.2.6 0 .9a16.8 16.8 0 0 1-2.6 3.1l-2.2-2.2a5 5 0 0 0-6-6L9.1 5.4c.9-.2 1.9-.4 2.9-.4Z"/></svg>',
+                solo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2a8.8 8.8 0 1 1 0 17.6 8.8 8.8 0 0 1 0-17.6Zm0 2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Zm0 3.1a3.7 3.7 0 1 1 0 7.4 3.7 3.7 0 0 1 0-7.4Z"/></svg>',
                 dice: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3h11A3.5 3.5 0 0 1 21 6.5v11a3.5 3.5 0 0 1-3.5 3.5h-11A3.5 3.5 0 0 1 3 17.5v-11A3.5 3.5 0 0 1 6.5 3Zm0 2A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 17.5 5h-11ZM8 8.2a1.2 1.2 0 1 1 2.4 0A1.2 1.2 0 0 1 8 8.2Zm5.6 0a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0ZM8 15.8a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Zm5.6 0a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Zm-2.8-3.8a1.2 1.2 0 1 1 2.4 0 1.2 1.2 0 0 1-2.4 0Z"/></svg>',
                 lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1.2c.7 0 1.3.6 1.3 1.3v7.4c0 .7-.6 1.3-1.3 1.3H5.8c-.7 0-1.3-.6-1.3-1.3v-7.4c0-.7.6-1.3 1.3-1.3H7Zm2 0h6V7a3 3 0 0 0-6 0v3Z"/></svg>',
                 unlock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10V7a5 5 0 0 1 9.4-2.4l-1.8.9A3 3 0 0 0 10 7v3h8.2c.7 0 1.3.6 1.3 1.3v7.4c0 .7-.6 1.3-1.3 1.3H5.8c-.7 0-1.3-.6-1.3-1.3v-7.4c0-.7.6-1.3 1.3-1.3H8Z"/></svg>',
@@ -775,6 +778,7 @@ const viewport = document.getElementById('canvas-viewport');
                         drawer: document.getElementById(`motion-drawer-${layerKey}`),
                         trigger: document.getElementById(`motion-trigger-${layerKey}`),
                         toggle: document.getElementById(`motion-toggle-layer-${layerKey}`),
+                        solo: document.getElementById(`motion-solo-layer-${layerKey}`),
                         randomize: document.getElementById(`motion-randomize-${layerKey}`),
                         randomizeText: document.getElementById(`motion-randomize-text-${layerKey}`),
                         lock: document.getElementById(`motion-lock-${layerKey}`),
@@ -814,7 +818,7 @@ const viewport = document.getElementById('canvas-viewport');
             const globalLayerControls = {
                 drawer: document.getElementById('global-layer-drawer'),
                 trigger: document.getElementById('global-layer-trigger'),
-                force: document.getElementById('global-layer-force'),
+                visibility: document.getElementById('global-layer-visibility'),
                 randomize: document.getElementById('global-layer-random'),
                 lock: document.getElementById('global-layer-lock'),
                 unlock: document.getElementById('global-layer-unlock'),
@@ -1070,6 +1074,7 @@ const viewport = document.getElementById('canvas-viewport');
             const mouseControls = {
                 enabled: document.getElementById('mouse-interaction-enabled'),
                 status: document.getElementById('mouse-interaction-status'),
+                inputMode: document.getElementById('mouse-input-mode'),
                 repelStrength: document.getElementById('mouse-repel-strength'),
                 svgTargetCount: document.getElementById('mouse-svg-target-count'),
                 radius: document.getElementById('mouse-interaction-radius'),
@@ -1093,6 +1098,13 @@ const viewport = document.getElementById('canvas-viewport');
             };
             const MOUSE_AUTO_PATH_IDS = ['orbit', 'infinity', 'horizontal', 'vertical'];
             const MOUSE_AUTO_ACTION_IDS = ['svg-target', 'repel', 'alternate', 'pulse'];
+            const MOUSE_INPUT_MODE_IDS = ['manual', 'auto', 'both-override', 'both-additive'];
+            const MOUSE_INPUT_MODE_LABELS = {
+                manual: 'Manual Only',
+                auto: 'Auto Only',
+                'both-override': 'Both: Manual Wins',
+                'both-additive': 'Both: Add Forces'
+            };
             const MOUSE_AUTO_ACTION_LABELS = {
                 'svg-target': 'SVG Pull',
                 repel: 'Repel',
@@ -1143,6 +1155,12 @@ const viewport = document.getElementById('canvas-viewport');
                 strength: 0,
                 svgTargetActive: false,
                 svgTargetCount: 0,
+                svgTargetStrength: 0
+            };
+            const compositeMouseFrameState = {
+                forces: [manualMouseFrameState, autoCursorFrameState],
+                strength: 0,
+                svgTargetActive: false,
                 svgTargetStrength: 0
             };
 
@@ -1318,11 +1336,58 @@ const viewport = document.getElementById('canvas-viewport');
                 setControlValue(control, clamp(next, min, max));
             }
 
+            function normalizeMouseInputMode(value) {
+                const normalized = String(value || '').trim().toLowerCase();
+                return MOUSE_INPUT_MODE_IDS.includes(normalized) ? normalized : 'manual';
+            }
+
+            function mouseInputAllowsManual(inputMode) {
+                return inputMode === 'manual' || inputMode === 'both-override' || inputMode === 'both-additive';
+            }
+
+            function mouseInputAllowsAuto(inputMode) {
+                return inputMode === 'auto' || inputMode === 'both-override' || inputMode === 'both-additive';
+            }
+
+            function getAutoCursorAxisMax(axis) {
+                return axis === 'y' ? STUDIO_HEIGHT : STUDIO_WIDTH;
+            }
+
+            function getAutoCursorFallbackSpan(axis) {
+                return Math.round(getAutoCursorAxisMax(axis) * (axis === 'y' ? 0.55 : 0.7));
+            }
+
+            function normalizeAutoCursorSpanForState(value, axis, unit = '') {
+                const fallback = getAutoCursorFallbackSpan(axis);
+                const max = getAutoCursorAxisMax(axis);
+                const parsed = readStateFloat(value, fallback);
+                if (unit !== 'px' && parsed >= 0 && parsed <= 100) {
+                    return Math.round(max * parsed / 100);
+                }
+                return parsed;
+            }
+
+            function syncAutoCursorDimensionRanges() {
+                [
+                    [mouseControls.autoWidth, 'x'],
+                    [mouseControls.autoHeight, 'y']
+                ].forEach(([control, axis]) => {
+                    if (!control) return;
+                    const max = getAutoCursorAxisMax(axis);
+                    control.min = String(Math.min(20, max));
+                    control.max = String(max);
+                    control.step = max >= 1000 ? '10' : '5';
+                    setClampedControlValue(control, getControlValue(control) || getAutoCursorFallbackSpan(axis), getAutoCursorFallbackSpan(axis));
+                });
+            }
+
             function getMouseInteractionConfig() {
                 if (cachedMouseInteractionConfig) return cachedMouseInteractionConfig;
                 const radius = readClampedControl(mouseControls.radius, 520);
+                const inputMode = normalizeMouseInputMode(mouseControls.inputMode?.value || 'manual');
                 cachedMouseInteractionConfig = {
                     enabled: mouseControls.enabled?.checked === true,
+                    inputMode,
                     repelStrength: readClampedControl(mouseControls.repelStrength, 300) / 100,
                     svgTargetCount: clamp(Math.round(readClampedControl(mouseControls.svgTargetCount, 400)), 1, 400),
                     radius,
@@ -1353,16 +1418,16 @@ const viewport = document.getElementById('canvas-viewport');
                     config.path,
                     STUDIO_WIDTH,
                     STUDIO_HEIGHT,
-                    config.widthPct,
-                    config.heightPct
+                    config.widthPx,
+                    config.heightPx
                 ].join('|');
                 if (cachedAutoCursorPathSamples && cachedAutoCursorPathKey === key) return cachedAutoCursorPathSamples;
 
                 const samples = new Float32Array(MOUSE_AUTO_SAMPLE_COUNT * 2);
                 const centerX = STUDIO_WIDTH * 0.5;
                 const centerY = STUDIO_HEIGHT * 0.5;
-                const ampX = Math.max(1, STUDIO_WIDTH * config.widthPct * 0.005);
-                const ampY = Math.max(1, STUDIO_HEIGHT * config.heightPct * 0.005);
+                const ampX = Math.max(1, Math.min(STUDIO_WIDTH, config.widthPx) * 0.5);
+                const ampY = Math.max(1, Math.min(STUDIO_HEIGHT, config.heightPx) * 0.5);
                 const twoPi = Math.PI * 2;
                 for (let i = 0; i < MOUSE_AUTO_SAMPLE_COUNT; i++) {
                     const phase = i / MOUSE_AUTO_SAMPLE_COUNT;
@@ -1371,7 +1436,7 @@ const viewport = document.getElementById('canvas-viewport');
                     let y = centerY;
                     if (config.path === 'infinity') {
                         x += Math.sin(t) * ampX;
-                        y += Math.sin(t * 2) * ampY * 0.55;
+                        y += Math.sin(t * 2) * ampY;
                     } else if (config.path === 'horizontal') {
                         x += Math.sin(t) * ampX;
                     } else if (config.path === 'vertical') {
@@ -1394,16 +1459,16 @@ const viewport = document.getElementById('canvas-viewport');
                 const path = normalizeMouseAutoPath(mouseControls.autoPath?.value || 'orbit');
                 const action = normalizeMouseAutoAction(mouseControls.autoAction?.value || 'svg-target');
                 const speedPercent = readClampedControl(mouseControls.autoSpeed, 100);
-                const widthPct = readClampedControl(mouseControls.autoWidth, 70);
-                const heightPct = readClampedControl(mouseControls.autoHeight, 55);
+                const widthPx = readClampedControl(mouseControls.autoWidth, getAutoCursorFallbackSpan('x'));
+                const heightPx = readClampedControl(mouseControls.autoHeight, getAutoCursorFallbackSpan('y'));
                 const dutyPct = readClampedControl(mouseControls.autoDuty, 50);
                 cachedAutoCursorConfig = {
                     enabled: mouseConfig.enabled && mouseControls.autoEnabled?.checked === true,
                     path,
                     action,
                     speedPercent,
-                    widthPct,
-                    heightPct,
+                    widthPx,
+                    heightPx,
                     duty: clamp(dutyPct / 100, 0.05, 0.95),
                     cycleSeconds: MOUSE_AUTO_BASE_CYCLE_SECONDS / Math.max(0.1, speedPercent / 100),
                     pathSamples: null
@@ -1459,12 +1524,18 @@ const viewport = document.getElementById('canvas-viewport');
 
             function updateAutoCursorUi() {
                 const mouseEnabled = isMouseInteractionEnabled();
+                const inputMode = normalizeMouseInputMode(mouseControls.inputMode?.value || 'manual');
                 const autoChecked = mouseControls.autoEnabled?.checked === true;
-                const autoActive = mouseEnabled && autoChecked;
+                const autoAllowed = mouseInputAllowsAuto(inputMode);
+                const autoActive = mouseEnabled && autoChecked && autoAllowed;
                 const path = normalizeMouseAutoPath(mouseControls.autoPath?.value || 'orbit');
                 const action = normalizeMouseAutoAction(mouseControls.autoAction?.value || 'svg-target');
+                if (mouseControls.inputMode && mouseControls.inputMode.value !== inputMode) mouseControls.inputMode.value = inputMode;
                 if (mouseControls.autoPath && mouseControls.autoPath.value !== path) mouseControls.autoPath.value = path;
                 if (mouseControls.autoAction && mouseControls.autoAction.value !== action) mouseControls.autoAction.value = action;
+                setTransitionControlActive(mouseControls.inputMode, mouseEnabled);
+                setTransitionControlActive(mouseControls.scrollStep, mouseEnabled && mouseInputAllowsManual(inputMode));
+                setTransitionControlActive(mouseControls.autoEnabled, mouseEnabled && autoAllowed);
                 setTransitionControlActive(mouseControls.autoPath, autoActive);
                 setTransitionControlActive(mouseControls.autoAction, autoActive);
                 setTransitionControlActive(mouseControls.autoSpeed, autoActive);
@@ -1483,12 +1554,14 @@ const viewport = document.getElementById('canvas-viewport');
                     radius: getControlValue(mouseControls.radius) || '520',
                     softness: getControlValue(mouseControls.softness) || '3',
                     scrollStep: getControlValue(mouseControls.scrollStep) || '20',
+                    inputMode: config.inputMode,
                     autoEnabled: mouseControls.autoEnabled?.checked === true,
                     autoPath: autoConfig.path,
                     autoAction: autoConfig.action,
                     autoSpeed: getControlValue(mouseControls.autoSpeed) || '100',
-                    autoWidth: getControlValue(mouseControls.autoWidth) || '70',
-                    autoHeight: getControlValue(mouseControls.autoHeight) || '55',
+                    autoWidth: getControlValue(mouseControls.autoWidth) || String(getAutoCursorFallbackSpan('x')),
+                    autoHeight: getControlValue(mouseControls.autoHeight) || String(getAutoCursorFallbackSpan('y')),
+                    autoSpanUnit: 'px',
                     autoDuty: getControlValue(mouseControls.autoDuty) || '50'
                 };
             }
@@ -1505,9 +1578,19 @@ const viewport = document.getElementById('canvas-viewport');
                 setClampedControlValue(mouseControls.softness, state.softness ?? '3', 3);
                 setClampedControlValue(mouseControls.scrollStep, state.scrollStep ?? '20', 20);
                 setClampedControlValue(mouseControls.autoSpeed, state.autoSpeed ?? '100', 100);
-                setClampedControlValue(mouseControls.autoWidth, state.autoWidth ?? '70', 70);
-                setClampedControlValue(mouseControls.autoHeight, state.autoHeight ?? '55', 55);
+                syncAutoCursorDimensionRanges();
+                setClampedControlValue(
+                    mouseControls.autoWidth,
+                    normalizeAutoCursorSpanForState(state.autoWidth ?? getAutoCursorFallbackSpan('x'), 'x', state.autoSpanUnit),
+                    getAutoCursorFallbackSpan('x')
+                );
+                setClampedControlValue(
+                    mouseControls.autoHeight,
+                    normalizeAutoCursorSpanForState(state.autoHeight ?? getAutoCursorFallbackSpan('y'), 'y', state.autoSpanUnit),
+                    getAutoCursorFallbackSpan('y')
+                );
                 setClampedControlValue(mouseControls.autoDuty, state.autoDuty ?? '50', 50);
+                if (mouseControls.inputMode) mouseControls.inputMode.value = normalizeMouseInputMode(state.inputMode || (state.autoEnabled ? 'both-override' : 'manual'));
                 if (mouseControls.autoPath) mouseControls.autoPath.value = normalizeMouseAutoPath(state.autoPath || 'orbit');
                 if (mouseControls.autoAction) mouseControls.autoAction.value = normalizeMouseAutoAction(state.autoAction || 'svg-target');
                 invalidateMouseInteractionConfig();
@@ -1586,16 +1669,20 @@ const viewport = document.getElementById('canvas-viewport');
 
             function syncMouseInteractionStatus(message = '') {
                 if (mouseControls.status) {
+                    const config = getMouseInteractionConfig();
                     const action = getActiveMouseInteractionAction();
                     const scrollLabel = MOUSE_ACTION_SCROLL_LABELS[action || 'svg-target'] || 'value';
                     const autoConfig = getAutoCursorConfig();
+                    const modeLabel = MOUSE_INPUT_MODE_LABELS[config.inputMode] || MOUSE_INPUT_MODE_LABELS.manual;
                     if (message) mouseControls.status.textContent = message;
-                    else mouseControls.status.textContent = isMouseInteractionEnabled()
-                        ? (action
+                    else mouseControls.status.textContent = config.enabled
+                        ? (action && mouseInputAllowsManual(config.inputMode)
                             ? `${getMouseActionLabel(action)} active. Wheel controls ${scrollLabel}.`
-                            : (autoConfig.enabled
-                                ? `Auto Cursor: ${MOUSE_AUTO_PATH_LABELS[autoConfig.path]} ${MOUSE_AUTO_ACTION_LABELS[autoConfig.action]}. Left/right override.`
-                                : 'Left: SVG targets. Right: repel. Wheel follows held action.'))
+                            : (mouseInputAllowsAuto(config.inputMode)
+                                ? (autoConfig.enabled
+                                    ? `${modeLabel}: ${MOUSE_AUTO_PATH_LABELS[autoConfig.path]} ${MOUSE_AUTO_ACTION_LABELS[autoConfig.action]}.`
+                                    : `${modeLabel}: enable Auto Cursor to start the virtual pointer.`)
+                                : 'Manual Only: Left SVG targets, right repel, wheel follows held action.'))
                         : 'Mouse forces off.';
                 }
                 document.getElementById('drawer-trigger-mouse-interaction')?.classList.toggle('inactive-title', !isMouseInteractionEnabled());
@@ -1660,10 +1747,17 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function bindMouseInteractionEvents() {
+                syncAutoCursorDimensionRanges();
                 mouseControls.enabled?.addEventListener('change', () => {
                     clearMouseHeldState();
                     invalidateMouseInteractionConfig();
                     if (isMouseInteractionEnabled()) prepareMouseSvgTargetTargets();
+                    updateAutoCursorUi();
+                    syncMouseInteractionStatus();
+                });
+                mouseControls.inputMode?.addEventListener('change', () => {
+                    clearMouseHeldState();
+                    invalidateMouseInteractionConfig();
                     updateAutoCursorUi();
                     syncMouseInteractionStatus();
                 });
@@ -1687,6 +1781,9 @@ const viewport = document.getElementById('canvas-viewport');
                     mouseControls.autoDuty
                 ].forEach(control => {
                     control?.addEventListener('input', () => {
+                        if (control === mouseControls.autoWidth || control === mouseControls.autoHeight) {
+                            syncAutoCursorDimensionRanges();
+                        }
                         invalidateAutoCursorConfig();
                         updateAutoCursorUi();
                         syncMouseInteractionStatus();
@@ -1714,7 +1811,8 @@ const viewport = document.getElementById('canvas-viewport');
                 }, { passive: true });
                 window.addEventListener('mousedown', event => {
                     const overCanvas = updateMouseInteractionPointer(event, { refreshRect: true });
-                    if (!overCanvas || !isMouseInteractionEnabled()) return;
+                    const config = getMouseInteractionConfig();
+                    if (!overCanvas || !config.enabled || !mouseInputAllowsManual(config.inputMode)) return;
                     if (event.button === 0) {
                         event.preventDefault();
                         const preparedTargets = prepareMouseSvgTargetTargets();
@@ -1748,7 +1846,8 @@ const viewport = document.getElementById('canvas-viewport');
                     if (!isMouseInteractionUiTarget(event)) event.preventDefault();
                 });
                 window.addEventListener('wheel', event => {
-                    if (!isMouseInteractionEnabled() || !updateMouseInteractionPointer(event, { refreshRect: true })) return;
+                    const config = getMouseInteractionConfig();
+                    if (!config.enabled || !mouseInputAllowsManual(config.inputMode) || !updateMouseInteractionPointer(event, { refreshRect: true })) return;
                     event.preventDefault();
                     adjustMouseInteractionScrollValues(event.deltaY < 0 ? 1 : -1);
                 }, { passive: false });
@@ -1756,13 +1855,8 @@ const viewport = document.getElementById('canvas-viewport');
                 syncMouseInteractionStatus();
             }
 
-            function getMouseInteractionFrameState(nowMs = performance.now()) {
-                const config = getMouseInteractionConfig();
-                const action = getActiveMouseInteractionAction();
-                if (!config.enabled) return null;
-                if (!mouseInteractionState.pointerInside || !action) {
-                    return getAutoCursorFrameState(nowMs, config);
-                }
+            function getManualMouseFrameState(config, action = getActiveMouseInteractionAction()) {
+                if (!mouseInteractionState.pointerInside || !action) return null;
                 manualMouseFrameState.x = mouseInteractionState.x;
                 manualMouseFrameState.y = mouseInteractionState.y;
                 manualMouseFrameState.radius = config.radius;
@@ -1783,6 +1877,36 @@ const viewport = document.getElementById('canvas-viewport');
                 manualMouseFrameState.svgTargetActive = false;
                 manualMouseFrameState.svgTargetStrength = 0;
                 return manualMouseFrameState;
+            }
+
+            function mergeMouseFrameStates(manualState, autoState) {
+                if (manualState && autoState) {
+                    compositeMouseFrameState.forces[0] = manualState;
+                    compositeMouseFrameState.forces[1] = autoState;
+                    compositeMouseFrameState.forces.length = 2;
+                    compositeMouseFrameState.strength = Math.max(manualState.strength || 0, autoState.strength || 0);
+                    compositeMouseFrameState.svgTargetActive = !!(manualState.svgTargetActive || autoState.svgTargetActive);
+                    compositeMouseFrameState.svgTargetStrength = Math.max(manualState.svgTargetStrength || 0, autoState.svgTargetStrength || 0);
+                    return compositeMouseFrameState;
+                }
+                compositeMouseFrameState.forces.length = 0;
+                return manualState || autoState || null;
+            }
+
+            function getMouseInteractionFrameState(nowMs = performance.now()) {
+                const config = getMouseInteractionConfig();
+                if (!config.enabled) return null;
+                const inputMode = config.inputMode;
+                const manualState = mouseInputAllowsManual(inputMode)
+                    ? getManualMouseFrameState(config)
+                    : null;
+                const autoState = mouseInputAllowsAuto(inputMode)
+                    ? getAutoCursorFrameState(nowMs, config)
+                    : null;
+                if (inputMode === 'both-additive') return mergeMouseFrameStates(manualState, autoState);
+                if (inputMode === 'auto') return autoState;
+                if (inputMode === 'both-override') return manualState || autoState;
+                return manualState;
             }
 
             function syncTimingControlRanges() {
@@ -1853,6 +1977,7 @@ const viewport = document.getElementById('canvas-viewport');
                 syncViewportSize();
                 if (typeof invalidateMouseViewportRect === 'function') invalidateMouseViewportRect();
                 if (typeof invalidateAutoCursorConfig === 'function') invalidateAutoCursorConfig();
+                if (typeof syncAutoCursorDimensionRanges === 'function') syncAutoCursorDimensionRanges();
                 setControlValue(stageControls.width, STUDIO_WIDTH);
                 setControlValue(stageControls.height, STUDIO_HEIGHT);
                 if (!changed && !options.force) {
@@ -2101,8 +2226,6 @@ const viewport = document.getElementById('canvas-viewport');
                     slider.id === 'view-scale' ||
                     slider.id === 'transition-global-speed' ||
                     slider.id === 'mouse-auto-speed' ||
-                    slider.id === 'mouse-auto-width' ||
-                    slider.id === 'mouse-auto-height' ||
                     slider.id === 'mouse-auto-duty'
                     ? '%'
                     : '';
@@ -2162,14 +2285,15 @@ const viewport = document.getElementById('canvas-viewport');
                 'transition-flicker-balance': 'Visible vs hidden ratio.',
                 'transition-flicker-wildness': 'Randomness in flicker timing.',
                 'mouse-interaction-enabled': 'Enable pointer forces on the canvas.',
+                'mouse-input-mode': 'Choose manual pointer control, auto cursor only, manual override, or additive manual plus auto forces.',
                 'mouse-repel-strength': 'Force used by right hold.',
                 'mouse-svg-target-count': 'How many SVG target slots move to the mouse while left is held.',
                 'mouse-interaction-radius': 'Right-hold repel radius in canvas pixels.',
                 'mouse-interaction-softness': 'Higher values make pointer falloff softer near the edge.',
                 'mouse-scroll-step': 'Amount changed by mouse wheel for the active mouse action.',
                 'mouse-auto-speed': 'Auto cursor loop speed. Path samples are prepared when values change.',
-                'mouse-auto-width': 'Auto cursor horizontal path span as a percentage of canvas width.',
-                'mouse-auto-height': 'Auto cursor vertical path span as a percentage of canvas height.',
+                'mouse-auto-width': 'Auto cursor horizontal path span in canvas pixels. The max follows the canvas width.',
+                'mouse-auto-height': 'Auto cursor vertical path span in canvas pixels. The max follows the canvas height.',
                 'mouse-auto-duty': 'Percent of each loop spent in the active pulse or SVG half of alternate mode.',
                 'image-scale': 'Image size behind the dots.',
                 'image-offset-x': 'Move image left or right.',
@@ -2186,8 +2310,7 @@ const viewport = document.getElementById('canvas-viewport');
             const MODULE_TOOLTIPS = {
                 'drawer-trigger-dot-matrix': 'Layer Lab: edit every layer together, then refine individual layer stacks.',
                 'drawer-trigger-media': 'Media: vector slides, raster slides, special overlays, and grid masking.',
-                'drawer-trigger-look': 'Look: background image, canvas color, stage size, app backdrop, and grid setup.',
-                'drawer-trigger-save': 'Save: layer presets, non-layer settings, and full project import/export.',
+                'drawer-trigger-save': 'Load & Save: layer presets, non-layer settings, and full project import/export.',
                 'drawer-trigger-timing': 'Timing: global speed, current/next phases, flicker starts, and auto duration.',
                 'drawer-trigger-mouse-interaction': 'Mouse Interaction: left hold pulls SVG targets; right hold repels dots.',
                 'drawer-trigger-grid': 'Grid: columns, rows, spacing, and offsets per active layer.',
@@ -2197,7 +2320,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'drawer-trigger-image-slides': 'Raster: images and videos used as rectangular slide targets.',
                 'drawer-trigger-special-overlays': 'Special Overlays: top-layer SVGs assigned to slide numbers.',
                 'drawer-trigger-flicker': 'Flicker: slide and overlay pulse speed, balance, wildness, and old/new bias.',
-                'drawer-trigger-background': 'Look controls for image layer, canvas color, stage size, and app backdrop.',
+                'drawer-trigger-background': 'Background controls for image layer, canvas color, stage size, and app backdrop.',
                 'drawer-trigger-help': 'Help, tooltip toggle, shortcuts, workflow notes, and creative-use guidance.',
                 'drawer-trigger-presets': 'Presets: save and restore layer stacks, random limits, and locks.',
                 'drawer-trigger-save-settings': 'Save Settings: store non-layer setup while preserving layer values.',
@@ -2238,6 +2361,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'blink-enabled': 'Turn shared grid blink on or off.',
                 'view-overlay-opacity': 'Set info overlay opacity. 0% hides it and stops overlay runtime refresh.',
                 'media-transition-mode': 'Choose how transitions behave when the current slide is media.',
+                'mouse-input-mode': 'Choose whether manual pointer forces, the virtual auto cursor, or both drive dot interaction.',
                 'mouse-auto-enabled': 'Run a virtual cursor when real mouse buttons are not held.',
                 'mouse-auto-path': 'Choose the precomputed virtual cursor path.',
                 'mouse-auto-action': 'Choose whether the virtual cursor pulls SVG targets, repels, alternates, or pulses.',
@@ -2642,10 +2766,43 @@ const viewport = document.getElementById('canvas-viewport');
                 acc[layerKey] = createDefaultLayerState(layerKey);
                 return acc;
             }, {});
+            let soloLayerKeys = new Set();
             let layerRuntimeConfigCache = {};
 
             function getLayerLabel(layerKey) {
                 return dotLayerStates[layerKey]?.name || DOT_LAYER_META[layerKey]?.label || layerKey;
+            }
+
+            function pruneSoloLayerKeys() {
+                let changed = false;
+                soloLayerKeys.forEach(layerKey => {
+                    if (!DOT_LAYER_KEYS.includes(layerKey)) {
+                        soloLayerKeys.delete(layerKey);
+                        changed = true;
+                    }
+                });
+                return changed;
+            }
+
+            function hasSoloLayers() {
+                for (let i = 0; i < DOT_LAYER_KEYS.length; i++) {
+                    if (soloLayerKeys.has(DOT_LAYER_KEYS[i])) return true;
+                }
+                return false;
+            }
+
+            function isLayerSoloed(layerKey) {
+                return soloLayerKeys.has(layerKey);
+            }
+
+            function isLayerEffectivelyHidden(layerKey) {
+                if (!DOT_LAYER_KEYS.includes(layerKey)) return true;
+                if (dotLayerStates[layerKey]?.hidden) return true;
+                return hasSoloLayers() && !soloLayerKeys.has(layerKey);
+            }
+
+            function getEffectiveVisibleLayerCount() {
+                return DOT_LAYER_KEYS.reduce((count, layerKey) => count + (isLayerEffectivelyHidden(layerKey) ? 0 : 1), 0);
             }
 
             function getUnusedLayerKey() {
@@ -2676,7 +2833,7 @@ const viewport = document.getElementById('canvas-viewport');
                 ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                     const canvas = dotLayerCanvases.get(layerKey);
                     if (!canvas) return;
-                    canvas.style.visibility = activeLayerSet.has(layerKey) && !dotLayerStates[layerKey]?.hidden ? 'visible' : 'hidden';
+                    canvas.style.visibility = activeLayerSet.has(layerKey) && !isLayerEffectivelyHidden(layerKey) ? 'visible' : 'hidden';
                     canvas.style.mixBlendMode = 'normal';
                 });
                 items.forEach((item, index) => {
@@ -2704,6 +2861,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function syncLayerRegistryUi() {
+                if (pruneSoloLayerKeys()) invalidateLayerRuntimeConfig();
                 const visualItems = getVisualStackItems();
                 const visualOrderByLayer = new Map();
                 visualItems.forEach((item, index) => {
@@ -2827,6 +2985,8 @@ const viewport = document.getElementById('canvas-viewport');
                     name: DOT_LAYER_META[removedKey].label,
                     hidden: true
                 });
+                soloLayerKeys.delete(removedKey);
+                invalidateLayerRuntimeConfig();
                 dotGroups[removedKey]?.returnToGrid();
                 clearMaskCache();
                 loadActiveLayerIntoUi();
@@ -2870,7 +3030,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const targetColor = normalizeHexColor(state.targetColor, midColor);
                 const visibilityGridProximity = clamp(readStateFloat(state.visibilityGridProximity, 0), 0, 240);
                 const config = {
-                    hidden: !!state.hidden,
+                    hidden: isLayerEffectivelyHidden(layerKey),
                     cols: Math.max(1, parseInt(state.cols, 10) || 1),
                     rows: Math.max(1, parseInt(state.rows, 10) || 1),
                     spacing: readStateFloat(state.spacing, 42),
@@ -3386,7 +3546,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function globalLayerForceEnabled() {
-                return !!globalLayerControls.force?.checked;
+                return true;
             }
 
             function canApplyGlobalValueToControl(control) {
@@ -3488,6 +3648,10 @@ const viewport = document.getElementById('canvas-viewport');
                     event.stopPropagation();
                     toggleGlobalDrawer();
                 });
+                globalLayerControls.visibility?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    toggleAllLayerVisibility();
+                });
                 globalLayerControls.drawer.querySelector('.global-layer-header')?.addEventListener('click', event => {
                     if (event.target.closest('button, input, select, textarea, label')) return;
                     toggleGlobalDrawer();
@@ -3520,13 +3684,6 @@ const viewport = document.getElementById('canvas-viewport');
                     event.stopPropagation();
                     resetRandomRangeControls(getAllLayerProtectedControls());
                     if (motionLayerControls.status) motionLayerControls.status.textContent = 'All layer randomization limits reset.';
-                });
-                globalLayerControls.force?.addEventListener('change', () => {
-                    if (motionLayerControls.status) {
-                        motionLayerControls.status.textContent = globalLayerForceEnabled()
-                            ? 'All Layers Force enabled: global edits overwrite locked values.'
-                            : 'All Layers Force disabled: locked values are protected.';
-                    }
                 });
                 syncGlobalLayerControls();
             }
@@ -3646,6 +3803,7 @@ const viewport = document.getElementById('canvas-viewport');
                 setButtonActionable(globalLayerControls.unlock, hasLockedControls(globalControls));
                 setButtonActionable(globalLayerControls.reset, hasCustomRandomRangeControls(globalControls));
                 setButtonActionable(globalLayerControls.randomize, DOT_LAYER_KEYS.length > 0);
+                setButtonActionable(globalLayerControls.visibility, DOT_LAYER_KEYS.length > 0);
 
                 const canAdd = DOT_LAYER_KEYS.length < ALL_DOT_LAYER_KEYS.length;
                 setButtonActionable(motionLayerControls.copyAbove, canAdd);
@@ -3892,36 +4050,89 @@ const viewport = document.getElementById('canvas-viewport');
                 applyVisualStackOrder();
             }
 
+            function toggleLayerSolo(layerKey) {
+                if (!DOT_LAYER_KEYS.includes(layerKey)) return;
+                if (soloLayerKeys.has(layerKey)) soloLayerKeys.delete(layerKey);
+                else soloLayerKeys.add(layerKey);
+                invalidateLayerRuntimeConfig();
+                DOT_LAYER_KEYS.forEach(key => {
+                    if (isLayerEffectivelyHidden(key)) dotGroups[key]?.returnToGrid();
+                });
+                if (typeof scheduleMaskWarmup === 'function') scheduleMaskWarmup();
+                if (typeof scheduleTargetWarmup === 'function') scheduleTargetWarmup();
+                updateLayerSelectionUi();
+                applyVisualStackOrder();
+            }
+
+            function setAllLayerVisibility(hidden) {
+                DOT_LAYER_KEYS.forEach(layerKey => {
+                    dotLayerStates[layerKey] = { ...dotLayerStates[layerKey], hidden };
+                    if (hidden) dotGroups[layerKey]?.returnToGrid();
+                });
+                invalidateLayerRuntimeConfig();
+                const heldTargetSlideIndex = getHeldTargetSlideIndex();
+                if (heldTargetSlideIndex !== null) {
+                    DOT_LAYER_KEYS.forEach(layerKey => setLayerTargetsFromSlide(layerKey, heldTargetSlideIndex, getHeldTargetScale()));
+                }
+                if (typeof scheduleMaskWarmup === 'function') scheduleMaskWarmup();
+                if (typeof scheduleTargetWarmup === 'function') scheduleTargetWarmup();
+                updateLayerSelectionUi();
+                applyVisualStackOrder();
+            }
+
+            function toggleAllLayerVisibility() {
+                const allExplicitVisible = DOT_LAYER_KEYS.every(layerKey => !dotLayerStates[layerKey]?.hidden);
+                setAllLayerVisibility(allExplicitVisible);
+            }
+
             function updateLayerSelectionUi() {
+                const soloActive = hasSoloLayers();
                 ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                     const label = getLayerLabel(layerKey);
                     const isRegistered = DOT_LAYER_KEYS.includes(layerKey);
                     const isActive = isRegistered && layerKey === activeLayerKey;
                     const isHidden = !!dotLayerStates[layerKey]?.hidden;
+                    const isSoloed = isRegistered && isLayerSoloed(layerKey);
+                    const isSoloMuted = isRegistered && soloActive && !isSoloed && !isHidden;
+                    const isEffectivelyHidden = isRegistered && isLayerEffectivelyHidden(layerKey);
                     const motionControls = getMotionLayerControls(layerKey);
                     const gridLayerControls = gridControls.layers[layerKey];
                     gridLayerControls?.content?.classList.toggle('active', isActive);
-                    gridLayerControls?.content?.classList.toggle('hidden-layer', isHidden);
+                    gridLayerControls?.content?.classList.toggle('hidden-layer', isEffectivelyHidden);
                     motionControls.drawer?.classList.toggle('active-layer', isActive);
-                    motionControls.drawer?.classList.toggle('hidden-layer', isHidden);
+                    motionControls.drawer?.classList.toggle('hidden-layer', isEffectivelyHidden);
+                    motionControls.drawer?.classList.toggle('solo-muted-layer', isSoloMuted);
                     motionControls.toggle?.classList.toggle('hidden-state', isHidden);
                     if (motionControls.toggle && isRegistered) {
                         setIconButton(motionControls.toggle, isHidden ? 'eyeOff' : 'eye', `${label} layer ${isHidden ? 'hidden' : 'visible'}`);
                         motionControls.toggle.setAttribute('aria-pressed', String(!isHidden));
                     }
+                    if (motionControls.solo && isRegistered) {
+                        motionControls.solo.classList.toggle('solo-active', isSoloed);
+                        motionControls.solo.classList.toggle('solo-muted', isSoloMuted);
+                        setIconButton(motionControls.solo, 'solo', `${label} solo ${isSoloed ? 'enabled' : 'disabled'}`);
+                        motionControls.solo.setAttribute('aria-pressed', String(isSoloed));
+                    }
                     if (motionControls.status && isRegistered) {
                         const targetTypes = normalizeTargetTypes(dotLayerStates[layerKey].targetTypes !== undefined ? dotLayerStates[layerKey].targetTypes : dotLayerStates[layerKey].targetType);
                         const targetText = targetTypes.length ? targetTypes.join(' + ') : 'no SVG targets';
-                        motionControls.status.textContent = `${label} layer ${isHidden ? 'hidden' : 'visible'} · ${targetText}.`;
+                        const visibilityText = isHidden ? 'hidden' : (isSoloMuted ? 'muted by solo' : 'visible');
+                        motionControls.status.textContent = `${label} layer ${visibilityText} · ${targetText}.`;
                     }
                 });
                 syncLayerRegistryUi();
+                if (globalLayerControls.visibility) {
+                    const allExplicitVisible = DOT_LAYER_KEYS.every(layerKey => !dotLayerStates[layerKey]?.hidden);
+                    setIconButton(globalLayerControls.visibility, allExplicitVisible ? 'eye' : 'eyeOff', allExplicitVisible ? 'Hide all grid layers' : 'Show all grid layers');
+                    globalLayerControls.visibility.classList.toggle('hidden-state', !allExplicitVisible);
+                    globalLayerControls.visibility.setAttribute('aria-pressed', String(allExplicitVisible));
+                }
                 const label = getLayerLabel(activeLayerKey);
                 const cfg = getLayerRuntimeConfig(activeLayerKey);
                 if (gridControls.status) gridControls.status.textContent = `${label} layout · ${cfg.cols} x ${cfg.rows} · ${Math.round(cfg.spacing)}px.`;
                 if (blinkControls.status) {
                     const enabled = blinkControls.enabled?.checked;
-                    const visibleCount = DOT_LAYER_KEYS.filter(layerKey => !dotLayerStates[layerKey].hidden).length;
+                    const visibleCount = getEffectiveVisibleLayerCount();
                     blinkControls.status.textContent = enabled
                         ? `Blink enabled for ${visibleCount} visible layer${visibleCount === 1 ? '' : 's'} with shared dot indexes.`
                         : 'Blink applies the same dot index across all visible layers.';

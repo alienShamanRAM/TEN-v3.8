@@ -1015,12 +1015,14 @@ function getActiveLayerStateFromControls() {
                         radius: '520',
                         softness: '3',
                         scrollStep: '20',
+                        inputMode: 'manual',
                         autoEnabled: false,
                         autoPath: 'orbit',
                         autoAction: 'svg-target',
                         autoSpeed: '100',
-                        autoWidth: '70',
-                        autoHeight: '55',
+                        autoWidth: '896',
+                        autoHeight: '396',
+                        autoSpanUnit: 'px',
                         autoDuty: '50'
                     },
                     stage: {
