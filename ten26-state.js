@@ -373,7 +373,7 @@ const viewport = document.getElementById('canvas-viewport');
                     ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                         gridContent.insertBefore(createGridLayerContent(layerKey), applyAllButton || gridStatus || null);
                     });
-                    if (gridStatus) gridStatus.textContent = 'Layout controls apply to the selected layer. Apply To All copies that layout across active layers.';
+                    if (gridStatus) gridStatus.textContent = 'Grid controls apply to the selected layer. Apply To All copies that grid setup across active layers.';
                 }
             }
 
@@ -441,9 +441,6 @@ const viewport = document.getElementById('canvas-viewport');
                     'drawer-special-overlays',
                     'drawer-masks'
                 ]);
-                buildDrawerGroup('drawer-playback', 'drawer-trigger-playback', 'Playback', [
-                    'drawer-timing'
-                ]);
                 buildDrawerGroup('drawer-interaction', 'drawer-trigger-interaction', 'Interaction', [
                     'drawer-mouse-interaction'
                 ]);
@@ -453,9 +450,6 @@ const viewport = document.getElementById('canvas-viewport');
                 ]);
                 buildDrawerGroup('drawer-look', 'drawer-trigger-look', 'Look', [
                     'drawer-bg',
-                    'drawer-view-options'
-                ]);
-                buildDrawerGroup('drawer-layout', 'drawer-trigger-layout', 'Layout', [
                     'drawer-grid'
                 ]);
                 buildDrawerGroup('drawer-save', 'drawer-trigger-save', 'Save', [
@@ -469,7 +463,7 @@ const viewport = document.getElementById('canvas-viewport');
                 getLeftPanelForDrawer(drawerId)?.querySelectorAll('.motion-layer-drawer:not(.svg-media-stack-drawer)').forEach(drawer => drawer.classList.add('collapsed'));
             }
 
-            // Layer Lab owns the companion layer editor surface; Layout stays in the right panel.
+            // Layer Lab owns the companion layer editor surface; grid setup stays inside Look.
             function syncLeftPanels() {
                 const panelIsHidden = controlPanel.classList.contains('minimized');
                 LEFT_PANEL_DRAWER_IDS.forEach(drawerId => {
@@ -1864,16 +1858,14 @@ const viewport = document.getElementById('canvas-viewport');
             };
 
             const MODULE_TOOLTIPS = {
-                'drawer-trigger-dot-matrix': 'Layer Lab: all-layer editing, individual layer stacks, and advanced layout.',
+                'drawer-trigger-dot-matrix': 'Layer Lab: all-layer editing and individual layer stacks.',
                 'drawer-trigger-media': 'Load slide artwork, media slides, special overlays, and shared masks.',
-                'drawer-trigger-playback': 'Slide timing, auto advance, and transition phase timing.',
                 'drawer-trigger-interaction': 'Mouse behavior for SVG targeting and repel.',
                 'drawer-trigger-rhythm': 'Flicker and shared blink rhythm.',
-                'drawer-trigger-look': 'Canvas, background image, stage, and preview controls.',
-                'drawer-trigger-layout': 'Advanced per-layer grid layout controls.',
+                'drawer-trigger-look': 'Canvas, background image, stage, and per-layer grid setup.',
                 'drawer-trigger-save': 'Layer presets, non-layer settings, and full project export/import.',
                 'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
-                'drawer-trigger-timing': 'Current/next phase timing, flicker start delays, and auto duration.',
+                'drawer-trigger-timing': 'Slide timing, auto advance, current/next phases, and flicker start delays.',
                 'drawer-trigger-mouse-interaction': 'Left mouse targets SVG dots; right mouse repels dots.',
                 'drawer-trigger-advanced-options': 'Grid layout, flicker visuals, and shared blink behavior.',
                 'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',

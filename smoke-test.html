@@ -121,11 +121,9 @@
                     }
                     const nestedGroups = [
                         ['#drawer-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-special-overlays', '#drawer-masks']],
-                        ['#drawer-playback', ['#drawer-timing']],
                         ['#drawer-interaction', ['#drawer-mouse-interaction']],
                         ['#drawer-rhythm', ['#drawer-flicker', '#drawer-blink-mode']],
-                        ['#drawer-look', ['#drawer-bg', '#drawer-view-options']],
-                        ['#drawer-layout', ['#drawer-grid']],
+                        ['#drawer-look', ['#drawer-bg', '#drawer-grid']],
                         ['#drawer-save', ['#drawer-presets', '#drawer-save-settings', '#drawer-project']]
                     ];
                     const brokenGroup = nestedGroups.find(([parentSelector, childSelectors]) => {
@@ -138,18 +136,16 @@
                     }
                     const labelChecks = [
                         ['#drawer-trigger-dot-matrix', 'Layer Lab'],
+                        ['#drawer-trigger-view-options', 'View Options'],
                         ['#drawer-trigger-media', 'Media'],
-                        ['#drawer-trigger-playback', 'Playback'],
+                        ['#drawer-trigger-timing', 'Timing'],
                         ['#drawer-trigger-interaction', 'Interaction'],
                         ['#drawer-trigger-rhythm', 'Rhythm'],
                         ['#drawer-trigger-look', 'Look'],
-                        ['#drawer-trigger-layout', 'Layout'],
                         ['#drawer-trigger-save', 'Save'],
                         ['#drawer-trigger-grid', 'Grid'],
-                        ['#drawer-trigger-view-options', 'View Options'],
                         ['#drawer-trigger-masks', 'Grid Masking'],
                         ['#drawer-trigger-special-overlays', 'Special Overlays'],
-                        ['#drawer-trigger-timing', 'Timing'],
                         ['#drawer-trigger-save-settings', 'Save Settings'],
                         ['#drawer-trigger-project', 'Project']
                     ];
@@ -159,6 +155,33 @@
                     });
                     if (brokenLabel) {
                         fail(`Drawer label mismatch: ${brokenLabel[0]}`);
+                        return;
+                    }
+                    if (doc.querySelector('#drawer-playback, #drawer-layout, #drawer-trigger-playback, #drawer-trigger-layout')) {
+                        fail('Removed Playback or Layout wrapper drawer still exists.');
+                        return;
+                    }
+                    const topLevelDrawerOrder = Array.from(doc.querySelectorAll('#control-panel > .drawer'))
+                        .sort((a, b) => {
+                            const orderA = parseInt(win.getComputedStyle(a).order, 10) || 0;
+                            const orderB = parseInt(win.getComputedStyle(b).order, 10) || 0;
+                            return orderA - orderB;
+                        })
+                        .map(drawer => drawer.id);
+                    const expectedTopLevelDrawerOrder = [
+                        'drawer-dot-matrix',
+                        'drawer-view-options',
+                        'drawer-media',
+                        'drawer-timing',
+                        'drawer-interaction',
+                        'drawer-rhythm',
+                        'drawer-look',
+                        'drawer-save',
+                        'drawer-help'
+                    ];
+                    const topLevelOrderReady = expectedTopLevelDrawerOrder.every((id, index) => topLevelDrawerOrder[index] === id);
+                    if (!topLevelOrderReady) {
+                        fail(`Top-level drawer order failed: ${topLevelDrawerOrder.join(', ')}`);
                         return;
                     }
                     if (doc.querySelector('#drawer-slide-grid-advanced')) {
@@ -630,7 +653,8 @@
                     }
                     pass(`Passed: hardening active with ${presetCount} preset option${presetCount === 1 ? '' : 's'} and ${motionLayerCount} dynamic layers.`);
                 } catch (error) {
-                    fail(`Smoke test failed: ${error.message}`);
+                    const stackLine = String(error.stack || '').split('\n').slice(1, 3).map(line => line.trim()).join(' ');
+                    fail(`Smoke test failed: ${error.message}${stackLine ? ` (${stackLine})` : ''}`);
                 }
             }, 3000);
         });

@@ -2481,12 +2481,12 @@ input[type="range"]::-moz-range-thumb {
 }
 
 #drawer-dot-matrix { order: 1; }
-#drawer-media { order: 2; }
-#drawer-playback { order: 3; }
-#drawer-interaction { order: 4; }
-#drawer-rhythm { order: 5; }
-#drawer-look { order: 6; }
-#drawer-layout { order: 7; }
+#drawer-view-options { order: 2; }
+#drawer-media { order: 3; }
+#drawer-timing { order: 4; }
+#drawer-interaction { order: 5; }
+#drawer-rhythm { order: 6; }
+#drawer-look { order: 7; }
 #drawer-save { order: 8; }
 #drawer-help { order: 9; }
 
