@@ -684,6 +684,10 @@
                 });
             }
 
+            function areSlideTargetsReadyForTransitionScales(slideIndex, scaleMultipliers = [1]) {
+                return scaleMultipliers.every(scaleMultiplier => areSlideTargetsReadyForTransition(slideIndex, scaleMultiplier));
+            }
+
             function prepareSlideRenderNode(slide) {
                 ensureSlideDomNode(slide);
             }
@@ -788,13 +792,15 @@
                         isSpecialOverlayRenderReadyForSlide(currentSlideIndex) &&
                         isSpecialOverlayRenderReadyForSlide(targetIndex);
                 }
+                const transitionMode = normalizeTransitionMode(options.transitionMode || getTransitionMode());
+                const targetScales = getTransitionWarmupTargetScales(transitionMode);
                 return isSlideMaskReadyForTransition(currentSlideIndex) &&
                     isSlideMaskReadyForTransition(targetIndex) &&
                     isSlideRenderReadyForTransition(targetIndex) &&
                     isSpecialOverlayRenderReadyForSlide(currentSlideIndex) &&
                     isSpecialOverlayRenderReadyForSlide(targetIndex) &&
                     areSlideTargetsReadyForTransition(currentSlideIndex) &&
-                    areSlideTargetsReadyForTransition(targetIndex);
+                    areSlideTargetsReadyForTransitionScales(targetIndex, targetScales);
             }
 
             function clearSlideScreenTargetCaches() {
@@ -841,6 +847,7 @@
                 pendingTargetWarmup = false;
                 if (!slides.length || activeHoldMode || autoTransition || typeof dotGroups === 'undefined') return;
                 const jobs = [];
+                const warmupTargetScales = getTransitionWarmupTargetScales();
                 getPriorityWarmupSlideIndexes().forEach(slideIndex => {
                     const slide = slides[slideIndex];
                     if (!slide) return;
@@ -850,9 +857,11 @@
                         const cfg = getLayerRuntimeConfig(layerKey);
                         const total = getTotalGridDots(cfg);
                         if (!cfg.hidden && total > 0) {
-                            if (!hasReadySlideScreenTargets(slideIndex, cfg.targetTypes, total)) {
-                                jobs.push(() => getSlideScreenTargets(slideIndex, cfg.targetTypes, total));
-                            }
+                            warmupTargetScales.forEach(scaleMultiplier => {
+                                if (!hasReadySlideScreenTargets(slideIndex, cfg.targetTypes, total, scaleMultiplier)) {
+                                    jobs.push(() => getSlideScreenTargets(slideIndex, cfg.targetTypes, total, scaleMultiplier));
+                                }
+                            });
                         }
                     });
                 });
@@ -1458,6 +1467,8 @@
             let activeHoldMode = null;
             let activeHoldCode = null;
             let autoTransition = null;
+            let continuousTargetSlideIndex = null;
+            let continuousTargetScale = 1;
             let dotCanvasesHiddenForVideoChain = false;
             let forceState = {
                 svgAlpha: 0,
@@ -1481,6 +1492,8 @@
             }
 
             function resetForcesToGrid() {
+                continuousTargetSlideIndex = null;
+                continuousTargetScale = 1;
                 setForceState({ svgAlpha: 0, gridAlpha: 1 });
             }
 
@@ -2617,6 +2630,27 @@
                     this.markDirty({ update: false, render: true });
                 }
 
+                snapToTargets() {
+                    const cfg = getLayerRuntimeConfig(this.layerKey);
+                    const targetCount = this.targets?.length || 0;
+                    if (!targetCount) return;
+                    this.mode = 'attract';
+                    this.dots.forEach((dot, index) => {
+                        const slot = Number.isFinite(dot.targetSlot) ? dot.targetSlot : index;
+                        const target = this.targets[Math.abs(Math.floor(slot)) % targetCount];
+                        if (!target) return;
+                        dot.x = target.x;
+                        dot.y = target.y;
+                        dot.vx = 0;
+                        dot.vy = 0;
+                        dot.targetInfluence = 1;
+                        dot.displayInfluence = 1;
+                        dot.idleAlpha = 1;
+                        this.updateDotLook(dot, cfg);
+                    });
+                    this.markDirty({ update: false, render: true });
+                }
+
                 isSettledToGrid() {
                     const cfg = getLayerRuntimeConfig(this.layerKey);
                     const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
@@ -2633,7 +2667,7 @@
                 }
 
                 isRuntimeStaticEligible(cfg, mouseForce) {
-                    return !mouseForce &&
+                    const gridStaticEligible = !mouseForce &&
                         !this.hasActiveBlink(cfg) &&
                         !maskScaleTransition &&
                         !slideFade &&
@@ -2642,6 +2676,16 @@
                         holdState === 'idle' &&
                         forceState.svgAlpha <= 0.0001 &&
                         forceState.gridAlpha >= 0.9999;
+                    const targetStaticEligible = !mouseForce &&
+                        !this.hasActiveBlink(cfg) &&
+                        !maskScaleTransition &&
+                        !slideFade &&
+                        !autoTransition &&
+                        !activeHoldMode &&
+                        holdState === 'target-hold' &&
+                        forceState.svgAlpha >= 0.9999 &&
+                        forceState.gridAlpha <= 0.0001;
+                    return gridStaticEligible || targetStaticEligible;
                 }
 
                 areDotsGridStatic(cfg) {
@@ -2659,13 +2703,38 @@
                     });
                 }
 
+                areDotsTargetStatic(cfg) {
+                    const targetCount = this.targets?.length || 0;
+                    if (!targetCount) return false;
+                    const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
+                    return this.dots.every((dot, index) => {
+                        const slot = Number.isFinite(dot.targetSlot) ? dot.targetSlot : index;
+                        const target = this.targets[Math.abs(Math.floor(slot)) % targetCount];
+                        if (!target) return false;
+                        const dx = dot.x - target.x;
+                        const dy = dot.y - target.y;
+                        const velocitySq = dot.vx * dot.vx + dot.vy * dot.vy;
+                        const targetInfluence = Number.isFinite(dot.targetInfluence) ? dot.targetInfluence : 0;
+                        return dx * dx + dy * dy <= settleDistanceSq &&
+                            velocitySq <= 0.0064 &&
+                            targetInfluence >= 0.998 &&
+                            !Number.isFinite(dot.maskScaleFrom) &&
+                            !Number.isFinite(dot.maskScaleTo);
+                    });
+                }
+
+                areDotsStaticForCurrentState(cfg) {
+                    if (holdState === 'target-hold') return this.areDotsTargetStatic(cfg);
+                    return this.areDotsGridStatic(cfg);
+                }
+
                 canSkipUpdate(cfg, mouseForce) {
                     if (!this.updateDirty && this.staticCanvasValid && this.isRuntimeStaticEligible(cfg, mouseForce)) return true;
-                    return !this.updateDirty && this.isRuntimeStaticEligible(cfg, mouseForce) && this.areDotsGridStatic(cfg);
+                    return !this.updateDirty && this.isRuntimeStaticEligible(cfg, mouseForce) && this.areDotsStaticForCurrentState(cfg);
                 }
 
                 canReuseStaticCanvas(cfg) {
-                    return this.isRuntimeStaticEligible(cfg, null) && this.areDotsGridStatic(cfg);
+                    return this.isRuntimeStaticEligible(cfg, null) && this.areDotsStaticForCurrentState(cfg);
                 }
 
                 update(deltaTime, nowMs = performance.now(), mouseFrameState = null) {
@@ -2892,6 +2961,7 @@
 
             function getAutoTransitionControlState() {
                 return {
+                    transitionMode: getTransitionMode(),
                     globalSpeed: autoControls.globalSpeed?.value || '100',
                     currentTime: autoControls.currentTime.value,
                     currentFlickerStart: autoControls.currentFlickerStart?.value || '0',
@@ -2953,6 +3023,7 @@
             function applyAutoTransitionControlState(state = {}) {
                 const currentTime = pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3');
                 const nextTime = pickAutoStateValue(state.nextTime, state.travelTime, '2');
+                setControlValue(autoControls.mode, normalizeTransitionMode(pickAutoStateValue(state.transitionMode, state.mode, DEFAULT_TRANSITION_MODE)));
                 setControlValue(autoControls.globalSpeed, pickAutoStateValue(state.globalSpeed, state.masterSpeed, state.transitionSpeed, '100'));
                 setControlValue(autoControls.currentTime, currentTime);
                 setControlValue(autoControls.currentFlickerStart, pickAutoStateValue(state.currentFlickerStart, state.flickerDelay, deriveLegacyFlickerStart(currentTime, state), '0'));
@@ -2966,6 +3037,7 @@
                 setControlValue(autoControls.flickerWildness, pickAutoStateValue(state.flickerWildness, state.flickerRandom, '100'));
                 setControlValue(slideControls.autoDuration, pickAutoStateValue(state.autoDuration, state.slideAutoDuration, '4'));
                 syncTimingControlRanges();
+                updateTransitionModeUi();
                 invalidateAutoSettingsCache();
             }
 
@@ -2974,6 +3046,7 @@
 
             function getAutoSettingsCacheKey() {
                 return [
+                    getTransitionMode(),
                     getControlValue(autoControls.globalSpeed),
                     getControlValue(autoControls.currentTime),
                     getControlValue(autoControls.currentFlickerStart),
@@ -2997,6 +3070,7 @@
                 const cacheKey = getAutoSettingsCacheKey();
                 if (cachedAutoSettings && cachedAutoSettingsKey === cacheKey) return cachedAutoSettings;
                 const globalSpeed = getGlobalSpeedFactor();
+                const transitionMode = getTransitionMode();
                 const timeScale = getGlobalTimingScale();
                 const flickerBias = read(autoControls.flickerBias) / 100;
                 const flickerSpeed = read(autoControls.flickerSpeed);
@@ -3017,6 +3091,7 @@
                 const nextFlickerWindow = Math.max(0.05, nextTime - nextFlickerStart);
                 cachedAutoSettingsKey = cacheKey;
                 cachedAutoSettings = {
+                    transitionMode,
                     globalSpeed,
                     currentTime,
                     currentFlickerStart,
@@ -3121,6 +3196,58 @@
                 setAutoStatus(INTERACTION_HELP_TEXT);
             }
 
+            function getAutoTransitionMode(transition = autoTransition) {
+                return normalizeTransitionMode(transition?.transitionMode || transition?.settings?.transitionMode || getTransitionMode());
+            }
+
+            function isGridLaunchMode(mode) {
+                return normalizeTransitionMode(mode) === 'grid-launch-reveal';
+            }
+
+            function isHardCutRevealMode(mode) {
+                return normalizeTransitionMode(mode) === 'hard-cut-reveal';
+            }
+
+            function isContinuousTargetMode(mode) {
+                return normalizeTransitionMode(mode) === 'continuous-target-chain';
+            }
+
+            function isShapeSpawnMode(mode) {
+                return normalizeTransitionMode(mode) === 'shape-spawn-bridge';
+            }
+
+            function isEchoBloomMode(mode) {
+                return normalizeTransitionMode(mode) === 'echo-bloom';
+            }
+
+            function shouldDeferMaskForTransitionMode(mode) {
+                const transitionMode = normalizeTransitionMode(mode);
+                return transitionMode === 'grid-launch-reveal' ||
+                    transitionMode === 'hard-cut-reveal' ||
+                    transitionMode === 'continuous-target-chain' ||
+                    transitionMode === 'shape-spawn-bridge';
+            }
+
+            function shouldReturnToGridAfterTransition(transition = autoTransition) {
+                return !isContinuousTargetMode(getAutoTransitionMode(transition));
+            }
+
+            function getNextPhaseTargetScale(transition = autoTransition) {
+                return isEchoBloomMode(getAutoTransitionMode(transition)) && !transition?.bloomResolved
+                    ? ECHO_BLOOM_TARGET_SCALE
+                    : 1;
+            }
+
+            function setContinuousTargetHold(slideIndex, scaleMultiplier = 1) {
+                continuousTargetSlideIndex = slideIndex;
+                continuousTargetScale = scaleMultiplier;
+                holdState = 'target-hold';
+                activeHoldMode = null;
+                activeHoldCode = null;
+                setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey]?.snapToTargets?.());
+            }
+
             function startAutoTransition(direction = 1, options = {}) {
                 if (!slides.length) {
                     setAutoStatus('Upload at least one slide first.');
@@ -3145,7 +3272,8 @@
                 const sourceSlide = slides[fromIndex];
                 const targetSlide = slides[targetIndex];
                 const visualOnlyVideo = isVideoToVideoTransition(sourceSlide, targetSlide);
-                if (!areTransitionAssetsReady(targetIndex, { visualOnlyVideo })) {
+                const transitionMode = getTransitionMode();
+                if (!areTransitionAssetsReady(targetIndex, { visualOnlyVideo, transitionMode })) {
                     scheduleTransitionPrewarm();
                     setAutoStatus(`Preparing slide ${targetIndex + 1} before transition. Try again in a moment.`);
                     setMorphStatus('Preparing the next slide mask and targets before animation starts.');
@@ -3153,7 +3281,9 @@
                 }
                 const specialTransitionPlan = getSpecialTransitionPlan(fromIndex, targetIndex);
                 const mediaTransitionMode = getTransitionMediaModeForSlides(sourceSlide, targetSlide);
-                const needsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
+                const mediaNeedsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
+                const modeNeedsDeferredMask = shouldDeferMaskForTransitionMode(transitionMode);
+                const needsDeferredMask = mediaNeedsDeferredMask || modeNeedsDeferredMask;
                 let deferredMaskFrom = null;
                 let deferredMaskTo = null;
                 if (needsDeferredMask) {
@@ -3171,8 +3301,9 @@
                     flags: {},
                     fromIndex,
                     targetIndex,
+                    transitionMode,
                     settings,
-                    skipCurrentForceRamp: skipCurrentLock,
+                    skipCurrentForceRamp: skipCurrentLock && (transitionMode === DEFAULT_TRANSITION_MODE || isEchoBloomMode(transitionMode)),
                     flickerSeed,
                     outTimeline: buildFlickerTimeline(settings.outFlicker, 'out', settings, flickerSeed),
                     inTimeline: buildFlickerTimeline(settings.inFlicker, 'in', settings, flickerSeed + 193.7),
@@ -3183,6 +3314,9 @@
                     deferredMaskTo,
                     travelMaskCleared: false,
                     deferredMaskApplied: false,
+                    clearTravelMaskOnDeferred: mediaNeedsDeferredMask && !modeNeedsDeferredMask,
+                    nextTargetsApplied: false,
+                    bloomResolved: false,
                     mediaTransitionMode,
                     specialSourceOverlay: specialTransitionPlan.sourceSpecial,
                     specialTargetOverlay: specialTransitionPlan.targetSpecial
@@ -3199,14 +3333,44 @@
                     setForceState({ svgAlpha: 0, gridAlpha: 0 });
                     setMorphStatus(`Video flicker: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
                     setAutoStatus(`Video flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
+                } else if (isHardCutRevealMode(transitionMode)) {
+                    resetForcesToGrid();
+                    pauseVideoSlide(slides[autoTransition.fromIndex], false);
+                    if (autoTransition.mediaTransitionMode === 'cut') {
+                        finishMediaFrameCutTransition();
+                        return true;
+                    }
+                    setSlideOpacity(0);
+                    startAutoNextPhase();
+                    setMorphStatus(`Hard cut: dots moving to slide ${targetIndex + 1}.`);
+                } else if (isGridLaunchMode(transitionMode)) {
+                    DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                    resetForcesToGrid();
+                    holdState = 'return';
+                    setMorphStatus(`Grid launch: current slide ${currentSlideIndex + 1} flickering out.`);
+                    setAutoStatus(`Grid launch to slide ${targetIndex + 1}.`);
+                } else if (isContinuousTargetMode(transitionMode)) {
+                    holdState = 'attract';
+                    setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                    beginAutoDotTarget(targetIndex, `Continuous chain: dots moving to slide ${targetIndex + 1}.`);
+                    autoTransition.nextTargetsApplied = true;
+                    setMorphStatus(`Continuous chain: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
+                } else if (isShapeSpawnMode(transitionMode)) {
+                    holdState = 'attract';
+                    beginAutoDotTarget(currentSlideIndex, `Shape spawn: dots appearing on slide ${currentSlideIndex + 1}.`);
+                    DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey]?.snapToTargets?.());
+                    setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                    beginAutoDotTarget(targetIndex, `Shape bridge: dots moving to slide ${targetIndex + 1}.`);
+                    autoTransition.nextTargetsApplied = true;
+                    setMorphStatus(`Shape spawn bridge: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
                 } else {
                     holdState = 'attract';
                     resetForcesToGrid();
                     beginAutoDotTarget(currentSlideIndex, `Flicker: dots locking to current slide ${currentSlideIndex + 1}.`);
-                    setMorphStatus(`Flicker started: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
-                    setAutoStatus(`Flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
+                    setMorphStatus(`${getTransitionModeLabel(transitionMode)} started: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
+                    setAutoStatus(`${getTransitionModeLabel(transitionMode)} from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
                 }
-                if (skipCurrentLock) {
+                if (skipCurrentLock && (transitionMode === DEFAULT_TRANSITION_MODE || isEchoBloomMode(transitionMode))) {
                     pauseVideoSlide(slides[autoTransition.fromIndex], false);
                     if (autoTransition.mediaTransitionMode === 'cut') {
                         finishMediaFrameCutTransition();
@@ -3274,19 +3438,24 @@
             }
 
             function finishAutoTransition() {
-                const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
+                const transition = autoTransition;
+                const visualOnlyVideo = isVisualOnlyVideoTransition(transition);
+                const keepTargetHold = !visualOnlyVideo && !shouldReturnToGridAfterTransition(transition);
                 autoTransition = null;
                 activeHoldMode = null;
                 activeHoldCode = null;
                 pendingSlideIndex = null;
-                holdState = visualOnlyVideo ? 'idle' : 'return';
+                holdState = visualOnlyVideo ? 'idle' : (keepTargetHold ? 'target-hold' : 'return');
                 returnSettleCheckElapsed = 0;
                 if (visualOnlyVideo) {
                     snapAllDotLayersToGrid();
+                    resetForcesToGrid();
+                } else if (keepTargetHold) {
+                    setContinuousTargetHold(currentSlideIndex, transition?.dynamicTargetScale || 1);
                 } else {
                     DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                    resetForcesToGrid();
                 }
-                resetForcesToGrid();
                 if (visualOnlyVideo) setVideoChainDotCanvasesHidden(false);
                 slideOpacity = slides.length ? 1 : 0;
                 applySlideTransform();
@@ -3294,7 +3463,7 @@
                 if (slides[currentSlideIndex]?.type === 'video') {
                     playVideoSlide(slides[currentSlideIndex], false);
                 }
-                setAutoStatus(`Flicker complete. Slide ${currentSlideIndex + 1}/${slides.length}.`);
+                setAutoStatus(`${getTransitionModeLabel(transition?.transitionMode)} complete. Slide ${currentSlideIndex + 1}/${slides.length}.`);
                 requestDeferredWarmups({ mask: true, target: true });
                 updateViewStatus();
                 updateSlideControlStatus();
@@ -3307,7 +3476,15 @@
                 if (!autoTransition) return;
                 const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
                 if (!visualOnlyVideo && autoTransition.mediaTransitionMode !== 'flicker') {
-                    beginAutoDotTarget(autoTransition.targetIndex, `Dots moving to slide ${autoTransition.targetIndex + 1}.`);
+                    const targetScale = getNextPhaseTargetScale(autoTransition);
+                    if (
+                        !autoTransition.nextTargetsApplied ||
+                        autoTransition.targetSlideIndex !== autoTransition.targetIndex ||
+                        Math.abs((autoTransition.dynamicTargetScale || 1) - targetScale) > 0.0001
+                    ) {
+                        beginAutoDotTarget(autoTransition.targetIndex, `Dots moving to slide ${autoTransition.targetIndex + 1}.`, targetScale);
+                        autoTransition.nextTargetsApplied = true;
+                    }
                 }
                 revealAutoTargetSlide();
                 setSlideOpacity(0);
@@ -3318,7 +3495,12 @@
                 } else {
                     applyDeferredAutoMask(true);
                 }
-                if (!visualOnlyVideo && autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
+                if (
+                    !visualOnlyVideo &&
+                    autoTransition.clearTravelMaskOnDeferred &&
+                    autoTransition.deferredMaskTo !== null &&
+                    !autoTransition.travelMaskCleared
+                ) {
                     resetDotMaskScales(1);
                     autoTransition.travelMaskCleared = true;
                 }
@@ -3367,6 +3549,7 @@
             function updateFlickerTransition(deltaTime, settings) {
                 autoTransition.timer += deltaTime;
                 const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
+                const transitionMode = getAutoTransitionMode(autoTransition);
                 if (autoTransition.phase === 'currentPhase') {
                     const progress = phaseProgress(autoTransition.timer, settings.currentTime);
                     const eased = autoTransition.skipCurrentForceRamp ? 1 : forceFadeProgress(progress);
@@ -3378,7 +3561,15 @@
                         settings.outFlicker,
                         'out'
                     ));
-                    setForceState(visualOnlyVideo ? { svgAlpha: 0, gridAlpha: 0 } : { svgAlpha: eased, gridAlpha: 0 });
+                    if (visualOnlyVideo) {
+                        setForceState({ svgAlpha: 0, gridAlpha: 0 });
+                    } else if (isGridLaunchMode(transitionMode)) {
+                        setForceState({ svgAlpha: 0, gridAlpha: 1 });
+                    } else if (isContinuousTargetMode(transitionMode) || isShapeSpawnMode(transitionMode)) {
+                        setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                    } else {
+                        setForceState({ svgAlpha: eased, gridAlpha: 0 });
+                    }
                     if (autoTransition.timer >= settings.currentTime) {
                         pauseVideoSlide(slides[autoTransition.fromIndex], false);
                         if (autoTransition.mediaTransitionMode === 'cut') {
@@ -3393,6 +3584,17 @@
                 if (autoTransition.phase === 'nextPhase') {
                     const progress = phaseProgress(autoTransition.timer, settings.nextTime);
                     const eased = forceFadeProgress(progress);
+                    if (
+                        isEchoBloomMode(transitionMode) &&
+                        !autoTransition.bloomResolved &&
+                        !visualOnlyVideo &&
+                        autoTransition.mediaTransitionMode !== 'flicker' &&
+                        progress >= 0.66
+                    ) {
+                        autoTransition.bloomResolved = true;
+                        beginAutoDotTarget(autoTransition.targetIndex, `Echo bloom settling slide ${autoTransition.targetIndex + 1}.`, 1);
+                        autoTransition.nextTargetsApplied = true;
+                    }
                     setSlideOpacity(samplePhaseFlicker(
                         autoTransition.timer,
                         settings.nextTime,
@@ -3401,10 +3603,16 @@
                         settings.inFlicker,
                         'in'
                     ));
-                    setForceState(visualOnlyVideo ? { svgAlpha: 0, gridAlpha: 0 } : { svgAlpha: eased, gridAlpha: 0 });
+                    if (visualOnlyVideo) {
+                        setForceState({ svgAlpha: 0, gridAlpha: 0 });
+                    } else if (isContinuousTargetMode(transitionMode) || isShapeSpawnMode(transitionMode)) {
+                        setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                    } else {
+                        setForceState({ svgAlpha: eased, gridAlpha: 0 });
+                    }
                     if (autoTransition.timer >= settings.nextTime) {
                         setSlideOpacity(1);
-                        if (!visualOnlyVideo && settings.returnGridTime > 0.001) {
+                        if (!visualOnlyVideo && shouldReturnToGridAfterTransition(autoTransition) && settings.returnGridTime > 0.001) {
                             startAutoReturnPhase();
                             return;
                         }

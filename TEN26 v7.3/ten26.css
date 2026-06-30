@@ -490,6 +490,24 @@ select option {
     background: #010044;
     color: #fbf7ff;
 }
+.timing-mode-row {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 7px;
+}
+.timing-mode-row > span {
+    min-width: 0;
+    font-size: 11px;
+    opacity: 0.82;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.timing-mode-row select {
+    margin-bottom: 0;
+}
 .color-grid {
     display: grid; grid-template-columns: 58px 40px minmax(0, 1fr); gap: 6px; align-items: center; margin-bottom: 8px;
 }
@@ -591,6 +609,16 @@ input[type="text"] {
 .compact-color:has(.value-lock-btn.locked) input[type="text"] {
     color: var(--ui-pink);
     opacity: 1;
+}
+.slider-group.mode-disabled {
+    opacity: 0.42;
+}
+.slider-group.mode-disabled > span,
+.slider-group.mode-disabled .val-indicator {
+    color: rgba(251,247,255,0.54);
+}
+.slider-group.mode-disabled input[type="range"] {
+    filter: saturate(0.35) brightness(0.55);
 }
 .value-lock-btn {
     width: 22px; height: 22px;

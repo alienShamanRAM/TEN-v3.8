@@ -167,6 +167,17 @@
             <div class="drawer-content">
                 <div class="geometry-status" id="auto-transition-status">Left/Right change slides. Space holds the current slide. Up hides the UI. Down restores it. Esc stops flicker.</div>
                 <div class="drawer-section-title">Transition</div>
+                <div class="timing-mode-row">
+                    <span>Mode</span>
+                    <select id="transition-mode" aria-label="Transition mode">
+                        <option value="anchor-lock-return" selected>Anchor Lock Return</option>
+                        <option value="grid-launch-reveal">Grid Launch Reveal</option>
+                        <option value="hard-cut-reveal">Hard Cut Reveal</option>
+                        <option value="continuous-target-chain">Continuous Target Chain</option>
+                        <option value="shape-spawn-bridge">Shape Spawn Bridge</option>
+                        <option value="echo-bloom">Echo Bloom</option>
+                    </select>
+                </div>
                 <div class="slider-group"><span>Global Speed</span><input type="range" id="transition-global-speed" min="25" max="300" value="100" step="5"><span class="val-indicator" id="val-transition-global-speed">100%</span></div>
                 <div class="slider-group"><span>Current Time</span><input type="range" id="transition-current-time" min="0.1" max="8" value="3" step="0.05"><span class="val-indicator" id="val-transition-current-time">3</span></div>
                 <div class="slider-group"><span>Current Flicker Start</span><input type="range" id="transition-current-flicker-start" min="0" max="3" value="0" step="0.05"><span class="val-indicator" id="val-transition-current-flicker-start">0</span></div>

@@ -996,6 +996,7 @@ function getActiveLayerStateFromControls() {
                     layerOrder: [DEFAULT_LAYER_KEY],
                     svgMediaStackIndex: 1,
                     autoTransition: {
+                        transitionMode: DEFAULT_TRANSITION_MODE,
                         globalSpeed: '100',
                         currentTime: '3',
                         nextTime: '2',

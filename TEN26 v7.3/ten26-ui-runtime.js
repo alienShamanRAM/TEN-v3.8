@@ -59,6 +59,11 @@ function bindEvents() {
                 });
                 helpControls.tooltipsEnabled?.addEventListener('change', syncTooltipPreference);
                 mediaControls.transitionMode?.addEventListener('change', updateMediaModeUi);
+                autoControls.mode?.addEventListener('change', () => {
+                    updateTransitionModeUi();
+                    if (typeof invalidateAutoSettingsCache === 'function') invalidateAutoSettingsCache();
+                    if (typeof scheduleTransitionPrewarm === 'function') scheduleTransitionPrewarm();
+                });
                 autoControls.currentTime?.addEventListener('input', syncTimingControlRanges);
                 autoControls.currentFlickerStart?.addEventListener('input', syncTimingControlRanges);
                 autoControls.nextTime?.addEventListener('input', syncTimingControlRanges);
@@ -76,6 +81,7 @@ function bindEvents() {
                         if (typeof invalidateAutoSettingsCache === 'function') invalidateAutoSettingsCache();
                     });
                 });
+                updateTransitionModeUi();
                 presetSelect?.addEventListener('change', updatePresetWarningStatus);
                 settingsSelect?.addEventListener('change', updateSettingsActionState);
                 window.addEventListener('resize', () => {

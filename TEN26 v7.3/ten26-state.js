@@ -974,8 +974,28 @@ const viewport = document.getElementById('canvas-viewport');
             }
             updateMediaModeUi();
 
+            const DEFAULT_TRANSITION_MODE = 'anchor-lock-return';
+            const ECHO_BLOOM_TARGET_SCALE = 1.16;
+            const TRANSITION_MODE_IDS = [
+                DEFAULT_TRANSITION_MODE,
+                'grid-launch-reveal',
+                'hard-cut-reveal',
+                'continuous-target-chain',
+                'shape-spawn-bridge',
+                'echo-bloom'
+            ];
+            const TRANSITION_MODE_LABELS = {
+                'anchor-lock-return': 'Anchor Lock Return',
+                'grid-launch-reveal': 'Grid Launch Reveal',
+                'hard-cut-reveal': 'Hard Cut Reveal',
+                'continuous-target-chain': 'Continuous Target Chain',
+                'shape-spawn-bridge': 'Shape Spawn Bridge',
+                'echo-bloom': 'Echo Bloom'
+            };
+
             const autoControls = {
                 status: document.getElementById('auto-transition-status'),
+                mode: document.getElementById('transition-mode'),
                 globalSpeed: document.getElementById('transition-global-speed'),
                 currentTime: document.getElementById('transition-current-time'),
                 currentFlickerStart: document.getElementById('transition-current-flicker-start'),
@@ -988,6 +1008,65 @@ const viewport = document.getElementById('canvas-viewport');
                 flickerBalance: document.getElementById('transition-flicker-balance'),
                 flickerWildness: document.getElementById('transition-flicker-wildness')
             };
+
+            function normalizeTransitionMode(value) {
+                const normalized = String(value || '').trim().toLowerCase();
+                if (TRANSITION_MODE_IDS.includes(normalized)) return normalized;
+                if (normalized === 'default' || normalized === 'full' || normalized === 'flicker') return DEFAULT_TRANSITION_MODE;
+                if (normalized === 'grid-launch' || normalized === 'grid') return 'grid-launch-reveal';
+                if (normalized === 'hard-cut' || normalized === 'cut') return 'hard-cut-reveal';
+                if (normalized === 'continuous' || normalized === 'chain') return 'continuous-target-chain';
+                if (normalized === 'shape-spawn' || normalized === 'spawn') return 'shape-spawn-bridge';
+                if (normalized === 'bloom') return 'echo-bloom';
+                return DEFAULT_TRANSITION_MODE;
+            }
+
+            function getTransitionMode() {
+                return normalizeTransitionMode(autoControls.mode?.value || DEFAULT_TRANSITION_MODE);
+            }
+
+            function getTransitionModeLabel(value = getTransitionMode()) {
+                return TRANSITION_MODE_LABELS[normalizeTransitionMode(value)] || TRANSITION_MODE_LABELS[DEFAULT_TRANSITION_MODE];
+            }
+
+            function getTransitionWarmupTargetScales(value = getTransitionMode()) {
+                return normalizeTransitionMode(value) === 'echo-bloom' ? [1, ECHO_BLOOM_TARGET_SCALE] : [1];
+            }
+
+            function setTransitionControlActive(control, active) {
+                if (!control) return;
+                const enabled = active !== false;
+                control.disabled = !enabled;
+                control.setAttribute('aria-disabled', String(!enabled));
+                control.closest('.slider-group')?.classList.toggle('mode-disabled', !enabled);
+            }
+
+            function updateTransitionModeUi() {
+                const mode = getTransitionMode();
+                if (autoControls.mode && autoControls.mode.value !== mode) autoControls.mode.value = mode;
+                const disabledControls = new Set();
+                if (mode === 'hard-cut-reveal') {
+                    disabledControls.add(autoControls.currentTime);
+                    disabledControls.add(autoControls.currentFlickerStart);
+                    disabledControls.add(autoControls.flickerBias);
+                }
+                if (mode === 'continuous-target-chain') {
+                    disabledControls.add(autoControls.returnGridTime);
+                }
+                [
+                    autoControls.currentTime,
+                    autoControls.currentFlickerStart,
+                    autoControls.nextTime,
+                    autoControls.nextFlickerStart,
+                    autoControls.returnGridTime,
+                    autoControls.flickerBias,
+                    autoControls.flickerSpeed,
+                    autoControls.overlayFlickerSpeed,
+                    autoControls.flickerBalance,
+                    autoControls.flickerWildness
+                ].forEach(control => setTransitionControlActive(control, !disabledControls.has(control)));
+            }
+
             const mouseControls = {
                 enabled: document.getElementById('mouse-interaction-enabled'),
                 status: document.getElementById('mouse-interaction-status'),
@@ -1821,6 +1900,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'image-mask-expansion': 'Expand the image slide mask outward from the rectangle edges.',
                 'image-mask-scale-time': 'Seconds used for image-slide masked dots to shrink out or grow back.',
                 'slide-auto-duration': 'Seconds each SVG slide stays visible before automatic advance.',
+                'transition-mode': 'Choose how dots, flicker, masks, and grid return are sequenced.',
                 'transition-global-speed': 'Scale transition phases, mask scale time, and flicker cadence together. 100% is normal.',
                 'transition-current-time': 'Length of the current-slide phase.',
                 'transition-current-flicker-start': 'When current-slide flicker starts inside the current phase. The max follows Current Time.',
@@ -2196,6 +2276,8 @@ const viewport = document.getElementById('canvas-viewport');
                     root.addEventListener('dblclick', event => {
                         const indicator = event.target.closest('.val-indicator');
                         if (!indicator) return;
+                        const slider = indicator.closest('.slider-group')?.querySelector('input[type="range"]');
+                        if (slider?.disabled) return;
                         indicator.contentEditable = 'true';
                         indicator.focus();
                         const range = document.createRange();
@@ -2223,6 +2305,11 @@ const viewport = document.getElementById('canvas-viewport');
                         if (!indicator || !indicator.isContentEditable) return;
                         const slider = indicator.closest('.slider-group')?.querySelector('input[type="range"]');
                         if (!slider) {
+                            indicator.contentEditable = 'false';
+                            return;
+                        }
+                        if (slider.disabled) {
+                            indicator.textContent = indicator.dataset.prevValue || getControlValue(slider);
                             indicator.contentEditable = 'false';
                             return;
                         }
@@ -3626,6 +3713,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function getHeldTargetSlideIndex() {
+                if (holdState === 'target-hold') return continuousTargetSlideIndex;
                 if (holdState !== 'attract') return null;
                 if (activeHoldMode === 'advance') return pendingSlideIndex;
                 if (activeHoldMode === 'current') return currentSlideIndex;
@@ -3634,6 +3722,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function getHeldTargetScale() {
+                if (holdState === 'target-hold') return continuousTargetScale || 1;
                 if (activeHoldMode === 'auto' && autoTransition) return autoTransition.dynamicTargetScale || 1;
                 return 1;
             }
