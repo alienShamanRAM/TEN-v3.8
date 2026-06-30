@@ -610,14 +610,17 @@ input[type="text"] {
     color: var(--ui-pink);
     opacity: 1;
 }
-.slider-group.mode-disabled {
+.slider-group.mode-disabled,
+.timing-mode-row.mode-disabled {
     opacity: 0.42;
 }
 .slider-group.mode-disabled > span,
-.slider-group.mode-disabled .val-indicator {
+.slider-group.mode-disabled .val-indicator,
+.timing-mode-row.mode-disabled > span {
     color: rgba(251,247,255,0.54);
 }
-.slider-group.mode-disabled input[type="range"] {
+.slider-group.mode-disabled input[type="range"],
+.timing-mode-row.mode-disabled select {
     filter: saturate(0.35) brightness(0.55);
 }
 .value-lock-btn {

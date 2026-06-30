@@ -1038,7 +1038,7 @@ const viewport = document.getElementById('canvas-viewport');
                 const enabled = active !== false;
                 control.disabled = !enabled;
                 control.setAttribute('aria-disabled', String(!enabled));
-                control.closest('.slider-group')?.classList.toggle('mode-disabled', !enabled);
+                control.closest('.slider-group, .timing-mode-row')?.classList.toggle('mode-disabled', !enabled);
             }
 
             function updateTransitionModeUi() {
@@ -1074,7 +1074,14 @@ const viewport = document.getElementById('canvas-viewport');
                 svgTargetCount: document.getElementById('mouse-svg-target-count'),
                 radius: document.getElementById('mouse-interaction-radius'),
                 softness: document.getElementById('mouse-interaction-softness'),
-                scrollStep: document.getElementById('mouse-scroll-step')
+                scrollStep: document.getElementById('mouse-scroll-step'),
+                autoEnabled: document.getElementById('mouse-auto-enabled'),
+                autoPath: document.getElementById('mouse-auto-path'),
+                autoAction: document.getElementById('mouse-auto-action'),
+                autoSpeed: document.getElementById('mouse-auto-speed'),
+                autoWidth: document.getElementById('mouse-auto-width'),
+                autoHeight: document.getElementById('mouse-auto-height'),
+                autoDuty: document.getElementById('mouse-auto-duty')
             };
             const MOUSE_ACTION_LABELS = {
                 'svg-target': 'SVG Target',
@@ -1084,6 +1091,22 @@ const viewport = document.getElementById('canvas-viewport');
                 'svg-target': 'SVG Targets',
                 repel: 'Radius'
             };
+            const MOUSE_AUTO_PATH_IDS = ['orbit', 'infinity', 'horizontal', 'vertical'];
+            const MOUSE_AUTO_ACTION_IDS = ['svg-target', 'repel', 'alternate', 'pulse'];
+            const MOUSE_AUTO_ACTION_LABELS = {
+                'svg-target': 'SVG Pull',
+                repel: 'Repel',
+                alternate: 'Alternate',
+                pulse: 'Pulse Pull'
+            };
+            const MOUSE_AUTO_PATH_LABELS = {
+                orbit: 'Orbit',
+                infinity: 'Infinity',
+                horizontal: 'Horizontal Sweep',
+                vertical: 'Vertical Sweep'
+            };
+            const MOUSE_AUTO_SAMPLE_COUNT = 512;
+            const MOUSE_AUTO_BASE_CYCLE_SECONDS = 12;
             const mouseInteractionState = {
                 pointerInside: false,
                 x: 0,
@@ -1094,6 +1117,34 @@ const viewport = document.getElementById('canvas-viewport');
             };
             let cachedMouseInteractionConfig = null;
             let cachedMouseViewportRect = null;
+            let cachedAutoCursorConfig = null;
+            let cachedAutoCursorPathKey = '';
+            let cachedAutoCursorPathSamples = null;
+            let autoCursorPreparedTargetKey = '';
+            const manualMouseFrameState = {
+                x: 0,
+                y: 0,
+                radius: 0,
+                radiusSq: 0,
+                softness: 1,
+                mode: 'attract',
+                strength: 0,
+                svgTargetActive: false,
+                svgTargetCount: 0,
+                svgTargetStrength: 0
+            };
+            const autoCursorFrameState = {
+                x: 0,
+                y: 0,
+                radius: 0,
+                radiusSq: 0,
+                softness: 1,
+                mode: 'attract',
+                strength: 0,
+                svgTargetActive: false,
+                svgTargetCount: 0,
+                svgTargetStrength: 0
+            };
 
             const presetSelect = document.getElementById('preset-select');
             const presetApplyBtn = document.getElementById('preset-apply-btn');
@@ -1230,6 +1281,12 @@ const viewport = document.getElementById('canvas-viewport');
 
             function invalidateMouseInteractionConfig() {
                 cachedMouseInteractionConfig = null;
+                invalidateAutoCursorConfig();
+            }
+
+            function invalidateAutoCursorConfig() {
+                cachedAutoCursorConfig = null;
+                autoCursorPreparedTargetKey = '';
             }
 
             function invalidateMouseViewportRect() {
@@ -1276,20 +1333,169 @@ const viewport = document.getElementById('canvas-viewport');
                 return cachedMouseInteractionConfig;
             }
 
+            function normalizeMouseAutoPath(value) {
+                const normalized = String(value || '').trim().toLowerCase();
+                return MOUSE_AUTO_PATH_IDS.includes(normalized) ? normalized : 'orbit';
+            }
+
+            function normalizeMouseAutoAction(value) {
+                const normalized = String(value || '').trim().toLowerCase();
+                return MOUSE_AUTO_ACTION_IDS.includes(normalized) ? normalized : 'svg-target';
+            }
+
+            function usesAutoCursorSvgTargets(action) {
+                const normalized = normalizeMouseAutoAction(action);
+                return normalized === 'svg-target' || normalized === 'alternate' || normalized === 'pulse';
+            }
+
+            function getAutoCursorPathSamples(config) {
+                const key = [
+                    config.path,
+                    STUDIO_WIDTH,
+                    STUDIO_HEIGHT,
+                    config.widthPct,
+                    config.heightPct
+                ].join('|');
+                if (cachedAutoCursorPathSamples && cachedAutoCursorPathKey === key) return cachedAutoCursorPathSamples;
+
+                const samples = new Float32Array(MOUSE_AUTO_SAMPLE_COUNT * 2);
+                const centerX = STUDIO_WIDTH * 0.5;
+                const centerY = STUDIO_HEIGHT * 0.5;
+                const ampX = Math.max(1, STUDIO_WIDTH * config.widthPct * 0.005);
+                const ampY = Math.max(1, STUDIO_HEIGHT * config.heightPct * 0.005);
+                const twoPi = Math.PI * 2;
+                for (let i = 0; i < MOUSE_AUTO_SAMPLE_COUNT; i++) {
+                    const phase = i / MOUSE_AUTO_SAMPLE_COUNT;
+                    const t = phase * twoPi;
+                    let x = centerX;
+                    let y = centerY;
+                    if (config.path === 'infinity') {
+                        x += Math.sin(t) * ampX;
+                        y += Math.sin(t * 2) * ampY * 0.55;
+                    } else if (config.path === 'horizontal') {
+                        x += Math.sin(t) * ampX;
+                    } else if (config.path === 'vertical') {
+                        y += Math.sin(t) * ampY;
+                    } else {
+                        x += Math.cos(t) * ampX;
+                        y += Math.sin(t) * ampY;
+                    }
+                    samples[i * 2] = clamp(x, 0, STUDIO_WIDTH);
+                    samples[i * 2 + 1] = clamp(y, 0, STUDIO_HEIGHT);
+                }
+                cachedAutoCursorPathKey = key;
+                cachedAutoCursorPathSamples = samples;
+                return samples;
+            }
+
+            function getAutoCursorConfig() {
+                if (cachedAutoCursorConfig) return cachedAutoCursorConfig;
+                const mouseConfig = getMouseInteractionConfig();
+                const path = normalizeMouseAutoPath(mouseControls.autoPath?.value || 'orbit');
+                const action = normalizeMouseAutoAction(mouseControls.autoAction?.value || 'svg-target');
+                const speedPercent = readClampedControl(mouseControls.autoSpeed, 100);
+                const widthPct = readClampedControl(mouseControls.autoWidth, 70);
+                const heightPct = readClampedControl(mouseControls.autoHeight, 55);
+                const dutyPct = readClampedControl(mouseControls.autoDuty, 50);
+                cachedAutoCursorConfig = {
+                    enabled: mouseConfig.enabled && mouseControls.autoEnabled?.checked === true,
+                    path,
+                    action,
+                    speedPercent,
+                    widthPct,
+                    heightPct,
+                    duty: clamp(dutyPct / 100, 0.05, 0.95),
+                    cycleSeconds: MOUSE_AUTO_BASE_CYCLE_SECONDS / Math.max(0.1, speedPercent / 100),
+                    pathSamples: null
+                };
+                cachedAutoCursorConfig.pathSamples = getAutoCursorPathSamples(cachedAutoCursorConfig);
+                return cachedAutoCursorConfig;
+            }
+
+            function resolveAutoCursorAction(config, phase) {
+                if (config.action === 'alternate') return phase < config.duty ? 'svg-target' : 'repel';
+                if (config.action === 'pulse') return phase < config.duty ? 'svg-target' : null;
+                return config.action;
+            }
+
+            function ensureAutoCursorSvgTargets(config) {
+                if (!usesAutoCursorSvgTargets(config.action)) return;
+                const key = `${slides.length}:${currentSlideIndex}`;
+                if (autoCursorPreparedTargetKey === key) return;
+                prepareMouseSvgTargetTargets();
+                autoCursorPreparedTargetKey = key;
+            }
+
+            function getAutoCursorFrameState(nowMs, mouseConfig) {
+                const config = getAutoCursorConfig();
+                if (!config.enabled || !config.pathSamples) return null;
+                ensureAutoCursorSvgTargets(config);
+                const cycleMs = Math.max(100, config.cycleSeconds * 1000);
+                const phase = ((nowMs % cycleMs) + cycleMs) % cycleMs / cycleMs;
+                const action = resolveAutoCursorAction(config, phase);
+                if (!action) return null;
+                if (action === 'repel' && mouseConfig.repelStrength <= 0) return null;
+
+                const sampleIndex = Math.min(MOUSE_AUTO_SAMPLE_COUNT - 1, Math.floor(phase * MOUSE_AUTO_SAMPLE_COUNT)) * 2;
+                autoCursorFrameState.x = config.pathSamples[sampleIndex];
+                autoCursorFrameState.y = config.pathSamples[sampleIndex + 1];
+                autoCursorFrameState.radius = mouseConfig.radius;
+                autoCursorFrameState.radiusSq = mouseConfig.radiusSq;
+                autoCursorFrameState.softness = mouseConfig.softness;
+                autoCursorFrameState.svgTargetCount = mouseConfig.svgTargetCount;
+                if (action === 'svg-target') {
+                    autoCursorFrameState.mode = 'attract';
+                    autoCursorFrameState.strength = 0;
+                    autoCursorFrameState.svgTargetActive = true;
+                    autoCursorFrameState.svgTargetStrength = 1;
+                } else {
+                    autoCursorFrameState.mode = 'repel';
+                    autoCursorFrameState.strength = mouseConfig.repelStrength;
+                    autoCursorFrameState.svgTargetActive = false;
+                    autoCursorFrameState.svgTargetStrength = 0;
+                }
+                return autoCursorFrameState;
+            }
+
+            function updateAutoCursorUi() {
+                const mouseEnabled = isMouseInteractionEnabled();
+                const autoChecked = mouseControls.autoEnabled?.checked === true;
+                const autoActive = mouseEnabled && autoChecked;
+                const path = normalizeMouseAutoPath(mouseControls.autoPath?.value || 'orbit');
+                const action = normalizeMouseAutoAction(mouseControls.autoAction?.value || 'svg-target');
+                if (mouseControls.autoPath && mouseControls.autoPath.value !== path) mouseControls.autoPath.value = path;
+                if (mouseControls.autoAction && mouseControls.autoAction.value !== action) mouseControls.autoAction.value = action;
+                setTransitionControlActive(mouseControls.autoPath, autoActive);
+                setTransitionControlActive(mouseControls.autoAction, autoActive);
+                setTransitionControlActive(mouseControls.autoSpeed, autoActive);
+                setTransitionControlActive(mouseControls.autoWidth, autoActive && path !== 'vertical');
+                setTransitionControlActive(mouseControls.autoHeight, autoActive && path !== 'horizontal');
+                setTransitionControlActive(mouseControls.autoDuty, autoActive && (action === 'alternate' || action === 'pulse'));
+            }
+
             function getMouseInteractionControlState() {
                 const config = getMouseInteractionConfig();
+                const autoConfig = getAutoCursorConfig();
                 return {
                     enabled: config.enabled,
                     repelStrength: getControlValue(mouseControls.repelStrength) || '300',
                     svgTargetCount: getControlValue(mouseControls.svgTargetCount) || '400',
                     radius: getControlValue(mouseControls.radius) || '520',
                     softness: getControlValue(mouseControls.softness) || '3',
-                    scrollStep: getControlValue(mouseControls.scrollStep) || '20'
+                    scrollStep: getControlValue(mouseControls.scrollStep) || '20',
+                    autoEnabled: mouseControls.autoEnabled?.checked === true,
+                    autoPath: autoConfig.path,
+                    autoAction: autoConfig.action,
+                    autoSpeed: getControlValue(mouseControls.autoSpeed) || '100',
+                    autoWidth: getControlValue(mouseControls.autoWidth) || '70',
+                    autoHeight: getControlValue(mouseControls.autoHeight) || '55',
+                    autoDuty: getControlValue(mouseControls.autoDuty) || '50'
                 };
             }
 
             function applyMouseInteractionControlState(state = {}) {
                 if (mouseControls.enabled) mouseControls.enabled.checked = state.enabled === true;
+                if (mouseControls.autoEnabled) mouseControls.autoEnabled.checked = state.autoEnabled === true;
                 mouseInteractionState.leftHeld = false;
                 mouseInteractionState.rightHeld = false;
                 mouseInteractionState.activeAction = null;
@@ -1298,16 +1504,27 @@ const viewport = document.getElementById('canvas-viewport');
                 setClampedControlValue(mouseControls.radius, state.radius ?? '520', 520);
                 setClampedControlValue(mouseControls.softness, state.softness ?? '3', 3);
                 setClampedControlValue(mouseControls.scrollStep, state.scrollStep ?? '20', 20);
+                setClampedControlValue(mouseControls.autoSpeed, state.autoSpeed ?? '100', 100);
+                setClampedControlValue(mouseControls.autoWidth, state.autoWidth ?? '70', 70);
+                setClampedControlValue(mouseControls.autoHeight, state.autoHeight ?? '55', 55);
+                setClampedControlValue(mouseControls.autoDuty, state.autoDuty ?? '50', 50);
+                if (mouseControls.autoPath) mouseControls.autoPath.value = normalizeMouseAutoPath(state.autoPath || 'orbit');
+                if (mouseControls.autoAction) mouseControls.autoAction.value = normalizeMouseAutoAction(state.autoAction || 'svg-target');
                 invalidateMouseInteractionConfig();
                 [
                     mouseControls.repelStrength,
                     mouseControls.svgTargetCount,
                     mouseControls.radius,
                     mouseControls.softness,
-                    mouseControls.scrollStep
+                    mouseControls.scrollStep,
+                    mouseControls.autoSpeed,
+                    mouseControls.autoWidth,
+                    mouseControls.autoHeight,
+                    mouseControls.autoDuty
                 ].forEach(control => {
                     if (control) updateRangeIndicator(control);
                 });
+                updateAutoCursorUi();
                 syncMouseInteractionStatus();
             }
 
@@ -1371,11 +1588,14 @@ const viewport = document.getElementById('canvas-viewport');
                 if (mouseControls.status) {
                     const action = getActiveMouseInteractionAction();
                     const scrollLabel = MOUSE_ACTION_SCROLL_LABELS[action || 'svg-target'] || 'value';
+                    const autoConfig = getAutoCursorConfig();
                     if (message) mouseControls.status.textContent = message;
                     else mouseControls.status.textContent = isMouseInteractionEnabled()
                         ? (action
                             ? `${getMouseActionLabel(action)} active. Wheel controls ${scrollLabel}.`
-                            : 'Left: SVG targets. Right: repel. Wheel follows held action.')
+                            : (autoConfig.enabled
+                                ? `Auto Cursor: ${MOUSE_AUTO_PATH_LABELS[autoConfig.path]} ${MOUSE_AUTO_ACTION_LABELS[autoConfig.action]}. Left/right override.`
+                                : 'Left: SVG targets. Right: repel. Wheel follows held action.'))
                         : 'Mouse forces off.';
                 }
                 document.getElementById('drawer-trigger-mouse-interaction')?.classList.toggle('inactive-title', !isMouseInteractionEnabled());
@@ -1444,6 +1664,7 @@ const viewport = document.getElementById('canvas-viewport');
                     clearMouseHeldState();
                     invalidateMouseInteractionConfig();
                     if (isMouseInteractionEnabled()) prepareMouseSvgTargetTargets();
+                    updateAutoCursorUi();
                     syncMouseInteractionStatus();
                 });
                 [
@@ -1455,6 +1676,33 @@ const viewport = document.getElementById('canvas-viewport');
                 ].forEach(control => {
                     control?.addEventListener('input', () => {
                         invalidateMouseInteractionConfig();
+                        updateAutoCursorUi();
+                        syncMouseInteractionStatus();
+                    });
+                });
+                [
+                    mouseControls.autoSpeed,
+                    mouseControls.autoWidth,
+                    mouseControls.autoHeight,
+                    mouseControls.autoDuty
+                ].forEach(control => {
+                    control?.addEventListener('input', () => {
+                        invalidateAutoCursorConfig();
+                        updateAutoCursorUi();
+                        syncMouseInteractionStatus();
+                    });
+                });
+                [
+                    mouseControls.autoEnabled,
+                    mouseControls.autoPath,
+                    mouseControls.autoAction
+                ].forEach(control => {
+                    control?.addEventListener('change', () => {
+                        invalidateAutoCursorConfig();
+                        updateAutoCursorUi();
+                        if (isMouseInteractionEnabled() && mouseControls.autoEnabled?.checked === true && usesAutoCursorSvgTargets(mouseControls.autoAction?.value)) {
+                            prepareMouseSvgTargetTargets();
+                        }
                         syncMouseInteractionStatus();
                     });
                 });
@@ -1504,41 +1752,37 @@ const viewport = document.getElementById('canvas-viewport');
                     event.preventDefault();
                     adjustMouseInteractionScrollValues(event.deltaY < 0 ? 1 : -1);
                 }, { passive: false });
+                updateAutoCursorUi();
                 syncMouseInteractionStatus();
             }
 
             function getMouseInteractionFrameState(nowMs = performance.now()) {
                 const config = getMouseInteractionConfig();
                 const action = getActiveMouseInteractionAction();
-                if (!config.enabled || !mouseInteractionState.pointerInside || !action) return null;
+                if (!config.enabled) return null;
+                if (!mouseInteractionState.pointerInside || !action) {
+                    return getAutoCursorFrameState(nowMs, config);
+                }
+                manualMouseFrameState.x = mouseInteractionState.x;
+                manualMouseFrameState.y = mouseInteractionState.y;
+                manualMouseFrameState.radius = config.radius;
+                manualMouseFrameState.radiusSq = config.radiusSq;
+                manualMouseFrameState.softness = config.softness;
+                manualMouseFrameState.svgTargetCount = config.svgTargetCount;
                 if (action === 'svg-target') {
-                    return {
-                        x: mouseInteractionState.x,
-                        y: mouseInteractionState.y,
-                        radius: config.radius,
-                        radiusSq: config.radiusSq,
-                        softness: config.softness,
-                        mode: 'attract',
-                        strength: 0,
-                        svgTargetActive: true,
-                        svgTargetCount: config.svgTargetCount,
-                        svgTargetStrength: 1
-                    };
+                    manualMouseFrameState.mode = 'attract';
+                    manualMouseFrameState.strength = 0;
+                    manualMouseFrameState.svgTargetActive = true;
+                    manualMouseFrameState.svgTargetStrength = 1;
+                    return manualMouseFrameState;
                 }
                 const strength = config.repelStrength;
                 if (strength <= 0) return null;
-                return {
-                    x: mouseInteractionState.x,
-                    y: mouseInteractionState.y,
-                    radius: config.radius,
-                    radiusSq: config.radiusSq,
-                    softness: config.softness,
-                    mode: 'repel',
-                    strength,
-                    svgTargetActive: false,
-                    svgTargetCount: config.svgTargetCount,
-                    svgTargetStrength: 0
-                };
+                manualMouseFrameState.mode = 'repel';
+                manualMouseFrameState.strength = strength;
+                manualMouseFrameState.svgTargetActive = false;
+                manualMouseFrameState.svgTargetStrength = 0;
+                return manualMouseFrameState;
             }
 
             function syncTimingControlRanges() {
@@ -1608,6 +1852,7 @@ const viewport = document.getElementById('canvas-viewport');
                 STUDIO_CENTER_Y = STUDIO_HEIGHT / 2;
                 syncViewportSize();
                 if (typeof invalidateMouseViewportRect === 'function') invalidateMouseViewportRect();
+                if (typeof invalidateAutoCursorConfig === 'function') invalidateAutoCursorConfig();
                 setControlValue(stageControls.width, STUDIO_WIDTH);
                 setControlValue(stageControls.height, STUDIO_HEIGHT);
                 if (!changed && !options.force) {
@@ -1854,7 +2099,11 @@ const viewport = document.getElementById('canvas-viewport');
                     slider.id === 'slide-scale' ||
                     slider.id === 'image-slide-scale' ||
                     slider.id === 'view-scale' ||
-                    slider.id === 'transition-global-speed'
+                    slider.id === 'transition-global-speed' ||
+                    slider.id === 'mouse-auto-speed' ||
+                    slider.id === 'mouse-auto-width' ||
+                    slider.id === 'mouse-auto-height' ||
+                    slider.id === 'mouse-auto-duty'
                     ? '%'
                     : '';
                 indicator.textContent = getControlValue(slider) + suffix;
@@ -1918,6 +2167,10 @@ const viewport = document.getElementById('canvas-viewport');
                 'mouse-interaction-radius': 'Right-hold repel radius in canvas pixels.',
                 'mouse-interaction-softness': 'Higher values make pointer falloff softer near the edge.',
                 'mouse-scroll-step': 'Amount changed by mouse wheel for the active mouse action.',
+                'mouse-auto-speed': 'Auto cursor loop speed. Path samples are prepared when values change.',
+                'mouse-auto-width': 'Auto cursor horizontal path span as a percentage of canvas width.',
+                'mouse-auto-height': 'Auto cursor vertical path span as a percentage of canvas height.',
+                'mouse-auto-duty': 'Percent of each loop spent in the active pulse or SVG half of alternate mode.',
                 'image-scale': 'Image size behind the dots.',
                 'image-offset-x': 'Move image left or right.',
                 'image-offset-y': 'Move image up or down.',
@@ -1958,6 +2211,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'Media Mask': 'Hide grid homes inside the active media rectangle.',
                 'Transition Path': 'Dot movement phases for the current slide and next slide.',
                 'Flicker Shape': 'Binary on/off behavior during slide swaps.',
+                'Auto Cursor': 'Virtual pointer path that reuses the existing mouse force system.',
                 'Canvas Color': 'Static or cycling canvas palette.',
                 'Background Color': 'Backdrop outside the canvas.',
                 'View Scale': 'Preview zoom and frame pacing.'
@@ -1984,6 +2238,9 @@ const viewport = document.getElementById('canvas-viewport');
                 'blink-enabled': 'Turn shared grid blink on or off.',
                 'view-overlay-opacity': 'Set info overlay opacity. 0% hides it and stops overlay runtime refresh.',
                 'media-transition-mode': 'Choose how transitions behave when the current slide is media.',
+                'mouse-auto-enabled': 'Run a virtual cursor when real mouse buttons are not held.',
+                'mouse-auto-path': 'Choose the precomputed virtual cursor path.',
+                'mouse-auto-action': 'Choose whether the virtual cursor pulls SVG targets, repels, alternates, or pulses.',
                 'panel-toggle': 'Open both control panels.',
                 'minimize-btn': 'Hide both control panels.',
                 'header-prev-btn': 'Previous slide.',

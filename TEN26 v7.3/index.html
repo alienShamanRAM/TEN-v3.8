@@ -207,6 +207,36 @@
                 <div class="slider-group"><span>Radius</span><input type="range" id="mouse-interaction-radius" min="100" max="520" value="520" step="5"><span class="val-indicator" id="val-mouse-interaction-radius">520</span></div>
                 <div class="slider-group"><span>Softness</span><input type="range" id="mouse-interaction-softness" min="0.4" max="3" value="3" step="0.05"><span class="val-indicator" id="val-mouse-interaction-softness">3</span></div>
                 <div class="slider-group"><span>Scroll Step</span><input type="range" id="mouse-scroll-step" min="1" max="20" value="20" step="1"><span class="val-indicator" id="val-mouse-scroll-step">20</span></div>
+                <div class="drawer-section-title">Auto Cursor</div>
+                <div class="sub-toggle-container compact-toggle">
+                    <span>Enable Auto</span>
+                    <label>
+                        <input type="checkbox" id="mouse-auto-enabled" class="hidden-ui-node">
+                        <span class="checkbox-switch"></span>
+                    </label>
+                </div>
+                <div class="timing-mode-row">
+                    <span>Path</span>
+                    <select id="mouse-auto-path" aria-label="Auto cursor path">
+                        <option value="orbit" selected>Orbit</option>
+                        <option value="infinity">Infinity</option>
+                        <option value="horizontal">Horizontal Sweep</option>
+                        <option value="vertical">Vertical Sweep</option>
+                    </select>
+                </div>
+                <div class="timing-mode-row">
+                    <span>Action</span>
+                    <select id="mouse-auto-action" aria-label="Auto cursor action">
+                        <option value="svg-target" selected>SVG Pull</option>
+                        <option value="repel">Repel</option>
+                        <option value="alternate">Alternate</option>
+                        <option value="pulse">Pulse Pull</option>
+                    </select>
+                </div>
+                <div class="slider-group"><span>Auto Speed</span><input type="range" id="mouse-auto-speed" min="10" max="300" value="100" step="5"><span class="val-indicator" id="val-mouse-auto-speed">100%</span></div>
+                <div class="slider-group"><span>Path Width</span><input type="range" id="mouse-auto-width" min="5" max="100" value="70" step="1"><span class="val-indicator" id="val-mouse-auto-width">70%</span></div>
+                <div class="slider-group"><span>Path Height</span><input type="range" id="mouse-auto-height" min="5" max="100" value="55" step="1"><span class="val-indicator" id="val-mouse-auto-height">55%</span></div>
+                <div class="slider-group"><span>Pulse Duty</span><input type="range" id="mouse-auto-duty" min="5" max="95" value="50" step="1"><span class="val-indicator" id="val-mouse-auto-duty">50%</span></div>
             </div>
         </div>
 
