@@ -612,8 +612,11 @@ function bindEvents() {
                 updateHoldMachine(deltaTime);
                 updateAutoTransition(deltaTime);
                 updateMaskScaleTransitions(deltaTime);
-                const mouseFrameState = getMouseInteractionFrameState(timestamp);
-                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp, mouseFrameState));
+                const visualOnlyVideoTransition = typeof isVisualOnlyVideoTransition === 'function' && isVisualOnlyVideoTransition();
+                if (!visualOnlyVideoTransition) {
+                    const mouseFrameState = getMouseInteractionFrameState(timestamp);
+                    DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].update(deltaTime, timestamp, mouseFrameState));
+                }
                 updateSpecialOverlayFrame(timestamp);
                 updateOverlayRuntimeTick(deltaTime);
                 drawMorphDots();

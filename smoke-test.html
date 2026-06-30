@@ -364,10 +364,13 @@
                     const videoTransitionReady =
                         typeof win.isVideoToVideoTransition === 'function' &&
                         typeof win.getTransitionMediaModeForSlides === 'function' &&
+                        typeof win.isVisualOnlyVideoTransition === 'function' &&
                         typeof win.seekVideoSlideToTransitionEdge === 'function' &&
                         win.isVideoToVideoTransition({ type: 'video' }, { type: 'video' }) === true &&
                         win.isVideoToVideoTransition({ type: 'video' }, { type: 'image' }) === false &&
                         win.getTransitionMediaModeForSlides({ type: 'video' }, { type: 'video' }) === 'video-chain' &&
+                        win.isVisualOnlyVideoTransition({ mediaTransitionMode: 'video-chain' }) === true &&
+                        win.isVisualOnlyVideoTransition({ mediaTransitionMode: 'full' }) === false &&
                         win.getTransitionMediaModeForSlides({ type: 'video' }, { type: 'image' }) !== 'video-chain';
                     if (!videoTransitionReady) {
                         fail('Video transition helpers are missing or malformed.');

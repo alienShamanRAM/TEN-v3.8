@@ -769,7 +769,16 @@
                 return isMediaSlideType(sourceSlide?.type) ? getMediaTransitionMode() : 'full';
             }
 
-            function areTransitionAssetsReady(targetIndex) {
+            function isVisualOnlyVideoTransition(transition = autoTransition) {
+                return transition?.mediaTransitionMode === 'video-chain';
+            }
+
+            function areTransitionAssetsReady(targetIndex, options = {}) {
+                if (options.visualOnlyVideo === true) {
+                    return isSlideRenderReadyForTransition(targetIndex) &&
+                        isSpecialOverlayRenderReadyForSlide(currentSlideIndex) &&
+                        isSpecialOverlayRenderReadyForSlide(targetIndex);
+                }
                 return isSlideMaskReadyForTransition(currentSlideIndex) &&
                     isSlideMaskReadyForTransition(targetIndex) &&
                     isSlideRenderReadyForTransition(targetIndex) &&
@@ -1440,6 +1449,7 @@
             let activeHoldMode = null;
             let activeHoldCode = null;
             let autoTransition = null;
+            let dotCanvasesHiddenForVideoChain = false;
             let forceState = {
                 svgAlpha: 0,
                 gridAlpha: 1
@@ -1463,6 +1473,18 @@
 
             function resetForcesToGrid() {
                 setForceState({ svgAlpha: 0, gridAlpha: 1 });
+            }
+
+            function setVideoChainDotCanvasesHidden(hidden = false) {
+                const nextHidden = hidden === true;
+                if (dotCanvasesHiddenForVideoChain === nextHidden) return;
+                dotCanvasesHiddenForVideoChain = nextHidden;
+                dotLayerCanvases.forEach(canvas => {
+                    canvas.style.visibility = nextHidden ? 'hidden' : '';
+                });
+                if (!nextHidden && typeof markAllDotLayersDirty === 'function') {
+                    markAllDotLayersDirty({ update: false, render: true });
+                }
             }
 
             function getSpecialOverlayName(overlay) {
@@ -2570,6 +2592,22 @@
                     this.markDirty({ update: true, render: false });
                 }
 
+                snapToGrid() {
+                    const cfg = getLayerRuntimeConfig(this.layerKey);
+                    this.mode = 'grid';
+                    this.dots.forEach(dot => {
+                        dot.x = dot.gridX;
+                        dot.y = dot.gridY;
+                        dot.vx = 0;
+                        dot.vy = 0;
+                        dot.targetInfluence = 0;
+                        dot.displayInfluence = 0;
+                        dot.idleAlpha = 1;
+                        this.updateDotLook(dot, cfg);
+                    });
+                    this.markDirty({ update: false, render: true });
+                }
+
                 isSettledToGrid() {
                     const cfg = getLayerRuntimeConfig(this.layerKey);
                     const settleDistanceSq = cfg.settleDistance * cfg.settleDistance;
@@ -2801,6 +2839,10 @@
 
             function markAllDotLayersDirty(options = {}) {
                 markDotLayerDirty(null, options);
+            }
+
+            function snapAllDotLayersToGrid() {
+                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey]?.snapToGrid());
             }
 
             function setMorphStatus(text) {
@@ -3036,6 +3078,7 @@
             }
 
             function stopAutoTransition(resetDots = true) {
+                const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
                 pauseAllVideos(false);
                 autoTransition = null;
                 activeHoldMode = null;
@@ -3043,11 +3086,17 @@
                 pendingSlideIndex = null;
                 slideFade = null;
                 if (resetDots) {
-                    holdState = 'return';
-                    DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                    if (visualOnlyVideo) {
+                        snapAllDotLayersToGrid();
+                        holdState = 'idle';
+                    } else {
+                        holdState = 'return';
+                        DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                    }
                     resetDotMaskScales(1);
                     resetForcesToGrid();
                 }
+                if (visualOnlyVideo) setVideoChainDotCanvasesHidden(false);
                 if (slides.length) {
                     slideOpacity = 1;
                     renderCurrentSlide();
@@ -3077,14 +3126,15 @@
                 const fromIndex = currentSlideIndex;
                 const targetIndex = getWrappedSlideIndex(direction);
                 const skipCurrentLock = options.skipCurrentLock === true;
-                if (!areTransitionAssetsReady(targetIndex)) {
+                const sourceSlide = slides[fromIndex];
+                const targetSlide = slides[targetIndex];
+                const visualOnlyVideo = isVideoToVideoTransition(sourceSlide, targetSlide);
+                if (!areTransitionAssetsReady(targetIndex, { visualOnlyVideo })) {
                     scheduleTransitionPrewarm();
                     setAutoStatus(`Preparing slide ${targetIndex + 1} before transition. Try again in a moment.`);
                     setMorphStatus('Preparing the next slide mask and targets before animation starts.');
                     return false;
                 }
-                const sourceSlide = slides[fromIndex];
-                const targetSlide = slides[targetIndex];
                 const specialTransitionPlan = getSpecialTransitionPlan(fromIndex, targetIndex);
                 const mediaTransitionMode = getTransitionMediaModeForSlides(sourceSlide, targetSlide);
                 const needsDeferredMask = sourceSlide?.maskBehavior === 'deferred' || targetSlide?.maskBehavior === 'deferred';
@@ -3127,19 +3177,32 @@
                 slideFade = null;
                 slideOpacity = 1;
                 applySlideTransform();
-                holdState = 'attract';
-                resetForcesToGrid();
-                beginAutoDotTarget(currentSlideIndex, `Flicker: dots locking to current slide ${currentSlideIndex + 1}.`);
-                setMorphStatus(`Flicker started: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
-                setAutoStatus(`Flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
+                if (isVisualOnlyVideoTransition(autoTransition)) {
+                    holdState = 'idle';
+                    setVideoChainDotCanvasesHidden(true);
+                    setForceState({ svgAlpha: 0, gridAlpha: 0 });
+                    setMorphStatus(`Video flicker: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
+                    setAutoStatus(`Video flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
+                } else {
+                    holdState = 'attract';
+                    resetForcesToGrid();
+                    beginAutoDotTarget(currentSlideIndex, `Flicker: dots locking to current slide ${currentSlideIndex + 1}.`);
+                    setMorphStatus(`Flicker started: slide ${currentSlideIndex + 1} to ${targetIndex + 1}.`);
+                    setAutoStatus(`Flicker from slide ${currentSlideIndex + 1} to slide ${targetIndex + 1}.`);
+                }
                 if (skipCurrentLock) {
                     pauseVideoSlide(slides[autoTransition.fromIndex], false);
                     if (autoTransition.mediaTransitionMode === 'cut') {
                         finishMediaFrameCutTransition();
                         return true;
                     }
-                    setForceState({ svgAlpha: 1, gridAlpha: 0 });
-                    setAutoStatus('Current slide phase.');
+                    if (isVisualOnlyVideoTransition(autoTransition)) {
+                        setForceState({ svgAlpha: 0, gridAlpha: 0 });
+                        setAutoStatus('Video flicker phase.');
+                    } else {
+                        setForceState({ svgAlpha: 1, gridAlpha: 0 });
+                        setAutoStatus('Current slide phase.');
+                    }
                 }
                 updateViewStatus();
                 return true;
@@ -3195,14 +3258,20 @@
             }
 
             function finishAutoTransition() {
+                const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
                 autoTransition = null;
                 activeHoldMode = null;
                 activeHoldCode = null;
                 pendingSlideIndex = null;
-                holdState = 'return';
+                holdState = visualOnlyVideo ? 'idle' : 'return';
                 returnSettleCheckElapsed = 0;
-                DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                if (visualOnlyVideo) {
+                    snapAllDotLayersToGrid();
+                } else {
+                    DOT_LAYER_KEYS.forEach(layerKey => dotGroups[layerKey].returnToGrid());
+                }
                 resetForcesToGrid();
+                if (visualOnlyVideo) setVideoChainDotCanvasesHidden(false);
                 slideOpacity = slides.length ? 1 : 0;
                 applySlideTransform();
                 pauseInactiveVideos(currentSlideIndex, false);
@@ -3220,19 +3289,26 @@
 
             function startAutoNextPhase() {
                 if (!autoTransition) return;
-                if (autoTransition.mediaTransitionMode !== 'flicker') {
+                const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
+                if (!visualOnlyVideo && autoTransition.mediaTransitionMode !== 'flicker') {
                     beginAutoDotTarget(autoTransition.targetIndex, `Dots moving to slide ${autoTransition.targetIndex + 1}.`);
                 }
                 revealAutoTargetSlide();
                 setSlideOpacity(0);
-                applyDeferredAutoMask(true);
-                if (autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
+                if (visualOnlyVideo && autoTransition.deferredMaskTo !== null && !autoTransition.deferredMaskApplied) {
+                    activateSlideMask(autoTransition.deferredMaskTo, { sync: true });
+                    autoTransition.deferredMaskApplied = true;
+                    autoTransition.travelMaskCleared = true;
+                } else {
+                    applyDeferredAutoMask(true);
+                }
+                if (!visualOnlyVideo && autoTransition.deferredMaskTo !== null && !autoTransition.travelMaskCleared) {
                     resetDotMaskScales(1);
                     autoTransition.travelMaskCleared = true;
                 }
                 setForceState({ svgAlpha: 0, gridAlpha: 0 });
                 setAutoPhase('nextPhase');
-                setAutoStatus('Next slide phase.');
+                setAutoStatus(visualOnlyVideo ? 'Video flicker into next slide.' : 'Next slide phase.');
             }
 
             function startAutoReturnPhase() {
@@ -3274,6 +3350,7 @@
 
             function updateFlickerTransition(deltaTime, settings) {
                 autoTransition.timer += deltaTime;
+                const visualOnlyVideo = isVisualOnlyVideoTransition(autoTransition);
                 if (autoTransition.phase === 'currentPhase') {
                     const progress = phaseProgress(autoTransition.timer, settings.currentTime);
                     const eased = autoTransition.skipCurrentForceRamp ? 1 : forceFadeProgress(progress);
@@ -3285,7 +3362,7 @@
                         settings.outFlicker,
                         'out'
                     ));
-                    setForceState({ svgAlpha: eased, gridAlpha: 0 });
+                    setForceState(visualOnlyVideo ? { svgAlpha: 0, gridAlpha: 0 } : { svgAlpha: eased, gridAlpha: 0 });
                     if (autoTransition.timer >= settings.currentTime) {
                         pauseVideoSlide(slides[autoTransition.fromIndex], false);
                         if (autoTransition.mediaTransitionMode === 'cut') {
@@ -3308,10 +3385,10 @@
                         settings.inFlicker,
                         'in'
                     ));
-                    setForceState({ svgAlpha: eased, gridAlpha: 0 });
+                    setForceState(visualOnlyVideo ? { svgAlpha: 0, gridAlpha: 0 } : { svgAlpha: eased, gridAlpha: 0 });
                     if (autoTransition.timer >= settings.nextTime) {
                         setSlideOpacity(1);
-                        if (settings.returnGridTime > 0.001) {
+                        if (!visualOnlyVideo && settings.returnGridTime > 0.001) {
                             startAutoReturnPhase();
                             return;
                         }
@@ -3570,5 +3647,6 @@
             }
 
             function drawMorphDots() {
+                if (dotCanvasesHiddenForVideoChain) return;
                 DOT_LAYER_KEYS.forEach(drawDotLayer);
             }
