@@ -50,9 +50,9 @@
             <div class="slide-button-grid" id="slide-button-grid" aria-label="Slide navigation buttons"></div>
         </div>
 
-        <!-- Grid Layers Drawer -->
+        <!-- Layer Lab Drawer -->
         <div class="drawer" id="drawer-dot-matrix" data-left-panel="motion">
-            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Grid Layers</button>
+            <button class="drawer-trigger" id="drawer-trigger-dot-matrix">Layer Lab</button>
             <div class="drawer-content">
                 <div class="matrix-action-row">
                     <button class="preset-action-btn" id="matrix-open-all" type="button">Expand</button>
@@ -65,7 +65,7 @@
                     <button class="preset-action-btn" id="matrix-copy-above" type="button">Copy Above</button>
                     <button class="preset-action-btn" id="matrix-copy-below" type="button">Copy Below</button>
                 </div>
-                <div class="geometry-status" id="matrix-status">Grid layer controls open beside this drawer.</div>
+                <div class="geometry-status" id="matrix-status">Layer Lab opens beside this drawer.</div>
             </div>
         </div>
 
@@ -292,23 +292,23 @@
                 </section>
                 <section>
                     <h3>Overview</h3>
-                    <p>TEN26 animates active grid layers between grid homes and slide targets on one shared stage. Upload Media supplies vector and raster sources, Timing controls the slideshow motion, Grid Masking shapes how grid-home dots hide and return, and Advanced Options controls layout, flicker style, and blink behavior.</p>
+                    <p>TEN26 animates active grid layers between grid homes and slide targets on one shared stage. Layer Lab controls the dot layers, Media supplies vector and raster sources, Playback controls slideshow timing, Rhythm controls flicker and blink, Look controls canvas appearance, Layout controls grid placement, and Save handles presets, settings, and full projects.</p>
                 </section>
                 <section>
                     <h3>Header Controls</h3>
                     <p>Left arrow or keyboard Left immediately goes to the previous slide. Right arrow or keyboard Right immediately goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes using the current slide source duration.</p>
                 </section>
                 <section>
-                    <h3>Grid Layers</h3>
-                    <p>Grid Layers controls each active grid layer. Use the eye button to hide a layer, copy layers above or below the selection, rename layers, delete layers, and reorder them. Target chooses whether that layer follows SVG fills, paths, or anchors. The three color groups set Grid, Mid, and Target color, and Mid Point shifts where the mid color and mid size happen between grid and target. The main Random button here only randomizes unlocked values inside the layer stack.</p>
+                    <h3>Layer Lab</h3>
+                    <p>Layer Lab starts with All Layers, a batch editor that pushes motion, size, color, and target values into every active layer, including hidden layers. Force lets it overwrite locked values. Below it, each layer keeps the dense horizontal stack for visibility, copy, rename, delete, reorder, target type, colors, size, and motion.</p>
                 </section>
                 <section>
                     <h3>View Options</h3>
                     <p>View Options changes preview zoom, frame cap, fullscreen, and the info overlay. It does not resize the stage or move grid or slide coordinates.</p>
                 </section>
                 <section>
-                    <h3>Upload Media</h3>
-                    <p>Upload Media groups Vector, Raster, and Grid Masking. Use it to load slide sources, position them on the canvas, and control how grid-home dots react to those sources.</p>
+                    <h3>Media</h3>
+                    <p>Media groups Vector, Raster, Special Overlays, and Grid Masking. Use it to load slide sources, position them on the canvas, assign overlays, and control how grid-home dots react to those sources.</p>
                 </section>
                 <section>
                     <h3>Vector</h3>
@@ -327,12 +327,12 @@
                     <p>Timing controls the two slide phases. Current Time sends dots to the current slide, Next Time sends them to the next slide, and each Flicker Start slider chooses when that phase begins flickering. After the next phase, dots release back to the grid using the layer values.</p>
                 </section>
                 <section>
-                    <h3>Advanced Options</h3>
-                    <p>Advanced Options groups Grid, Flicker, and Blink. Grid handles layout, Flicker shapes the visual flicker rhythm, and Blink applies shared visibility timing across layers.</p>
+                    <h3>Rhythm</h3>
+                    <p>Rhythm groups Flicker and Blink. Flicker shapes the visual slide and overlay pulse. Blink applies shared visibility timing across layers.</p>
                 </section>
                 <section>
-                    <h3>Grid</h3>
-                    <p>Grid sets columns, rows, spacing, and X/Y offset for the selected layer. Apply To All copies that layout to every active layer. Motion and force values come from the Grid Layers stack.</p>
+                    <h3>Advanced Layout</h3>
+                    <p>Layout lives in the right panel because it is an advanced setup feature. Grid sets columns, rows, spacing, and X/Y offset for each active layer. Apply To All copies the selected layer layout to every active layer.</p>
                 </section>
                 <section>
                     <h3>Flicker</h3>

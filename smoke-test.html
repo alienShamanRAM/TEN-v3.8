@@ -120,8 +120,13 @@
                         return;
                     }
                     const nestedGroups = [
-                        ['#drawer-upload-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-special-overlays', '#drawer-masks']],
-                        ['#drawer-advanced-options', ['#drawer-grid', '#drawer-flicker', '#drawer-blink-mode']]
+                        ['#drawer-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-special-overlays', '#drawer-masks']],
+                        ['#drawer-playback', ['#drawer-timing']],
+                        ['#drawer-interaction', ['#drawer-mouse-interaction']],
+                        ['#drawer-rhythm', ['#drawer-flicker', '#drawer-blink-mode']],
+                        ['#drawer-look', ['#drawer-bg', '#drawer-view-options']],
+                        ['#drawer-layout', ['#drawer-grid']],
+                        ['#drawer-save', ['#drawer-presets', '#drawer-save-settings', '#drawer-project']]
                     ];
                     const brokenGroup = nestedGroups.find(([parentSelector, childSelectors]) => {
                         const parent = doc.querySelector(parentSelector);
@@ -132,12 +137,19 @@
                         return;
                     }
                     const labelChecks = [
+                        ['#drawer-trigger-dot-matrix', 'Layer Lab'],
+                        ['#drawer-trigger-media', 'Media'],
+                        ['#drawer-trigger-playback', 'Playback'],
+                        ['#drawer-trigger-interaction', 'Interaction'],
+                        ['#drawer-trigger-rhythm', 'Rhythm'],
+                        ['#drawer-trigger-look', 'Look'],
+                        ['#drawer-trigger-layout', 'Layout'],
+                        ['#drawer-trigger-save', 'Save'],
+                        ['#drawer-trigger-grid', 'Grid'],
                         ['#drawer-trigger-view-options', 'View Options'],
                         ['#drawer-trigger-masks', 'Grid Masking'],
-                        ['#drawer-trigger-upload-media', 'Upload Media'],
                         ['#drawer-trigger-special-overlays', 'Special Overlays'],
                         ['#drawer-trigger-timing', 'Timing'],
-                        ['#drawer-trigger-advanced-options', 'Advanced Options'],
                         ['#drawer-trigger-save-settings', 'Save Settings'],
                         ['#drawer-trigger-project', 'Project']
                     ];
@@ -151,6 +163,16 @@
                     }
                     if (doc.querySelector('#drawer-slide-grid-advanced')) {
                         fail('Old Grid advanced drawer still exists.');
+                        return;
+                    }
+                    const globalLayerNodesReady = doc.querySelector('#global-layer-drawer') &&
+                        doc.querySelector('#global-layer-force') &&
+                        doc.querySelector('#global-layer-pull') &&
+                        !doc.querySelector('#global-grid-cols') &&
+                        !doc.querySelector('#motion-drawer-layer-1 #grid-content-layer-1') &&
+                        doc.querySelector('#drawer-grid #grid-content-layer-1');
+                    if (!globalLayerNodesReady) {
+                        fail('Layer Lab or right-panel layout controls are malformed.');
                         return;
                     }
                     if (doc.querySelector('#slide-grid-attract-time, #grid-attract-return-pull, #transition-flicker-time, #transition-hold-time, #transition-flicker-delay, #transition-grid-time, #transition-return-force-speed, #transition-current-force-speed, #transition-travel-force-speed, #transition-overall-pace')) {
@@ -437,8 +459,16 @@
                         fail('Full project export payload is not available.');
                         return;
                     }
+                    const globalPull = doc.querySelector('#global-layer-pull');
+                    const layerOnePull = doc.querySelector('#dot-layer-1-pull');
+                    const layerTwoPull = doc.querySelector('#dot-layer-2-pull');
+                    if (globalPull && layerOnePull && layerTwoPull) {
+                        globalPull.value = '0.42';
+                        globalPull.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    const globalLayerFanoutReady = layerOnePull?.value === '0.42' && layerTwoPull?.value === '0.42';
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
-                    const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content').length;
+                    const gridLayerCount = doc.querySelectorAll('#drawer-grid .grid-layer-content[id^="grid-content-layer-"]').length;
                     const hasRuntime = typeof win.renderFrame === 'function' || !!canvas.getContext('2d');
                     const compactPresetState = typeof win.createLayerPresetState === 'function'
                         ? win.createLayerPresetState({
@@ -590,7 +620,11 @@
                         fail('Settings apply changed layer values or missed non-layer controls.');
                         return;
                     }
-                    if (!hasRuntime || !hasOnlyStartupPresets || presetNames.includes('Space Mod') || motionLayerCount < 9 || gridLayerCount < 9) {
+                    if (!globalLayerFanoutReady) {
+                        fail('All Layers fan-out did not update active layer controls.');
+                        return;
+                    }
+                    if (!hasRuntime || !hasOnlyStartupPresets || presetNames.includes('Space Mod') || motionLayerCount < 10 || gridLayerCount < 9) {
                         fail(`Runtime did not initialize fully; presets ${presetNames.join(', ')}, motion layers ${motionLayerCount}, grid layers ${gridLayerCount}.`);
                         return;
                     }

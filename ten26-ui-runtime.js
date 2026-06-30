@@ -8,6 +8,7 @@ function bindEvents() {
                 setupRandomLockUi();
                 setupRandomRangeUi();
                 installDotColorPaletteUi();
+                bindGlobalLayerControls();
                 applySliderTooltips();
                 applyNativeTooltips();
                 enableSliderValueEditing();

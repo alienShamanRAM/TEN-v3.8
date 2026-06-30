@@ -237,9 +237,128 @@ const viewport = document.getElementById('canvas-viewport');
                 return content;
             }
 
+            function createGlobalLayerDrawer() {
+                const drawer = document.createElement('div');
+                drawer.className = 'motion-layer-drawer global-layer-drawer collapsed';
+                drawer.id = 'global-layer-drawer';
+                drawer.dataset.layer = 'all';
+
+                const header = document.createElement('div');
+                header.className = 'motion-layer-header global-layer-header';
+                const badge = document.createElement('span');
+                badge.className = 'global-layer-badge';
+                badge.textContent = 'All';
+                const trigger = document.createElement('button');
+                trigger.className = 'motion-layer-trigger global-layer-trigger';
+                trigger.id = 'global-layer-trigger';
+                trigger.type = 'button';
+                const triggerText = document.createElement('span');
+                triggerText.className = 'motion-layer-name';
+                triggerText.textContent = 'All Layers';
+                trigger.appendChild(triggerText);
+                const forceWrap = document.createElement('label');
+                forceWrap.className = 'global-layer-force';
+                const forceInput = document.createElement('input');
+                forceInput.type = 'checkbox';
+                forceInput.id = 'global-layer-force';
+                forceWrap.append(forceInput, document.createTextNode('Force'));
+                header.append(badge, trigger, forceWrap);
+
+                const content = document.createElement('div');
+                content.className = 'global-layer-content';
+
+                const actions = document.createElement('div');
+                actions.className = 'global-layer-actions';
+                [
+                    ['global-layer-random', 'Random All', 'pink-action'],
+                    ['global-layer-lock', 'Lock All', ''],
+                    ['global-layer-unlock', 'Unlock All', ''],
+                    ['global-layer-reset', 'Reset Ranges', '']
+                ].forEach(([id, label, tone]) => {
+                    const button = document.createElement('button');
+                    button.id = id;
+                    button.type = 'button';
+                    button.className = `preset-action-btn ${tone}`.trim();
+                    button.textContent = label;
+                    actions.appendChild(button);
+                });
+                content.appendChild(actions);
+
+                const topRow = document.createElement('div');
+                topRow.className = 'motion-layer-top-row global-layer-top-row';
+                const targetSelect = document.createElement('select');
+                targetSelect.id = 'global-layer-target-type';
+                [
+                    ['mixed', 'Mixed'],
+                    ['fill', 'Fill'],
+                    ['path', 'Path'],
+                    ['anchor', 'Anchor']
+                ].forEach(([value, text]) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = text;
+                    targetSelect.appendChild(option);
+                });
+                const targetWrap = document.createElement('label');
+                targetWrap.className = 'motion-target-control';
+                const targetLabel = document.createElement('span');
+                targetLabel.textContent = 'Target';
+                targetWrap.append(targetLabel, targetSelect);
+                topRow.append(
+                    targetWrap,
+                    createCompactColorControl('global-layer', 'Grid', 'grid'),
+                    createCompactColorControl('global-layer', 'Mid', 'mid'),
+                    createCompactColorControl('global-layer', 'Target', 'target'),
+                    createRangeGroup('Mid Point', 'global-layer-size-midpoint', '0.05', '0.95', '0.5', '0.01')
+                );
+                content.appendChild(topRow);
+
+                const columns = document.createElement('div');
+                columns.className = 'motion-category-grid global-layer-category-grid';
+                const categories = {
+                    Target: [
+                        ['Slide Pull', 'pull', '0.1', '1', '0.7', '0.01'],
+                        ['Slide Reach', 'svg-radius', '100', '1000', '320', '5'],
+                        ['Speed Size', 'speed-size', '-10', '10', '0', '0.1', { snapValue: 0 }]
+                    ],
+                    Grid: [
+                        ['Grid Pull', 'return-pull', '0.1', '1', '0.38', '0.01'],
+                        ['Grid Reach', 'grid-radius', '100', '1000', '1000', '10'],
+                        ['Speed Cap', 'speed-limit', '0.5', '120', '80', '0.5']
+                    ],
+                    Dynamics: [
+                        ['Weight', 'mass', '1', '10', '1', '0.1'],
+                        ['Damping', 'friction', '0', '100', '34', '1'],
+                        ['Stick / Fly-By', 'elasticity', '0', '100', '45', '1']
+                    ],
+                    Drift: [
+                        ['Swirl', 'orbit', '-2', '2', '0', '0.01', { snapValue: 0 }],
+                        ['Shuffle', 'shuffle', '0', '100', '0', '1'],
+                        ['Motion Var', 'variation', '0', '100', '0', '1']
+                    ],
+                    Size: [
+                        ['Grid Size', 'grid-size', '1', '100', '2.5', '0.1'],
+                        ['Mid Size', 'mid-size', '1', '100', '2.5', '0.1'],
+                        ['Target Size', 'target-size', '1', '100', '2.5', '0.1']
+                    ]
+                };
+                Object.entries(categories).forEach(([label, ranges]) => {
+                    const column = createMotionCategoryColumn(label);
+                    ranges.forEach(([rangeLabel, suffix, min, max, value, step, options]) => {
+                        column.appendChild(createRangeGroup(rangeLabel, `global-layer-${suffix}`, min, max, value, step, options));
+                    });
+                    columns.appendChild(column);
+                });
+                content.appendChild(columns);
+
+                drawer.append(header, content);
+                return drawer;
+            }
+
             function installDynamicLayerControls() {
                 if (motionMatrixPanel) {
                     motionMatrixPanel.querySelectorAll('.motion-layer-drawer').forEach(node => node.remove());
+                    motionMatrixPanel.appendChild(createGlobalLayerDrawer());
                     ALL_DOT_LAYER_KEYS.forEach(layerKey => {
                         motionMatrixPanel.appendChild(createMotionLayerDrawer(layerKey));
                     });
@@ -247,15 +366,18 @@ const viewport = document.getElementById('canvas-viewport');
                 }
                 const gridDrawer = document.getElementById('drawer-grid');
                 const gridStatus = document.getElementById('grid-layout-status');
-                if (gridDrawer && gridStatus?.parentElement) {
+                const gridContent = gridDrawer?.querySelector('.drawer-content');
+                const applyAllButton = document.getElementById('grid-apply-all');
+                if (gridDrawer && gridContent) {
                     gridDrawer.querySelectorAll('.grid-layer-content').forEach(node => node.remove());
                     ALL_DOT_LAYER_KEYS.forEach(layerKey => {
-                        gridStatus.parentElement.insertBefore(createGridLayerContent(layerKey), gridStatus);
+                        gridContent.insertBefore(createGridLayerContent(layerKey), applyAllButton || gridStatus || null);
                     });
+                    if (gridStatus) gridStatus.textContent = 'Layout controls apply to the selected layer. Apply To All copies that layout across active layers.';
                 }
             }
 
-            // The Grid Layers drawer controls the companion layer editor surface.
+            // Layer Lab controls the companion layer editor surface.
             const LEFT_PANEL_DRAWER_IDS = ['drawer-dot-matrix'];
 
             function getLeftPanelForDrawer(drawerId) {
@@ -313,16 +435,33 @@ const viewport = document.getElementById('canvas-viewport');
 
             function installRightPanelDrawers() {
                 gridControlPanel?.classList.add('minimized', 'retired-panel');
-                buildDrawerGroup('drawer-upload-media', 'drawer-trigger-upload-media', 'Upload Media', [
+                buildDrawerGroup('drawer-media', 'drawer-trigger-media', 'Media', [
                     'drawer-slides',
                     'drawer-image-slides',
                     'drawer-special-overlays',
                     'drawer-masks'
                 ]);
-                buildDrawerGroup('drawer-advanced-options', 'drawer-trigger-advanced-options', 'Advanced Options', [
-                    'drawer-grid',
+                buildDrawerGroup('drawer-playback', 'drawer-trigger-playback', 'Playback', [
+                    'drawer-timing'
+                ]);
+                buildDrawerGroup('drawer-interaction', 'drawer-trigger-interaction', 'Interaction', [
+                    'drawer-mouse-interaction'
+                ]);
+                buildDrawerGroup('drawer-rhythm', 'drawer-trigger-rhythm', 'Rhythm', [
                     'drawer-flicker',
                     'drawer-blink-mode'
+                ]);
+                buildDrawerGroup('drawer-look', 'drawer-trigger-look', 'Look', [
+                    'drawer-bg',
+                    'drawer-view-options'
+                ]);
+                buildDrawerGroup('drawer-layout', 'drawer-trigger-layout', 'Layout', [
+                    'drawer-grid'
+                ]);
+                buildDrawerGroup('drawer-save', 'drawer-trigger-save', 'Save', [
+                    'drawer-presets',
+                    'drawer-save-settings',
+                    'drawer-project'
                 ]);
             }
 
@@ -330,7 +469,7 @@ const viewport = document.getElementById('canvas-viewport');
                 getLeftPanelForDrawer(drawerId)?.querySelectorAll('.motion-layer-drawer:not(.svg-media-stack-drawer)').forEach(drawer => drawer.classList.add('collapsed'));
             }
 
-            // The GRID drawer owns the embedded layer controls while the left panel is open.
+            // Layer Lab owns the companion layer editor surface; Layout stays in the right panel.
             function syncLeftPanels() {
                 const panelIsHidden = controlPanel.classList.contains('minimized');
                 LEFT_PANEL_DRAWER_IDS.forEach(drawerId => {
@@ -684,6 +823,38 @@ const viewport = document.getElementById('canvas-viewport');
                     };
                     return acc;
                 }, {})
+            };
+            const globalLayerControls = {
+                drawer: document.getElementById('global-layer-drawer'),
+                trigger: document.getElementById('global-layer-trigger'),
+                force: document.getElementById('global-layer-force'),
+                randomize: document.getElementById('global-layer-random'),
+                lock: document.getElementById('global-layer-lock'),
+                unlock: document.getElementById('global-layer-unlock'),
+                reset: document.getElementById('global-layer-reset'),
+                targetType: document.getElementById('global-layer-target-type'),
+                pull: document.getElementById('global-layer-pull'),
+                svgRadius: document.getElementById('global-layer-svg-radius'),
+                returnPull: document.getElementById('global-layer-return-pull'),
+                gridRadius: document.getElementById('global-layer-grid-radius'),
+                speedLimit: document.getElementById('global-layer-speed-limit'),
+                mass: document.getElementById('global-layer-mass'),
+                friction: document.getElementById('global-layer-friction'),
+                elasticity: document.getElementById('global-layer-elasticity'),
+                orbit: document.getElementById('global-layer-orbit'),
+                shuffle: document.getElementById('global-layer-shuffle'),
+                variation: document.getElementById('global-layer-variation'),
+                gridSize: document.getElementById('global-layer-grid-size'),
+                midSize: document.getElementById('global-layer-mid-size'),
+                targetSize: document.getElementById('global-layer-target-size'),
+                sizeMidpoint: document.getElementById('global-layer-size-midpoint'),
+                speedSize: document.getElementById('global-layer-speed-size'),
+                gridColor: document.getElementById('dot-global-layer-grid-color'),
+                gridColorHex: document.getElementById('dot-global-layer-grid-color-hex'),
+                midColor: document.getElementById('dot-global-layer-mid-color'),
+                midColorHex: document.getElementById('dot-global-layer-mid-color-hex'),
+                targetColor: document.getElementById('dot-global-layer-target-color'),
+                targetColorHex: document.getElementById('dot-global-layer-target-color-hex')
             };
             const svgMediaStackControls = {
                 drawer: document.getElementById('svg-media-stack-drawer'),
@@ -1693,7 +1864,14 @@ const viewport = document.getElementById('canvas-viewport');
             };
 
             const MODULE_TOOLTIPS = {
-                'drawer-trigger-dot-matrix': 'Per-layer target, colors, midpoint, and motion settings.',
+                'drawer-trigger-dot-matrix': 'Layer Lab: all-layer editing, individual layer stacks, and advanced layout.',
+                'drawer-trigger-media': 'Load slide artwork, media slides, special overlays, and shared masks.',
+                'drawer-trigger-playback': 'Slide timing, auto advance, and transition phase timing.',
+                'drawer-trigger-interaction': 'Mouse behavior for SVG targeting and repel.',
+                'drawer-trigger-rhythm': 'Flicker and shared blink rhythm.',
+                'drawer-trigger-look': 'Canvas, background image, stage, and preview controls.',
+                'drawer-trigger-layout': 'Advanced per-layer grid layout controls.',
+                'drawer-trigger-save': 'Layer presets, non-layer settings, and full project export/import.',
                 'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
                 'drawer-trigger-timing': 'Current/next phase timing, flicker start delays, and auto duration.',
                 'drawer-trigger-mouse-interaction': 'Left mouse targets SVG dots; right mouse repels dots.',
@@ -1758,7 +1936,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'matrix-copy-below': 'Copy the selected grid layer below its current position.',
                 'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
                 'svg-media-stack-down': 'Move SVG/media below the next grid layer.',
-                'grid-apply-all': 'Apply the selected grid layout to every active layer.',
+                'grid-apply-all': 'Apply the selected layer layout to every active layer.',
                 'preset-apply-btn': 'Apply the selected layer preset without changing timing, masks, blink, mouse, media, or background.',
                 'preset-add-btn': 'Save the current layer stack as a new preset.',
                 'preset-delete-btn': 'Delete the selected preset unless it is the last one.',
@@ -2717,13 +2895,26 @@ const viewport = document.getElementById('canvas-viewport');
 
             function copyRandomRangeStateForLayer(sourceLayerKey, targetLayerKey) {
                 if (!sourceLayerKey || !targetLayerKey) return;
-                Object.keys(randomRangeControlState).forEach(id => {
-                    const sourcePrefix = `dot-${sourceLayerKey}-`;
-                    if (!id.startsWith(sourcePrefix)) return;
-                    const targetId = `dot-${targetLayerKey}-${id.slice(sourcePrefix.length)}`;
-                    randomRangeControlState[targetId] = { ...randomRangeControlState[id] };
-                    const targetControl = document.getElementById(targetId);
-                    if (targetControl) syncRandomRangeVisual(targetControl);
+                [
+                    [`dot-${sourceLayerKey}-`, `dot-${targetLayerKey}-`],
+                    [`grid-${sourceLayerKey}-`, `grid-${targetLayerKey}-`]
+                ].forEach(([sourcePrefix, targetPrefix]) => {
+                    Object.keys(randomRangeControlState).forEach(id => {
+                        if (id.startsWith(targetPrefix)) delete randomRangeControlState[id];
+                    });
+                    Object.keys(randomRangeControlState).forEach(id => {
+                        if (!id.startsWith(sourcePrefix)) return;
+                        const targetId = `${targetPrefix}${id.slice(sourcePrefix.length)}`;
+                        randomRangeControlState[targetId] = { ...randomRangeControlState[id] };
+                        const targetControl = document.getElementById(targetId);
+                        if (targetControl) syncRandomRangeVisual(targetControl);
+                    });
+                    Array.from(randomLockedControlIds).forEach(id => {
+                        if (id.startsWith(targetPrefix)) randomLockedControlIds.delete(id);
+                    });
+                    Array.from(randomLockedControlIds).forEach(id => {
+                        if (id.startsWith(sourcePrefix)) randomLockedControlIds.add(`${targetPrefix}${id.slice(sourcePrefix.length)}`);
+                    });
                 });
                 updateActionAvailability();
             }
@@ -2802,6 +2993,217 @@ const viewport = document.getElementById('canvas-viewport');
 
             function getBlinkRandomControls() {
                 return BLINK_RANDOM_CONTROL_KEYS.map(key => blinkControls[key]).filter(Boolean);
+            }
+
+            const GLOBAL_COLOR_CONTROL_MAP = {
+                gridColorHex: ['gridColor', 'gridColorHex'],
+                midColorHex: ['midColor', 'midColorHex'],
+                targetColorHex: ['targetColor', 'targetColorHex']
+            };
+
+            function getLayerProtectedControls(layerKey) {
+                return getMotionRandomControls(layerKey);
+            }
+
+            function getAllLayerProtectedControls() {
+                return DOT_LAYER_KEYS.flatMap(layerKey => getLayerProtectedControls(layerKey));
+            }
+
+            function getSharedValue(values = []) {
+                const cleanValues = values.filter(value => value !== undefined && value !== null).map(value => String(value));
+                if (!cleanValues.length) return { value: '', mixed: false };
+                const first = cleanValues[0];
+                return {
+                    value: first,
+                    mixed: cleanValues.some(value => value !== first)
+                };
+            }
+
+            function setGlobalMixedState(control, mixed) {
+                control?.closest('.slider-group, .compact-color, .motion-target-control')?.classList.toggle('global-mixed-value', !!mixed);
+            }
+
+            function setGlobalRangeValue(control, value, mixed) {
+                if (!control) return;
+                setControlValue(control, value);
+                if (mixed) {
+                    const indicator = document.getElementById(`val-${control.id}`);
+                    if (indicator) {
+                        indicator.textContent = 'Mixed';
+                        indicator.dataset.prevValue = 'Mixed';
+                    }
+                }
+                setGlobalMixedState(control, mixed);
+            }
+
+            function syncGlobalLayerControls() {
+                if (!globalLayerControls.drawer) return;
+                MOTION_RANDOM_CONTROL_KEYS.forEach(key => {
+                    const shared = getSharedValue(DOT_LAYER_KEYS.map(layerKey => getControlValue(getMotionLayerControls(layerKey)?.[key])));
+                    setGlobalRangeValue(globalLayerControls[key], shared.value, shared.mixed);
+                });
+                Object.entries(GLOBAL_COLOR_CONTROL_MAP).forEach(([globalKey, [pickerKey, hexKey]]) => {
+                    const shared = getSharedValue(DOT_LAYER_KEYS.map(layerKey => {
+                        const controls = getMotionLayerControls(layerKey);
+                        return normalizeHexColor(controls?.[hexKey]?.value || controls?.[pickerKey]?.value, '#ffffff');
+                    }));
+                    setColorPairValue(globalLayerControls[globalKey.replace('Hex', '')], globalLayerControls[globalKey], shared.value || '#ffffff');
+                    setGlobalMixedState(globalLayerControls[globalKey], shared.mixed);
+                });
+                const targetShared = getSharedValue(DOT_LAYER_KEYS.map(layerKey => {
+                    const state = dotLayerStates[layerKey] || createDefaultLayerState(layerKey);
+                    return normalizeTargetType(state.targetType || state.targetTypes);
+                }));
+                if (globalLayerControls.targetType) {
+                    globalLayerControls.targetType.value = targetShared.mixed ? 'mixed' : targetShared.value;
+                    setGlobalMixedState(globalLayerControls.targetType, targetShared.mixed);
+                }
+            }
+
+            function globalLayerForceEnabled() {
+                return !!globalLayerControls.force?.checked;
+            }
+
+            function canApplyGlobalValueToControl(control) {
+                return !!control && (globalLayerForceEnabled() || !isControlRandomLocked(control));
+            }
+
+            function setGlobalLayerStatus(changedCount, skippedCount, label) {
+                if (!motionLayerControls.status) return;
+                const skippedText = skippedCount ? ` ${skippedCount} locked value${skippedCount === 1 ? '' : 's'} skipped.` : '';
+                motionLayerControls.status.textContent = `${label} applied to ${changedCount} layer${changedCount === 1 ? '' : 's'}.${skippedText}`;
+            }
+
+            function commitGlobalMotionLayers(layerKeys, options = {}) {
+                const { retarget = false } = options;
+                const uniqueLayerKeys = Array.from(new Set(layerKeys)).filter(layerKey => DOT_LAYER_KEYS.includes(layerKey));
+                if (!uniqueLayerKeys.length) {
+                    syncGlobalLayerControls();
+                    updateActionAvailability();
+                    return;
+                }
+                const heldTargetSlideIndex = retarget ? getHeldTargetSlideIndex() : null;
+                uniqueLayerKeys.forEach(layerKey => {
+                    const current = dotLayerStates[layerKey] || createDefaultLayerState(layerKey);
+                    const nextState = { ...current, ...getMotionLayerStateFromControls(layerKey) };
+                    dotLayerStates[layerKey] = coerceLayerStateForV12(createDefaultLayerState(layerKey, nextState), nextState);
+                    invalidateLayerRuntimeConfig(layerKey);
+                    if (heldTargetSlideIndex !== null) setLayerTargetsFromSlide(layerKey, heldTargetSlideIndex, getHeldTargetScale());
+                });
+                if (typeof scheduleTargetWarmup === 'function') scheduleTargetWarmup();
+                updateLayerSelectionUi();
+            }
+
+            function applyGlobalMotionValue(key) {
+                const source = globalLayerControls[key];
+                if (!source) return;
+                const value = getControlValue(source);
+                const changedLayerKeys = [];
+                let skippedCount = 0;
+                DOT_LAYER_KEYS.forEach(layerKey => {
+                    const target = getMotionLayerControls(layerKey)?.[key];
+                    if (!canApplyGlobalValueToControl(target)) {
+                        skippedCount += 1;
+                        return;
+                    }
+                    if (getControlValue(target) !== String(value)) changedLayerKeys.push(layerKey);
+                    setControlValue(target, value);
+                });
+                commitGlobalMotionLayers(changedLayerKeys);
+                setGlobalLayerStatus(changedLayerKeys.length, skippedCount, 'All Layers value');
+            }
+
+            function applyGlobalColorValue(globalKey) {
+                const mapping = GLOBAL_COLOR_CONTROL_MAP[globalKey];
+                const source = globalLayerControls[globalKey];
+                if (!mapping || !source) return;
+                const [pickerKey, hexKey] = mapping;
+                const value = normalizeHexColor(source.value, '#ffffff');
+                const changedLayerKeys = [];
+                let skippedCount = 0;
+                DOT_LAYER_KEYS.forEach(layerKey => {
+                    const controls = getMotionLayerControls(layerKey);
+                    const targetHex = controls?.[hexKey];
+                    if (!canApplyGlobalValueToControl(targetHex)) {
+                        skippedCount += 1;
+                        return;
+                    }
+                    if (normalizeHexColor(targetHex?.value, '#ffffff') !== value) changedLayerKeys.push(layerKey);
+                    setColorPairValue(controls?.[pickerKey], targetHex, value);
+                });
+                commitGlobalMotionLayers(changedLayerKeys);
+                setGlobalLayerStatus(changedLayerKeys.length, skippedCount, 'All Layers color');
+            }
+
+            function applyGlobalTargetType() {
+                const value = globalLayerControls.targetType?.value;
+                if (!value || value === 'mixed') return;
+                const targetType = normalizeTargetType(value);
+                const changedLayerKeys = [];
+                DOT_LAYER_KEYS.forEach(layerKey => {
+                    const controls = getMotionLayerControls(layerKey);
+                    if (controls?.targetType?.value !== targetType) {
+                        controls.targetType.value = targetType;
+                        changedLayerKeys.push(layerKey);
+                    }
+                });
+                commitGlobalMotionLayers(changedLayerKeys, { retarget: true });
+                setGlobalLayerStatus(changedLayerKeys.length, 0, 'All Layers target');
+            }
+
+            function bindGlobalLayerControls() {
+                if (!globalLayerControls.drawer || globalLayerControls.drawer.dataset.bound === 'true') return;
+                globalLayerControls.drawer.dataset.bound = 'true';
+                const toggleGlobalDrawer = () => {
+                    globalLayerControls.drawer.classList.toggle('collapsed');
+                    syncLeftPanels();
+                    updateActionAvailability();
+                };
+                globalLayerControls.trigger?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    toggleGlobalDrawer();
+                });
+                globalLayerControls.drawer.querySelector('.global-layer-header')?.addEventListener('click', event => {
+                    if (event.target.closest('button, input, select, textarea, label')) return;
+                    toggleGlobalDrawer();
+                });
+                globalLayerControls.targetType?.addEventListener('change', applyGlobalTargetType);
+                MOTION_RANDOM_CONTROL_KEYS.forEach(key => {
+                    globalLayerControls[key]?.addEventListener('input', () => applyGlobalMotionValue(key));
+                });
+                bindColorPair(globalLayerControls.gridColor, globalLayerControls.gridColorHex, () => applyGlobalColorValue('gridColorHex'));
+                bindColorPair(globalLayerControls.midColor, globalLayerControls.midColorHex, () => applyGlobalColorValue('midColorHex'));
+                bindColorPair(globalLayerControls.targetColor, globalLayerControls.targetColorHex, () => applyGlobalColorValue('targetColorHex'));
+                globalLayerControls.randomize?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    randomizeAllMotionLayers();
+                    syncGlobalLayerControls();
+                });
+                globalLayerControls.lock?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    getAllLayerProtectedControls().forEach(control => setControlRandomLocked(control, true));
+                    updateRandomLockButtons();
+                    if (motionLayerControls.status) motionLayerControls.status.textContent = 'All layer values locked.';
+                });
+                globalLayerControls.unlock?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    getAllLayerProtectedControls().forEach(control => setControlRandomLocked(control, false));
+                    updateRandomLockButtons();
+                    if (motionLayerControls.status) motionLayerControls.status.textContent = 'All layer values unlocked.';
+                });
+                globalLayerControls.reset?.addEventListener('click', event => {
+                    event.stopPropagation();
+                    resetRandomRangeControls(getAllLayerProtectedControls());
+                    if (motionLayerControls.status) motionLayerControls.status.textContent = 'All layer randomization limits reset.';
+                });
+                globalLayerControls.force?.addEventListener('change', () => {
+                    if (motionLayerControls.status) {
+                        motionLayerControls.status.textContent = globalLayerForceEnabled()
+                            ? 'All Layers Force enabled: global edits overwrite locked values.'
+                            : 'All Layers Force disabled: locked values are protected.';
+                    }
+                });
+                syncGlobalLayerControls();
             }
 
             function updateRandomLockButtons() {
@@ -2908,12 +3310,17 @@ const viewport = document.getElementById('canvas-viewport');
                 setButtonActionable(motionLayerControls.collapseAll, anyOpen);
 
                 DOT_LAYER_KEYS.forEach(layerKey => {
-                    const randomControls = getMotionRandomControls(layerKey);
+                    const randomControls = getLayerProtectedControls(layerKey);
                     const controls = getMotionLayerControls(layerKey);
                     setButtonActionable(controls.lock, randomControls.some(control => !isControlRandomLocked(control)));
                     setButtonActionable(controls.unlock, hasLockedControls(randomControls));
                     setButtonActionable(controls.reset, hasCustomRandomRangeControls(randomControls));
                 });
+                const globalControls = getAllLayerProtectedControls();
+                setButtonActionable(globalLayerControls.lock, globalControls.some(control => !isControlRandomLocked(control)));
+                setButtonActionable(globalLayerControls.unlock, hasLockedControls(globalControls));
+                setButtonActionable(globalLayerControls.reset, hasCustomRandomRangeControls(globalControls));
+                setButtonActionable(globalLayerControls.randomize, DOT_LAYER_KEYS.length > 0);
 
                 const canAdd = DOT_LAYER_KEYS.length < ALL_DOT_LAYER_KEYS.length;
                 setButtonActionable(motionLayerControls.copyAbove, canAdd);
@@ -2949,6 +3356,7 @@ const viewport = document.getElementById('canvas-viewport');
             function randomizeAllMotionLayers() {
                 DOT_LAYER_KEYS.forEach(layerKey => randomizeMotionLayer(layerKey, { retarget: false }));
                 refreshAttractorTargetsIfNeeded();
+                syncGlobalLayerControls();
                 if (motionLayerControls.status) motionLayerControls.status.textContent = 'All active layer-stack values randomized together. Locked values were skipped.';
             }
 
@@ -2960,13 +3368,13 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function lockMotionLayer(layerKey) {
-                getMotionRandomControls(layerKey).forEach(control => setControlRandomLocked(control, true));
+                getLayerProtectedControls(layerKey).forEach(control => setControlRandomLocked(control, true));
                 updateRandomLockButtons();
                 if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} values locked.`;
             }
 
             function unlockMotionLayer(layerKey) {
-                getMotionRandomControls(layerKey).forEach(control => setControlRandomLocked(control, false));
+                getLayerProtectedControls(layerKey).forEach(control => setControlRandomLocked(control, false));
                 updateRandomLockButtons();
                 if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} values unlocked.`;
             }
@@ -2978,7 +3386,7 @@ const viewport = document.getElementById('canvas-viewport');
             }
 
             function resetMotionLayerRanges(layerKey) {
-                const count = resetRandomRangeControls(getMotionRandomControls(layerKey));
+                const count = resetRandomRangeControls(getLayerProtectedControls(layerKey));
                 if (motionLayerControls.status) motionLayerControls.status.textContent = `${getLayerLabel(layerKey)} randomization limits reset.`;
                 return count;
             }
@@ -3193,6 +3601,7 @@ const viewport = document.getElementById('canvas-viewport');
                         ? `Blink enabled for ${visibleCount} visible layer${visibleCount === 1 ? '' : 's'} with shared dot indexes.`
                         : 'Blink applies the same dot index across all visible layers.';
                 }
+                syncGlobalLayerControls();
                 updateActionAvailability();
             }
 
