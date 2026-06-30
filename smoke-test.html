@@ -121,7 +121,6 @@
                     }
                     const nestedGroups = [
                         ['#drawer-media', ['#drawer-slides', '#drawer-image-slides', '#drawer-special-overlays', '#drawer-masks']],
-                        ['#drawer-rhythm', ['#drawer-flicker', '#drawer-blink-mode']],
                         ['#drawer-look', ['#drawer-bg', '#drawer-grid']],
                         ['#drawer-save', ['#drawer-presets', '#drawer-save-settings', '#drawer-project']]
                     ];
@@ -139,7 +138,8 @@
                         ['#drawer-trigger-media', 'Media'],
                         ['#drawer-trigger-timing', 'Timing'],
                         ['#drawer-trigger-mouse-interaction', 'Mouse Interaction'],
-                        ['#drawer-trigger-rhythm', 'Rhythm'],
+                        ['#drawer-trigger-flicker', 'Flicker'],
+                        ['#drawer-trigger-blink-mode', 'Blink'],
                         ['#drawer-trigger-look', 'Look'],
                         ['#drawer-trigger-save', 'Save'],
                         ['#drawer-trigger-grid', 'Grid'],
@@ -156,8 +156,8 @@
                         fail(`Drawer label mismatch: ${brokenLabel[0]}`);
                         return;
                     }
-                    if (doc.querySelector('#drawer-playback, #drawer-layout, #drawer-interaction, #drawer-trigger-playback, #drawer-trigger-layout, #drawer-trigger-interaction')) {
-                        fail('Removed Playback, Layout, or Interaction wrapper drawer still exists.');
+                    if (doc.querySelector('#drawer-playback, #drawer-layout, #drawer-interaction, #drawer-rhythm, #drawer-trigger-playback, #drawer-trigger-layout, #drawer-trigger-interaction, #drawer-trigger-rhythm')) {
+                        fail('Removed Playback, Layout, Interaction, or Rhythm wrapper drawer still exists.');
                         return;
                     }
                     const topLevelDrawerOrder = Array.from(doc.querySelectorAll('#control-panel > .drawer'))
@@ -173,7 +173,8 @@
                         'drawer-media',
                         'drawer-timing',
                         'drawer-mouse-interaction',
-                        'drawer-rhythm',
+                        'drawer-flicker',
+                        'drawer-blink-mode',
                         'drawer-look',
                         'drawer-save',
                         'drawer-help'

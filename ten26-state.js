@@ -441,10 +441,6 @@ const viewport = document.getElementById('canvas-viewport');
                     'drawer-special-overlays',
                     'drawer-masks'
                 ]);
-                buildDrawerGroup('drawer-rhythm', 'drawer-trigger-rhythm', 'Rhythm', [
-                    'drawer-flicker',
-                    'drawer-blink-mode'
-                ]);
                 buildDrawerGroup('drawer-look', 'drawer-trigger-look', 'Look', [
                     'drawer-bg',
                     'drawer-grid'
@@ -1857,7 +1853,6 @@ const viewport = document.getElementById('canvas-viewport');
             const MODULE_TOOLTIPS = {
                 'drawer-trigger-dot-matrix': 'Layer Lab: all-layer editing and individual layer stacks.',
                 'drawer-trigger-media': 'Load slide artwork, media slides, special overlays, and shared masks.',
-                'drawer-trigger-rhythm': 'Flicker and shared blink rhythm.',
                 'drawer-trigger-look': 'Canvas, background image, stage, and per-layer grid setup.',
                 'drawer-trigger-save': 'Layer presets, non-layer settings, and full project export/import.',
                 'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',

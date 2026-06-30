@@ -2485,10 +2485,11 @@ input[type="range"]::-moz-range-thumb {
 #drawer-media { order: 3; }
 #drawer-timing { order: 4; }
 #drawer-mouse-interaction { order: 5; }
-#drawer-rhythm { order: 6; }
-#drawer-look { order: 7; }
-#drawer-save { order: 8; }
-#drawer-help { order: 9; }
+#drawer-flicker { order: 6; }
+#drawer-blink-mode { order: 7; }
+#drawer-look { order: 8; }
+#drawer-save { order: 9; }
+#drawer-help { order: 10; }
 
 .global-layer-drawer {
     border-color: rgba(0,174,239,0.22);
