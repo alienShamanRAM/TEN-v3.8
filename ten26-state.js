@@ -265,7 +265,7 @@ const viewport = document.getElementById('canvas-viewport');
                 header.append(badge, trigger, forceWrap);
 
                 const content = document.createElement('div');
-                content.className = 'global-layer-content';
+                content.className = 'motion-layer-content global-layer-content';
 
                 const actions = document.createElement('div');
                 actions.className = 'global-layer-actions';

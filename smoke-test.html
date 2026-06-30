@@ -197,6 +197,31 @@
                         fail('Layer Lab or right-panel layout controls are malformed.');
                         return;
                     }
+                    const layerLabDrawer = doc.querySelector('#drawer-dot-matrix');
+                    const layerLabTrigger = doc.querySelector('#drawer-trigger-dot-matrix');
+                    const globalDrawer = doc.querySelector('#global-layer-drawer');
+                    const globalHeader = doc.querySelector('#global-layer-drawer .global-layer-header');
+                    const globalContent = doc.querySelector('#global-layer-drawer .global-layer-content');
+                    doc.querySelector('#control-panel')?.classList.remove('minimized');
+                    if (layerLabDrawer?.classList.contains('collapsed')) {
+                        layerLabTrigger?.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+                    }
+                    const globalStartsOpen = globalDrawer && globalContent &&
+                        !globalDrawer.classList.contains('collapsed') &&
+                        globalContent.classList.contains('motion-layer-content') &&
+                        win.getComputedStyle(globalContent).display !== 'none';
+                    globalHeader?.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+                    const globalCollapsesFromHeader = globalDrawer && globalContent &&
+                        globalDrawer.classList.contains('collapsed') &&
+                        win.getComputedStyle(globalContent).display === 'none';
+                    globalHeader?.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+                    const globalExpandsFromHeader = globalDrawer && globalContent &&
+                        !globalDrawer.classList.contains('collapsed') &&
+                        win.getComputedStyle(globalContent).display !== 'none';
+                    if (!globalStartsOpen || !globalCollapsesFromHeader || !globalExpandsFromHeader) {
+                        fail('All Layers title bar does not collapse and expand like layer drawers.');
+                        return;
+                    }
                     if (doc.querySelector('#slide-grid-attract-time, #grid-attract-return-pull, #transition-flicker-time, #transition-hold-time, #transition-flicker-delay, #transition-grid-time, #transition-return-force-speed, #transition-current-force-speed, #transition-travel-force-speed, #transition-overall-pace')) {
                         fail('Removed timing controls still exist.');
                         return;
