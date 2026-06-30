@@ -63,6 +63,7 @@ function bindEvents() {
                 autoControls.nextTime?.addEventListener('input', syncTimingControlRanges);
                 autoControls.nextFlickerStart?.addEventListener('input', syncTimingControlRanges);
                 [
+                    autoControls.globalSpeed,
                     autoControls.returnGridTime,
                     autoControls.flickerBias,
                     autoControls.flickerSpeed,
@@ -585,6 +586,15 @@ function bindEvents() {
                 });
                 settingsImportFile?.addEventListener('change', event => {
                     importSettingsCollectionFile(event.target.files?.[0]);
+                });
+                projectExportBtn?.addEventListener('click', () => {
+                    exportProjectCollection();
+                });
+                projectImportBtn?.addEventListener('click', () => {
+                    projectImportFile?.click();
+                });
+                projectImportFile?.addEventListener('change', event => {
+                    importProjectCollectionFile(event.target.files?.[0]);
                 });
 
             }

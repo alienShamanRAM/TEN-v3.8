@@ -118,8 +118,43 @@ function getActiveLayerStateFromControls() {
                     entry.videoMissing = true;
                     entry.duration = slide.duration || 0;
                     entry.videoFileName = slide.fileName || slide.name || '';
+                    entry.naturalWidth = slide.naturalWidth || 0;
+                    entry.naturalHeight = slide.naturalHeight || 0;
                 }
                 return entry;
+            }
+
+            function createProjectMediaContext() {
+                return {
+                    mediaAssets: [],
+                    async serializeSlide(slide) {
+                        const entry = serializeSlideEntry(slide);
+                        return stripEmbeddedVideoFromSlideEntry(entry);
+                    }
+                };
+            }
+
+            function addVideoLookupEntry(map, key, slide) {
+                const normalized = String(key || '').trim();
+                if (normalized && !map.has(normalized)) map.set(normalized, slide);
+            }
+
+            function buildCurrentVideoSlideLookup() {
+                const lookup = new Map();
+                slides.forEach(slide => {
+                    if (slide?.type !== 'video') return;
+                    addVideoLookupEntry(lookup, slide.name, slide);
+                    addVideoLookupEntry(lookup, slide.fileName, slide);
+                    addVideoLookupEntry(lookup, slide.videoFileName, slide);
+                });
+                return lookup;
+            }
+
+            function findVideoSlideForEntry(entry, lookup) {
+                return lookup.get(String(entry?.videoFileName || '').trim())
+                    || lookup.get(String(entry?.fileName || '').trim())
+                    || lookup.get(String(entry?.name || '').trim())
+                    || null;
             }
 
             function serializeSpecialOverlayEntry(overlay) {
@@ -136,16 +171,60 @@ function getActiveLayerStateFromControls() {
             function isLoadablePresetSlideEntry(slide) {
                 if (!slide) return false;
                 if (slide.type === 'image') return !!slide.svg && !!slide.imageSrc;
-                if (slide.type === 'video') return false;
+                if (slide.type === 'video') return !!slide.svg && !!(slide.videoSrc || slide.videoDataUrl);
                 return !!slide.svg;
             }
 
             function createSlideFromPresetEntry(slide) {
-                const name = slide.name || slide.fileName || (slide.type === 'image' ? 'Imported Image' : 'Imported SVG');
+                const name = slide.name || slide.fileName || (slide.type === 'video' ? 'Imported Video' : (slide.type === 'image' ? 'Imported Image' : 'Imported SVG'));
                 if (slide.type === 'image') {
                     return createSlide(name, slide.svg || '', { type: 'image', imageSrc: slide.imageSrc || '' });
                 }
+                if (slide.type === 'video') {
+                    const videoSrc = slide.videoSrc || slide.videoDataUrl || '';
+                    const width = parseInt(slide.naturalWidth, 10) || STUDIO_WIDTH;
+                    const height = parseInt(slide.naturalHeight, 10) || STUDIO_HEIGHT;
+                    const duration = parseFloat(slide.duration);
+                    return createSlide(name, slide.svg || createImageRectSvg(width, height), {
+                        type: 'video',
+                        videoSrc,
+                        duration: Number.isFinite(duration) ? duration : 4,
+                        naturalWidth: width,
+                        naturalHeight: height
+                    });
+                }
                 return createSlide(name, slide.svg || '', { type: 'svg' });
+            }
+
+            function buildProjectMediaAssetMap(mediaAssets = []) {
+                return (Array.isArray(mediaAssets) ? mediaAssets : []).reduce((map, asset) => {
+                    if (asset?.id) map.set(asset.id, asset);
+                    return map;
+                }, new Map());
+            }
+
+            function hydrateProjectSlideMedia(slide, mediaAssetMap) {
+                if (!slide || slide.type !== 'video' || slide.videoSrc || slide.videoDataUrl || !slide.videoAssetId) {
+                    return slide;
+                }
+                const asset = mediaAssetMap.get(slide.videoAssetId);
+                if (!asset?.src) return slide;
+                return {
+                    ...slide,
+                    videoSrc: asset.src,
+                    videoMissing: false,
+                    duration: slide.duration || asset.duration || 0,
+                    naturalWidth: slide.naturalWidth || asset.naturalWidth || 0,
+                    naturalHeight: slide.naturalHeight || asset.naturalHeight || 0
+                };
+            }
+
+            function hydrateProjectStateMedia(state, mediaAssetMap) {
+                const next = cloneSerializable(state || {});
+                if (Array.isArray(next.slides)) {
+                    next.slides = next.slides.map(slide => hydrateProjectSlideMedia(slide, mediaAssetMap));
+                }
+                return next;
             }
 
             function cloneDotLayerStates() {
@@ -621,7 +700,7 @@ function getActiveLayerStateFromControls() {
                         .filter(slide => slide && slide.type === 'svg' && !slide.svg && (slide.name || slide.fileName))
                         .map(slide => slide.name || slide.fileName);
                     const missingVideoNames = slideEntries
-                        .filter(slide => slide && slide.type === 'video' && (slide.name || slide.fileName || slide.videoFileName))
+                        .filter(slide => slide && slide.type === 'video' && !isLoadablePresetSlideEntry(slide) && (slide.name || slide.fileName || slide.videoFileName))
                         .map(slide => slide.videoFileName || slide.name || slide.fileName);
                     if (missingVideoNames.length && typeof showUiToast === 'function') {
                         showUiToast(`Preset references video slides that must be re-uploaded: ${missingVideoNames.join(', ')}.`, 'warning');
@@ -700,7 +779,7 @@ function getActiveLayerStateFromControls() {
                     .filter(slide => slide && slide.type === 'svg' && !slide.svg && (slide.name || slide.fileName))
                     .map(slide => slide.name || slide.fileName);
                 const missingVideoNames = slideEntries
-                    .filter(slide => slide && slide.type === 'video' && (slide.name || slide.fileName || slide.videoFileName))
+                    .filter(slide => slide && slide.type === 'video' && !isLoadablePresetSlideEntry(slide) && (slide.name || slide.fileName || slide.videoFileName))
                     .map(slide => slide.videoFileName || slide.name || slide.fileName);
                 if (missingVideoNames.length && typeof showUiToast === 'function') {
                     showUiToast(`Preset references video slides that must be re-uploaded: ${missingVideoNames.join(', ')}.`, 'warning');
@@ -734,12 +813,15 @@ function getActiveLayerStateFromControls() {
             let savedSettings = [];
             let builtInPresetNames = new Set();
             const APP_VERSION = 'ten26-layer-presets-v1';
-            const PRESET_STORAGE_KEY = 'ten26.savedCustomPresets.v3.startupBundle';
+            const PRESET_STORAGE_KEY = 'ten26.savedCustomPresets.v4.jsonStartup';
             const PRESET_STORAGE_MODE = 'layer-preset-list';
             const SETTINGS_VERSION = 'ten26-settings-v1';
-            const SETTINGS_STORAGE_KEY = 'ten26.savedSettings.v1';
+            const SETTINGS_STORAGE_KEY = 'ten26.savedSettings.v2.jsonStartup';
             const SETTINGS_STORAGE_MODE = 'settings-list';
+            const PROJECT_VERSION = 'ten26-project-v1';
+            const PROJECT_STORAGE_MODE = 'full-project';
             let bundledStartupPresets = null;
+            let bundledStartupSettings = null;
 
             function getDefaultAssetBundle() {
                 return window.TEN26_DEFAULT_ASSETS || {};
@@ -752,6 +834,16 @@ function getActiveLayerStateFromControls() {
                 return bundledStartupPresets.map(preset => ({
                     name: preset.name,
                     state: cloneSerializable(preset.state)
+                }));
+            }
+
+            function getBundledStartupSettings() {
+                if (bundledStartupSettings === null) {
+                    bundledStartupSettings = normalizeSettingsCollection(window.TEN26_STARTUP_SETTINGS || []);
+                }
+                return bundledStartupSettings.map(setting => ({
+                    name: setting.name,
+                    state: cloneSerializable(setting.state)
                 }));
             }
 
@@ -872,6 +964,7 @@ function getActiveLayerStateFromControls() {
                     layerOrder: [DEFAULT_LAYER_KEY],
                     svgMediaStackIndex: 1,
                     autoTransition: {
+                        globalSpeed: '100',
                         currentTime: '3',
                         nextTime: '2',
                         returnGridTime: '0',
@@ -928,6 +1021,11 @@ function getActiveLayerStateFromControls() {
 
             function setSettingsStatus(text) {
                 if (settingsStatus) settingsStatus.textContent = text;
+                if (typeof setOverlayStatus === 'function') setOverlayStatus(text);
+            }
+
+            function setProjectStatus(text) {
+                if (projectStatus) projectStatus.textContent = text;
                 if (typeof setOverlayStatus === 'function') setOverlayStatus(text);
             }
 
@@ -992,6 +1090,40 @@ function getActiveLayerStateFromControls() {
                 });
                 if (captureCurrentState && !hasOwnValue(next, 'view') && typeof getViewOptionState === 'function') {
                     next.view = getViewOptionState();
+                }
+                return next;
+            }
+
+            function stripEmbeddedVideoFromSlideEntry(slide) {
+                if (!slide || slide.type !== 'video') return slide;
+                const next = { ...slide };
+                delete next.videoSrc;
+                delete next.videoDataUrl;
+                delete next.videoAssetId;
+                next.videoMissing = true;
+                next.videoFileName = next.videoFileName || next.fileName || next.name || '';
+                return next;
+            }
+
+            function stripEmbeddedVideosFromSettingsSource(state = {}) {
+                if (!state || typeof state !== 'object' || !Array.isArray(state.slides)) return state;
+                return {
+                    ...state,
+                    slides: state.slides.map(stripEmbeddedVideoFromSlideEntry)
+                };
+            }
+
+            function hasEmbeddedVideoSourceInSettings(settingsList = []) {
+                return settingsList.some(setting => Array.isArray(setting?.state?.slides)
+                    && setting.state.slides.some(slide => slide?.type === 'video' && (slide.videoSrc || slide.videoDataUrl || slide.videoAssetId)));
+            }
+
+            function createSettingsStateForStorage(state) {
+                const next = createSettingsState(state === undefined
+                    ? state
+                    : stripEmbeddedVideosFromSettingsSource(state));
+                if (Array.isArray(next.slides)) {
+                    next.slides = next.slides.map(stripEmbeddedVideoFromSlideEntry);
                 }
                 return next;
             }
@@ -1093,8 +1225,41 @@ function getActiveLayerStateFromControls() {
             function serializeSettingsForSave(setting) {
                 return {
                     name: setting.name,
+                    state: createSettingsStateForStorage(setting.state)
+                };
+            }
+
+            async function serializeSettingsForProject(setting, mediaContext, videoLookup) {
+                const next = {
+                    name: setting.name,
                     state: createSettingsState(setting.state)
                 };
+                if (!Array.isArray(next.state.slides)) return next;
+                next.state.slides = await Promise.all(next.state.slides.map(async slide => {
+                    if (!slide || slide.type !== 'video') return slide;
+                    const sourceSlide = (slide.videoSrc || slide.videoDataUrl)
+                        ? slide
+                        : findVideoSlideForEntry(slide, videoLookup);
+                    if (!sourceSlide) return stripEmbeddedVideoFromSlideEntry(slide);
+                    const projectSlide = await mediaContext.serializeSlide({
+                        ...sourceSlide,
+                        name: slide.name || sourceSlide.name,
+                        fileName: slide.fileName || sourceSlide.fileName,
+                        svg: slide.svg || sourceSlide.svg,
+                        duration: slide.duration || sourceSlide.duration,
+                        naturalWidth: slide.naturalWidth || sourceSlide.naturalWidth,
+                        naturalHeight: slide.naturalHeight || sourceSlide.naturalHeight
+                    });
+                    return {
+                        ...stripEmbeddedVideoFromSlideEntry(slide),
+                        videoAssetId: projectSlide.videoAssetId,
+                        videoMissing: projectSlide.videoMissing === true,
+                        duration: slide.duration || projectSlide.duration || 0,
+                        naturalWidth: slide.naturalWidth || projectSlide.naturalWidth || 0,
+                        naturalHeight: slide.naturalHeight || projectSlide.naturalHeight || 0
+                    };
+                }));
+                return next;
             }
 
             function normalizeSettingsCollection(payload) {
@@ -1227,6 +1392,64 @@ function getActiveLayerStateFromControls() {
                     exportedAt: date.toISOString(),
                     settings: getSettingsExportItems()
                 };
+            }
+
+            async function buildProjectCollectionPayload(date = new Date()) {
+                const mediaContext = createProjectMediaContext();
+                const videoLookup = buildCurrentVideoSlideLookup();
+                const state = getCurrentState();
+                state.slides = await Promise.all(slides.map(slide => mediaContext.serializeSlide(slide)));
+                const settings = await Promise.all(getEntriesInSelectOrder(settingsSelect, savedSettings)
+                    .map(setting => serializeSettingsForProject(setting, mediaContext, videoLookup)));
+                return {
+                    app: 'TEN26',
+                    version: PROJECT_VERSION,
+                    storageMode: PROJECT_STORAGE_MODE,
+                    assetMode: 'complete-project',
+                    exportedAt: date.toISOString(),
+                    mediaAssets: mediaContext.mediaAssets,
+                    state,
+                    presets: getPresetExportItems(),
+                    settings
+                };
+            }
+
+            function normalizeProjectPayload(payload) {
+                if (!payload || typeof payload !== 'object') throw new Error('Invalid project payload.');
+                const hasProjectShape = payload.storageMode === PROJECT_STORAGE_MODE || payload.assetMode === 'complete-project' || payload.state;
+                if (!hasProjectShape || !payload.state || typeof payload.state !== 'object') {
+                    throw new Error('No TEN26 project state found.');
+                }
+                const mediaAssetMap = buildProjectMediaAssetMap(payload.mediaAssets || []);
+                return {
+                    state: hydrateProjectStateMedia(payload.state, mediaAssetMap),
+                    presets: normalizeVisiblePresetList(payload.presets || []),
+                    settings: normalizeSettingsCollection((payload.settings || []).map(setting => ({
+                        ...setting,
+                        state: hydrateProjectStateMedia(setting?.state || {}, mediaAssetMap)
+                    })))
+                };
+            }
+
+            function applyProjectPayload(payload) {
+                const project = normalizeProjectPayload(payload);
+                if (project.presets.length) {
+                    presets = project.presets;
+                    savePresetsToStorage();
+                    updatePresetDropdown(0);
+                }
+                savedSettings = project.settings;
+                const settingsHaveEmbeddedMedia = hasEmbeddedVideoSourceInSettings(savedSettings);
+                const settingsSaved = settingsHaveEmbeddedMedia ? false : saveSettingsToStorage();
+                updateSettingsDropdown(0);
+                if (settingsHaveEmbeddedMedia) {
+                    setSettingsStatus('Imported project settings with embedded video media for this session. Project export will save videos as references only.');
+                } else if (!settingsSaved && savedSettings.length) {
+                    setSettingsStatus('Imported project settings for this session. Browser storage is full, so export to keep this list.');
+                }
+                applyState(project.state);
+                setProjectStatus(`Imported project with ${project.presets.length || presets.length} preset${(project.presets.length || presets.length) === 1 ? '' : 's'} and ${project.settings.length} settings item${project.settings.length === 1 ? '' : 's'}.`);
+                if (typeof showUiToast === 'function') showUiToast('Project imported.');
             }
 
             function updateSettingsActionState() {
@@ -1538,6 +1761,53 @@ function getActiveLayerStateFromControls() {
                 reader.readAsText(file);
             }
 
+            async function exportProjectCollection() {
+                const previousDisabled = projectExportBtn?.disabled === true;
+                if (projectExportBtn) projectExportBtn.disabled = true;
+                setProjectStatus('Preparing complete project export...');
+                try {
+                    const payload = await buildProjectCollectionPayload();
+                    const stamp = getLocalDateStamp();
+                    downloadTextFile(`ten26-project-${stamp}.json`, `${JSON.stringify(payload, null, 2)}\n`);
+                    const videoReferences = payload.state.slides.filter(slide => slide.type === 'video').length;
+                    setProjectStatus(`Exported complete project with ${payload.presets.length} preset${payload.presets.length === 1 ? '' : 's'}, ${payload.settings.length} settings item${payload.settings.length === 1 ? '' : 's'}, and ${payload.state.slides.length} slide${payload.state.slides.length === 1 ? '' : 's'}.${videoReferences ? ` ${videoReferences} video${videoReferences === 1 ? '' : 's'} saved as references only.` : ''}`);
+                    if (typeof showUiToast === 'function') {
+                        showUiToast(videoReferences
+                            ? `Project exported. ${videoReferences} video${videoReferences === 1 ? '' : 's'} saved as references only.`
+                            : 'Project exported.');
+                    }
+                } catch (error) {
+                    console.error('Project export failed:', error);
+                    setProjectStatus('Project export failed. Check the console for details.');
+                    if (typeof showUiToast === 'function') showUiToast('Project export failed.', 'warning');
+                } finally {
+                    if (projectExportBtn) projectExportBtn.disabled = previousDisabled;
+                }
+            }
+
+            function importProjectCollectionFile(file) {
+                if (!file) return;
+                const reader = new FileReader();
+                setProjectStatus('Reading project file...');
+                reader.onload = () => {
+                    try {
+                        applyProjectPayload(JSON.parse(String(reader.result || '{}')));
+                    } catch (error) {
+                        console.error('Project import failed:', error);
+                        setProjectStatus('Project import failed. Choose a TEN26 project JSON file.');
+                        if (typeof showUiToast === 'function') showUiToast('Project import failed.', 'warning');
+                    } finally {
+                        if (projectImportFile) projectImportFile.value = '';
+                    }
+                };
+                reader.onerror = () => {
+                    setProjectStatus('Project import failed. The file could not be read.');
+                    if (typeof showUiToast === 'function') showUiToast('Project import failed.', 'warning');
+                    if (projectImportFile) projectImportFile.value = '';
+                };
+                reader.readAsText(file);
+            }
+
             const RETIRED_BUILT_IN_PRESET_NAMES = new Set([
                 'Space Mod',
                 'ram1',
@@ -1801,7 +2071,8 @@ function getActiveLayerStateFromControls() {
             }
 
             function loadSavedSettings() {
-                savedSettings = loadSettingsFromStorage();
+                const stored = loadSettingsFromStorage();
+                savedSettings = stored.length ? stored : getBundledStartupSettings();
                 updateSettingsDropdown(0);
                 setSettingsStatus(savedSettings.length
                     ? `${savedSettings.length} saved settings item${savedSettings.length === 1 ? '' : 's'} loaded.`

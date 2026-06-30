@@ -818,6 +818,7 @@ const viewport = document.getElementById('canvas-viewport');
 
             const autoControls = {
                 status: document.getElementById('auto-transition-status'),
+                globalSpeed: document.getElementById('transition-global-speed'),
                 currentTime: document.getElementById('transition-current-time'),
                 currentFlickerStart: document.getElementById('transition-current-flicker-start'),
                 nextTime: document.getElementById('transition-next-time'),
@@ -873,6 +874,10 @@ const viewport = document.getElementById('canvas-viewport');
             const settingsImportBtn = document.getElementById('settings-import-btn');
             const settingsImportFile = document.getElementById('settings-import-file');
             const settingsStatus = document.getElementById('settings-status');
+            const projectExportBtn = document.getElementById('project-export-btn');
+            const projectImportBtn = document.getElementById('project-import-btn');
+            const projectImportFile = document.getElementById('project-import-file');
+            const projectStatus = document.getElementById('project-status');
             const fullscreenEnterBtn = document.getElementById('fullscreen-enter-btn');
             const fullscreenExitBtn = document.getElementById('fullscreen-exit-btn');
             const viewControls = {
@@ -1608,7 +1613,13 @@ const viewport = document.getElementById('canvas-viewport');
                 const valueIdAliases = {};
                 const indicator = document.getElementById(valueIdAliases[slider.id] || `val-${slider.id}`);
                 if (!indicator) return;
-                const suffix = slider.id.includes('opacity') || slider.id === 'slide-scale' || slider.id === 'image-slide-scale' || slider.id === 'view-scale' ? '%' : '';
+                const suffix = slider.id.includes('opacity') ||
+                    slider.id === 'slide-scale' ||
+                    slider.id === 'image-slide-scale' ||
+                    slider.id === 'view-scale' ||
+                    slider.id === 'transition-global-speed'
+                    ? '%'
+                    : '';
                 indicator.textContent = getControlValue(slider) + suffix;
                 indicator.dataset.prevValue = indicator.textContent;
             }
@@ -1652,6 +1663,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'image-mask-expansion': 'Expand the image slide mask outward from the rectangle edges.',
                 'image-mask-scale-time': 'Seconds used for image-slide masked dots to shrink out or grow back.',
                 'slide-auto-duration': 'Seconds each SVG slide stays visible before automatic advance.',
+                'transition-global-speed': 'Scale transition phases, mask scale time, and flicker cadence together. 100% is normal.',
                 'transition-current-time': 'Length of the current-slide phase.',
                 'transition-current-flicker-start': 'When current-slide flicker starts inside the current phase. The max follows Current Time.',
                 'transition-next-time': 'Length of the next-slide phase.',
@@ -1759,6 +1771,9 @@ const viewport = document.getElementById('canvas-viewport');
                 'settings-export-btn': 'Export the saved settings list to JSON.',
                 'settings-import-btn': 'Import a saved TEN26 settings JSON file.',
                 'settings-import-file': 'Import a saved TEN26 settings JSON file.',
+                'project-export-btn': 'Export the complete TEN26 scene, presets, settings, and media configuration. Videos are references only.',
+                'project-import-btn': 'Import a complete TEN26 project JSON file.',
+                'project-import-file': 'Import a complete TEN26 project JSON file.',
                 'view-fit-btn': 'Fit the full canvas inside the current browser window.',
                 'fullscreen-enter-btn': 'Enter browser fullscreen mode.',
                 'fullscreen-exit-btn': 'Exit browser fullscreen mode.',

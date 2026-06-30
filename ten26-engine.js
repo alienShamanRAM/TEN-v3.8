@@ -10,7 +10,16 @@
             function getMaskScaleDuration(slideType = 'svg') {
                 const controls = getMaskControlsForType(slideType);
                 const value = parseFloat(controls.scaleTime?.value);
-                return clamp(Number.isFinite(value) ? value : 5, 0, 10);
+                return clamp(Number.isFinite(value) ? value : 5, 0, 10) * getGlobalTimingScale();
+            }
+
+            function getGlobalSpeedFactor() {
+                const value = readStateFloat(getControlValue(autoControls?.globalSpeed), 100);
+                return clamp(Number.isFinite(value) ? value : 100, 25, 300) / 100;
+            }
+
+            function getGlobalTimingScale() {
+                return 1 / Math.max(0.01, getGlobalSpeedFactor());
             }
 
             function getMaskCacheKey(slide, mask, slideIndex = currentSlideIndex) {
@@ -2883,6 +2892,7 @@
 
             function getAutoTransitionControlState() {
                 return {
+                    globalSpeed: autoControls.globalSpeed?.value || '100',
                     currentTime: autoControls.currentTime.value,
                     currentFlickerStart: autoControls.currentFlickerStart?.value || '0',
                     nextTime: autoControls.nextTime.value,
@@ -2943,6 +2953,7 @@
             function applyAutoTransitionControlState(state = {}) {
                 const currentTime = pickAutoStateValue(state.currentTime, state.manualSvgTime, state.hold, '3');
                 const nextTime = pickAutoStateValue(state.nextTime, state.travelTime, '2');
+                setControlValue(autoControls.globalSpeed, pickAutoStateValue(state.globalSpeed, state.masterSpeed, state.transitionSpeed, '100'));
                 setControlValue(autoControls.currentTime, currentTime);
                 setControlValue(autoControls.currentFlickerStart, pickAutoStateValue(state.currentFlickerStart, state.flickerDelay, deriveLegacyFlickerStart(currentTime, state), '0'));
                 setControlValue(autoControls.nextTime, nextTime);
@@ -2963,6 +2974,7 @@
 
             function getAutoSettingsCacheKey() {
                 return [
+                    getControlValue(autoControls.globalSpeed),
                     getControlValue(autoControls.currentTime),
                     getControlValue(autoControls.currentFlickerStart),
                     getControlValue(autoControls.nextTime),
@@ -2984,24 +2996,28 @@
             function getAutoSettings() {
                 const cacheKey = getAutoSettingsCacheKey();
                 if (cachedAutoSettings && cachedAutoSettingsKey === cacheKey) return cachedAutoSettings;
+                const globalSpeed = getGlobalSpeedFactor();
+                const timeScale = getGlobalTimingScale();
                 const flickerBias = read(autoControls.flickerBias) / 100;
                 const flickerSpeed = read(autoControls.flickerSpeed);
                 const overlayFlickerSpeed = autoControls.overlayFlickerSpeed ? read(autoControls.overlayFlickerSpeed) : flickerSpeed;
                 const flickerBalance = read(autoControls.flickerBalance) / 100;
                 const flickerWildness = read(autoControls.flickerWildness);
-                const cycleMs = clamp(1000 / Math.max(0.01, flickerSpeed), 30, 1800);
-                const overlayCycleMs = clamp(1000 / Math.max(0.01, overlayFlickerSpeed), 30, 1800);
+                const cycleMs = clamp((1000 / Math.max(0.01, flickerSpeed)) * timeScale, 30, 1800);
+                const overlayCycleMs = clamp((1000 / Math.max(0.01, overlayFlickerSpeed)) * timeScale, 30, 1800);
                 const rawCurrentTime = Math.max(0.1, read(autoControls.currentTime));
                 const rawNextTime = Math.max(0.1, read(autoControls.nextTime));
-                const returnGridTime = clamp(readStateFloat(getControlValue(autoControls.returnGridTime), 0), 0, 8);
-                const currentTime = rawCurrentTime;
-                const nextTime = rawNextTime;
-                const currentFlickerStart = clamp(read(autoControls.currentFlickerStart), 0, rawCurrentTime);
-                const nextFlickerStart = clamp(read(autoControls.nextFlickerStart), 0, rawNextTime);
+                const rawReturnGridTime = clamp(readStateFloat(getControlValue(autoControls.returnGridTime), 0), 0, 8);
+                const currentTime = Math.max(0.02, rawCurrentTime * timeScale);
+                const nextTime = Math.max(0.02, rawNextTime * timeScale);
+                const returnGridTime = Math.max(0, rawReturnGridTime * timeScale);
+                const currentFlickerStart = clamp(read(autoControls.currentFlickerStart), 0, rawCurrentTime) * timeScale;
+                const nextFlickerStart = clamp(read(autoControls.nextFlickerStart), 0, rawNextTime) * timeScale;
                 const currentFlickerWindow = Math.max(0.05, currentTime - currentFlickerStart);
                 const nextFlickerWindow = Math.max(0.05, nextTime - nextFlickerStart);
                 cachedAutoSettingsKey = cacheKey;
                 cachedAutoSettings = {
+                    globalSpeed,
                     currentTime,
                     currentFlickerStart,
                     nextTime,

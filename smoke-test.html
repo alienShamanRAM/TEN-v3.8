@@ -52,6 +52,8 @@
         const legacyStartupPresetNames = ['ram1', 'ram3', 'ram22', 'Ram4', 'ram0', 'ram00', 'ram5', 'ram7', 'ram S', 'ram O', 'ram X', 'eraser', 'ram'];
 
         try {
+            localStorage.removeItem('ten26.savedCustomPresets.v4.jsonStartup');
+            localStorage.removeItem('ten26.savedSettings.v2.jsonStartup');
             localStorage.setItem('ten26.savedCustomPresets.v3.startupBundle', JSON.stringify({
                 app: 'TEN26',
                 version: 'ten26-layer-presets-v1',
@@ -95,7 +97,7 @@
         }
 
         frame.addEventListener('load', () => {
-            setTimeout(() => {
+            setTimeout(async () => {
                 try {
                     const doc = frame.contentDocument;
                     const win = frame.contentWindow;
@@ -105,6 +107,10 @@
                         '#control-panel',
                         '#preset-select',
                         '#settings-select',
+                        '#drawer-project',
+                        '#project-export-btn',
+                        '#project-import-btn',
+                        '#project-import-file',
                         '#svg-slide-layer',
                         '#special-svg-layer'
                     ];
@@ -132,7 +138,8 @@
                         ['#drawer-trigger-special-overlays', 'Special Overlays'],
                         ['#drawer-trigger-timing', 'Timing'],
                         ['#drawer-trigger-advanced-options', 'Advanced Options'],
-                        ['#drawer-trigger-save-settings', 'Save Settings']
+                        ['#drawer-trigger-save-settings', 'Save Settings'],
+                        ['#drawer-trigger-project', 'Project']
                     ];
                     const brokenLabel = labelChecks.find(([selector, expected]) => {
                         const node = doc.querySelector(selector);
@@ -151,6 +158,7 @@
                         return;
                     }
                     const newTransitionControls = [
+                        ['#transition-global-speed', '25', '300'],
                         ['#transition-current-time', '0.1', '8'],
                         ['#transition-current-flicker-start', '0', null],
                         ['#transition-next-time', '0.1', '12'],
@@ -176,10 +184,11 @@
                         return;
                     }
                     const flickerStateReady = typeof win.getAutoTransitionControlState === 'function' &&
+                        win.getAutoTransitionControlState().globalSpeed === doc.querySelector('#transition-global-speed')?.value &&
                         win.getAutoTransitionControlState().flickerSpeed === doc.querySelector('#transition-flicker-speed')?.value &&
                         win.getAutoTransitionControlState().overlayFlickerSpeed === doc.querySelector('#transition-overlay-flicker-speed')?.value;
                     if (!flickerStateReady) {
-                        fail('Separate slide/overlay flicker speed state is missing.');
+                        fail('Global and separate slide/overlay flicker speed state is missing.');
                         return;
                     }
                     const mouseControls = [
@@ -380,7 +389,7 @@
                     const presetOptions = Array.from(doc.querySelector('#preset-select')?.options || []);
                     const presetCount = presetOptions.length;
                     const presetNames = presetOptions.map(option => (option.textContent || '').replace(/^!\s*/, ''));
-                    const startupPresetNames = ['Orbit Confetti-4', 'Pink Spiral Swarm-3', 'Bubble Veil-3', 'Pink Bloom-2', 'Soft Orbit-2', 'Chaos Orbit-2', 'Clean Orbit-2', 'Stacked Orbit-4', 'Soft Comet-1', 'Blue Bloom-1', 'Jitter Shards-1', 'Eraser Storm-7', 'Nebula Scatter-2'];
+                    const startupPresetNames = ['White Orbit Confetti-4', 'Pink Spiral Swarm-3', 'Bubble Veil-3', 'Pink Bloom Rings-3', 'Soft Orbit Duo-2', 'Chaos Orbit Duo-2', 'Clean Orbit Duo-2', 'Stacked Orbit Fields-4', 'Soft Comet Trails-4', 'Blue Bloom Veil-4', 'Jitter Shards-4', 'Eraser Storm-7', 'Nebula Scatter-4', 'Shy Bubble Veil-3', 'Smooth Ribbon Drift-2', 'Bouncy Ribbon Scatter-2', 'Flat Pink Blue Stack-5', 'Big Circle Drift-3', 'Flat Target Stack-5', 'Layered Ribbon Stack-6', 'Tall Pink Blue Stack-5', 'Seven Layer Orbit Stack-7', 'Seven Layer Fill Storm-7', 'Clean Target Trails-3', 'Varied Ribbon Columns-4', 'Tall Ring Columns-5', 'Pink Blue Ribbon Columns-5', 'Random Color Storm-5', 'Dense Random Bloom-5', 'Slow Map Specks-5', 'Small Swarm Ram-5', 'Bigger Swarm Ram-5', 'High Energy Swarm-5', 'Experimental Swarm-5', 'Circle Storm-5', 'Swarm Circles-5'];
                     const hasOnlyStartupPresets = presetNames.length === startupPresetNames.length &&
                         startupPresetNames.every((name, index) => presetNames[index] === name) &&
                         legacyStartupPresetNames.every(name => !presetNames.includes(name));
@@ -400,6 +409,32 @@
                         : null;
                     if (!settingsExportPayload || settingsExportPayload.storageMode !== 'settings-list' || !Array.isArray(settingsExportPayload.settings)) {
                         fail('Settings export payload is not available.');
+                        return;
+                    }
+                    const settingsNames = Array.from(doc.querySelector('#settings-select')?.options || []).map(option => option.textContent || '');
+                    const startupSettingsNames = ['Static Overlay Sequence', 'Video Mix Sequence', 'Video Alt Sequence'];
+                    const hasStartupSettings = settingsNames.length === startupSettingsNames.length &&
+                        startupSettingsNames.every((name, index) => settingsNames[index] === name);
+                    const projectExportPayload = typeof win.buildProjectCollectionPayload === 'function'
+                        ? await win.buildProjectCollectionPayload(new Date('2026-01-02T03:04:05.000Z'))
+                        : null;
+                    const projectExportReady = projectExportPayload?.storageMode === 'full-project' &&
+                        projectExportPayload.assetMode === 'complete-project' &&
+                        Array.isArray(projectExportPayload.mediaAssets) &&
+                        Array.isArray(projectExportPayload.presets) &&
+                        Array.isArray(projectExportPayload.settings) &&
+                        Array.isArray(projectExportPayload.state?.slides) &&
+                        projectExportPayload.presets.length === presetNames.length &&
+                        projectExportPayload.settings.length === settingsNames.length &&
+                        projectExportPayload.mediaAssets.length === 0 &&
+                        !/"videoSrc"|"videoDataUrl"/.test(JSON.stringify(projectExportPayload)) &&
+                        projectExportPayload.state.specialOverlays;
+                    if (!hasStartupSettings) {
+                        fail(`Startup settings did not load from JSON folder: ${settingsNames.join(', ')}`);
+                        return;
+                    }
+                    if (!projectExportReady) {
+                        fail('Full project export payload is not available.');
                         return;
                     }
                     const motionLayerCount = doc.querySelectorAll('#motion-matrix-panel .motion-layer-drawer').length;
