@@ -644,7 +644,9 @@ function bindEvents() {
             createDefaultPresets();
             loadSavedSettings();
             applyState(defaultState());
-            applyLayerPresetState(getStartupPresetState());
+            if (typeof hasBundledStartupProjectState !== 'function' || !hasBundledStartupProjectState()) {
+                applyLayerPresetState(getStartupPresetState());
+            }
             syncFrameInterval();
             updateDrawerTitleStates();
             updateFullscreenUi();

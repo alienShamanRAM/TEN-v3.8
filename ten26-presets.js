@@ -822,9 +822,30 @@ function getActiveLayerStateFromControls() {
             const PROJECT_STORAGE_MODE = 'full-project';
             let bundledStartupPresets = null;
             let bundledStartupSettings = null;
+            let bundledStartupProjectChecked = false;
+            let bundledStartupProjectState = null;
 
             function getDefaultAssetBundle() {
                 return window.TEN26_DEFAULT_ASSETS || {};
+            }
+
+            function getBundledStartupProjectState() {
+                if (!bundledStartupProjectChecked) {
+                    bundledStartupProjectChecked = true;
+                    const project = getDefaultAssetBundle().project || window.TEN26_STARTUP_PROJECT;
+                    if (project && typeof project === 'object') {
+                        try {
+                            bundledStartupProjectState = normalizeProjectPayload(project).state;
+                        } catch (error) {
+                            console.warn('Skipped invalid startup project:', error);
+                        }
+                    }
+                }
+                return bundledStartupProjectState ? cloneSerializable(bundledStartupProjectState) : null;
+            }
+
+            function hasBundledStartupProjectState() {
+                return Boolean(getBundledStartupProjectState());
             }
 
             function getBundledStartupPresets() {
@@ -958,6 +979,8 @@ function getActiveLayerStateFromControls() {
             }
 
             function defaultState() {
+                const startupProjectState = getBundledStartupProjectState();
+                if (startupProjectState) return startupProjectState;
                 const defaultSlides = cloneDefaultSlidesState();
                 return {
                     activeLayerKey: DEFAULT_LAYER_KEY,
