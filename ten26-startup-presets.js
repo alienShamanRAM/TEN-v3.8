@@ -1,10 +1,11 @@
-// TEN26 bundled startup presets and settings generated from default/ten26-presets-2026-06-30 (1).json and default/ten26-settings-2026-06-30 (1).json.
+// TEN26 bundled startup presets generated from /Users/ram/Downloads/ten26-presets-2026-06-30 (1).json; settings preserved from app bundle.
+window.TEN26_STARTUP_PRESET_NAME = "QUANTUM RAM";
 window.TEN26_STARTUP_PRESETS = {
   "app": "TEN26",
   "version": "ten26-layer-presets-v1",
   "storageMode": "layer-preset-list",
   "assetMode": "layers-only",
-  "exportedAt": "2026-06-30T11:54:14.603Z",
+  "exportedAt": "2026-06-30T12:28:17.860Z",
   "presets": [
     {
       "name": "White Orbit Confetti-4",
@@ -15768,6 +15769,700 @@ window.TEN26_STARTUP_PRESETS = {
             "randomMax": "100"
           },
           "dot-layer-5-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          }
+        },
+        "randomLocks": []
+      }
+    },
+    {
+      "name": "QUANTUM RAM",
+      "state": {
+        "presetType": "layers",
+        "activeLayerKey": "layer-3",
+        "layerOrder": [
+          "layer-6",
+          "layer-4",
+          "layer-7",
+          "layer-1",
+          "layer-2",
+          "layer-5",
+          "layer-3"
+        ],
+        "svgMediaStackIndex": 7,
+        "dotLayers": {
+          "layer-6": {
+            "name": "Layer 2 Copy Copy",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "path",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "0",
+            "shuffle": "100",
+            "variation": "100",
+            "returnPull": "0.45",
+            "pull": "0.16",
+            "svgRadius": "580",
+            "gridRadius": "190",
+            "orbit": "2",
+            "gridSize": "3",
+            "midSize": "2.7",
+            "targetSize": "2.6",
+            "sizeMidpoint": "0.5",
+            "speedSize": "-10",
+            "gridColor": "#ffffff",
+            "midColor": "#ffffff",
+            "targetColor": "#ffffff",
+            "targetTypes": [
+              "path"
+            ]
+          },
+          "layer-4": {
+            "name": "Layer 2 Copy",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "path",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "100",
+            "shuffle": "100",
+            "variation": "100",
+            "returnPull": "0.45",
+            "pull": "1",
+            "svgRadius": "410",
+            "gridRadius": "1000",
+            "orbit": "2",
+            "gridSize": "3",
+            "midSize": "9.8",
+            "targetSize": "1.5",
+            "sizeMidpoint": "0.5",
+            "speedSize": "-10",
+            "gridColor": "#02006c",
+            "midColor": "#ffffff",
+            "targetColor": "#ffc5f4",
+            "targetTypes": [
+              "path"
+            ]
+          },
+          "layer-7": {
+            "name": "Layer 2 Copy Copy 2",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "path",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "0",
+            "shuffle": "100",
+            "variation": "0",
+            "returnPull": "0.45",
+            "pull": "1",
+            "svgRadius": "410",
+            "gridRadius": "1000",
+            "orbit": "0",
+            "gridSize": "3",
+            "midSize": "1",
+            "targetSize": "2.6",
+            "sizeMidpoint": "0.5",
+            "speedSize": "-10",
+            "gridColor": "#02006c",
+            "midColor": "#ffc5f4",
+            "targetColor": "#ffffff",
+            "targetTypes": [
+              "path"
+            ]
+          },
+          "layer-1": {
+            "name": "Layer 1",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "anchor",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "0",
+            "shuffle": "100",
+            "variation": "0",
+            "returnPull": "0.53",
+            "pull": "0.76",
+            "svgRadius": "100",
+            "gridRadius": "770",
+            "orbit": "0",
+            "gridSize": "1",
+            "midSize": "6.9",
+            "targetSize": "2.3",
+            "sizeMidpoint": "0.5",
+            "speedSize": "-10",
+            "gridColor": "#02006c",
+            "midColor": "#ffc5f4",
+            "targetColor": "#ffffff",
+            "targetTypes": [
+              "anchor"
+            ]
+          },
+          "layer-2": {
+            "name": "Layer 2",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "path",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "0",
+            "shuffle": "100",
+            "variation": "0",
+            "returnPull": "0.28",
+            "pull": "1",
+            "svgRadius": "410",
+            "gridRadius": "1000",
+            "orbit": "0",
+            "gridSize": "1",
+            "midSize": "2",
+            "targetSize": "3.2",
+            "sizeMidpoint": "0.5",
+            "speedSize": "-10",
+            "gridColor": "#02006c",
+            "midColor": "#ffc5f4",
+            "targetColor": "#ffffff",
+            "targetTypes": [
+              "path"
+            ]
+          },
+          "layer-5": {
+            "name": "Layer 3 Copy",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "fill",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "0",
+            "shuffle": "100",
+            "variation": "1",
+            "returnPull": "0.54",
+            "pull": "1",
+            "svgRadius": "495",
+            "gridRadius": "590",
+            "orbit": "0",
+            "gridSize": "3.8",
+            "midSize": "15",
+            "targetSize": "1",
+            "sizeMidpoint": "0.13",
+            "speedSize": "-10",
+            "gridColor": "#02006c",
+            "midColor": "#02006c",
+            "targetColor": "#ffc5f4",
+            "targetTypes": [
+              "fill"
+            ]
+          },
+          "layer-3": {
+            "name": "Layer 3",
+            "hidden": false,
+            "cols": "25",
+            "rows": "7",
+            "spacing": "42",
+            "offsetX": "0",
+            "offsetY": "110",
+            "targetType": "fill",
+            "mass": "6.1",
+            "friction": "100",
+            "speedLimit": "9",
+            "elasticity": "0",
+            "shuffle": "100",
+            "variation": "0",
+            "returnPull": "1",
+            "pull": "1",
+            "svgRadius": "495",
+            "gridRadius": "590",
+            "orbit": "0.07",
+            "gridSize": "1",
+            "midSize": "100",
+            "targetSize": "1",
+            "sizeMidpoint": "0.5",
+            "speedSize": "-10",
+            "gridColor": "#ffc5f4",
+            "midColor": "#02006c",
+            "targetColor": "#02006c",
+            "targetTypes": [
+              "fill"
+            ]
+          }
+        },
+        "randomRanges": {
+          "dot-layer-1-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-1-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-1-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-1-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-1-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-1-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-1-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-1-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-1-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-1-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-1-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-1-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-1-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-1-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-1-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-1-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-2-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-2-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-2-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-2-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-2-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-2-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-2-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-2-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-2-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-2-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-2-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-2-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-2-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-2-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-2-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-2-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-3-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-3-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-3-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-3-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-3-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-3-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-3-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-3-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-3-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-3-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-3-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-3-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-3-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-3-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-3-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-3-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-4-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-4-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-4-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-4-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-4-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-4-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-4-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-4-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-4-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-4-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-4-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-4-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-4-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-4-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-4-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-4-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-5-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-5-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-5-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-5-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-5-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-5-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-5-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-5-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-5-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-5-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-5-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-5-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-5-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-5-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-5-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-5-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-6-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-6-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-6-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-6-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-6-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-6-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-6-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-6-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-6-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-6-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-6-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-6-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-6-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-6-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-6-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-6-target-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-7-size-midpoint": {
+            "randomMin": "0.05",
+            "randomMax": "0.95"
+          },
+          "dot-layer-7-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-7-svg-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-7-speed-size": {
+            "randomMin": "-10",
+            "randomMax": "10"
+          },
+          "dot-layer-7-return-pull": {
+            "randomMin": "0.1",
+            "randomMax": "1"
+          },
+          "dot-layer-7-grid-radius": {
+            "randomMin": "100",
+            "randomMax": "1000"
+          },
+          "dot-layer-7-speed-limit": {
+            "randomMin": "0.5",
+            "randomMax": "120"
+          },
+          "dot-layer-7-mass": {
+            "randomMin": "1",
+            "randomMax": "10"
+          },
+          "dot-layer-7-friction": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-7-elasticity": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-7-orbit": {
+            "randomMin": "-2",
+            "randomMax": "2"
+          },
+          "dot-layer-7-shuffle": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-7-variation": {
+            "randomMin": "0",
+            "randomMax": "100"
+          },
+          "dot-layer-7-grid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-7-mid-size": {
+            "randomMin": "1",
+            "randomMax": "100"
+          },
+          "dot-layer-7-target-size": {
             "randomMin": "1",
             "randomMax": "100"
           }

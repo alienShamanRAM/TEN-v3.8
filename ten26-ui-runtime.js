@@ -644,7 +644,10 @@ function bindEvents() {
             createDefaultPresets();
             loadSavedSettings();
             applyState(defaultState());
-            if (typeof hasBundledStartupProjectState !== 'function' || !hasBundledStartupProjectState()) {
+            const applyStartupPreset = typeof shouldApplyStartupLayerPreset === 'function'
+                ? shouldApplyStartupLayerPreset()
+                : (typeof hasBundledStartupProjectState !== 'function' || !hasBundledStartupProjectState());
+            if (applyStartupPreset) {
                 applyLayerPresetState(getStartupPresetState());
             }
             syncFrameInterval();

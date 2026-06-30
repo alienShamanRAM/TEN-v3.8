@@ -1851,27 +1851,25 @@ const viewport = document.getElementById('canvas-viewport');
             };
 
             const MODULE_TOOLTIPS = {
-                'drawer-trigger-dot-matrix': 'Layer Lab: all-layer editing and individual layer stacks.',
-                'drawer-trigger-media': 'Load slide artwork, media slides, special overlays, and shared masks.',
-                'drawer-trigger-look': 'Canvas, background image, stage, and per-layer grid setup.',
-                'drawer-trigger-save': 'Layer presets, non-layer settings, and full project export/import.',
-                'drawer-trigger-upload-media': 'Load vector and raster slide sources, plus shared grid masking.',
-                'drawer-trigger-timing': 'Slide timing, auto advance, current/next phases, and flicker start delays.',
-                'drawer-trigger-mouse-interaction': 'Left mouse targets SVG dots; right mouse repels dots.',
-                'drawer-trigger-advanced-options': 'Grid layout, flicker visuals, and shared blink behavior.',
-                'drawer-trigger-grid': 'Dot count, spacing, and layer offsets.',
-                'drawer-trigger-masks': 'Vector and raster grid-mask expansion and timing.',
-                'drawer-trigger-blink-mode': 'Shared dot visibility across all grids.',
-                'drawer-trigger-slides': 'Vector SVG artwork used as dot targets.',
-                'drawer-trigger-image-slides': 'Raster images and videos used as rectangular dot targets.',
-                'drawer-trigger-special-overlays': 'Top-layer SVG overlays assigned to individual slide numbers.',
-                'drawer-trigger-slide-control': 'Direct slide navigation and current slide inspection.',
-                'drawer-trigger-flicker': 'Visual flicker rhythm, balance, wildness, and old/new bias.',
-                'drawer-trigger-background': 'Canvas color, canvas size, app backdrop, and optional image layer.',
-                'drawer-trigger-help': 'Manual for controls, shortcuts, and workflow.',
-                'drawer-trigger-presets': 'Save and restore layer stacks, random limits, and layer locks.',
-                'drawer-trigger-save-settings': 'Save and restore non-layer settings while keeping layer values untouched.',
-                'drawer-trigger-view-options': 'Preview scale, frame cap, fullscreen, and info overlay.'
+                'drawer-trigger-dot-matrix': 'Layer Lab: edit every layer together, then refine individual layer stacks.',
+                'drawer-trigger-media': 'Media: vector slides, raster slides, special overlays, and grid masking.',
+                'drawer-trigger-look': 'Look: background image, canvas color, stage size, app backdrop, and grid setup.',
+                'drawer-trigger-save': 'Save: layer presets, non-layer settings, and full project import/export.',
+                'drawer-trigger-timing': 'Timing: global speed, current/next phases, flicker starts, and auto duration.',
+                'drawer-trigger-mouse-interaction': 'Mouse Interaction: left hold pulls SVG targets; right hold repels dots.',
+                'drawer-trigger-grid': 'Grid: columns, rows, spacing, and offsets per active layer.',
+                'drawer-trigger-masks': 'Grid Masking: shrink grid homes inside vector or raster artwork.',
+                'drawer-trigger-blink-mode': 'Blink: shared dot visibility timing across active layers.',
+                'drawer-trigger-slides': 'Vector: SVG artwork used as slide targets.',
+                'drawer-trigger-image-slides': 'Raster: images and videos used as rectangular slide targets.',
+                'drawer-trigger-special-overlays': 'Special Overlays: top-layer SVGs assigned to slide numbers.',
+                'drawer-trigger-flicker': 'Flicker: slide and overlay pulse speed, balance, wildness, and old/new bias.',
+                'drawer-trigger-background': 'Look controls for image layer, canvas color, stage size, and app backdrop.',
+                'drawer-trigger-help': 'Help, tooltip toggle, shortcuts, workflow notes, and creative-use guidance.',
+                'drawer-trigger-presets': 'Presets: save and restore layer stacks, random limits, and locks.',
+                'drawer-trigger-save-settings': 'Save Settings: store non-layer setup while preserving layer values.',
+                'drawer-trigger-view-options': 'View Options: preview zoom, frame cap, fullscreen, and info overlay.',
+                'drawer-trigger-project': 'Project: export or import the complete TEN26 scene.'
             };
 
             const SECTION_TOOLTIPS = {
@@ -1914,14 +1912,14 @@ const viewport = document.getElementById('canvas-viewport');
                 'header-auto-btn': 'Automatically advance using the current slide source duration.',
                 'matrix-open-all': 'Expand all grid-layer drawers.',
                 'matrix-collapse-all': 'Collapse all grid-layer drawers.',
-                'matrix-randomize-all': 'Randomize only unlocked values inside the grid-layer stack.',
-                'matrix-copy-above': 'Copy the selected grid layer above its current position.',
-                'matrix-copy-below': 'Copy the selected grid layer below its current position.',
+                'matrix-randomize-all': 'Randomize every unlocked value within its saved min/max limits.',
+                'matrix-copy-above': 'Duplicate the selected layer above it so you can iterate from the same values.',
+                'matrix-copy-below': 'Duplicate the selected layer below it so you can iterate from the same values.',
                 'svg-media-stack-up': 'Move SVG/media above the next grid layer.',
                 'svg-media-stack-down': 'Move SVG/media below the next grid layer.',
                 'grid-apply-all': 'Apply the selected layer layout to every active layer.',
-                'preset-apply-btn': 'Apply the selected layer preset without changing timing, masks, blink, mouse, media, or background.',
-                'preset-add-btn': 'Save the current layer stack as a new preset.',
+                'preset-apply-btn': 'Apply the selected layer stack without changing timing, masks, blink, mouse, media, or background.',
+                'preset-add-btn': 'Save the current layer stack, locks, and random limits as a new preset.',
                 'preset-delete-btn': 'Delete the selected preset unless it is the last one.',
                 'preset-export-btn': 'Export the current preset list to JSON.',
                 'preset-import-btn': 'Import a saved TEN26 preset JSON file.',
@@ -1938,7 +1936,7 @@ const viewport = document.getElementById('canvas-viewport');
                 'view-fit-btn': 'Fit the full canvas inside the current browser window.',
                 'fullscreen-enter-btn': 'Enter browser fullscreen mode.',
                 'fullscreen-exit-btn': 'Exit browser fullscreen mode.',
-                'help-tooltips-enabled': 'Show native browser tooltips.'
+                'help-tooltips-enabled': 'Show or hide native browser tooltips.'
             };
 
             ALL_DOT_LAYER_KEYS.forEach(layerKey => {
@@ -1975,11 +1973,11 @@ const viewport = document.getElementById('canvas-viewport');
                 CONTROL_TOOLTIPS[`dot-${layerKey}-target-type`] = `${label}: SVG points this layer follows.`;
                 CONTROL_TOOLTIPS[`motion-trigger-${layerKey}`] = `${label} layer motion physics.`;
                 CONTROL_TOOLTIPS[`motion-toggle-layer-${layerKey}`] = `Show or hide the ${label} grid layer.`;
-                CONTROL_TOOLTIPS[`motion-randomize-${layerKey}`] = `${label}: randomize unlocked layer-stack values.`;
-                CONTROL_TOOLTIPS[`motion-randomize-text-${layerKey}`] = `${label}: randomize unlocked layer-stack values.`;
-                CONTROL_TOOLTIPS[`motion-lock-${layerKey}`] = `${label}: lock all layer-stack values for randomize.`;
-                CONTROL_TOOLTIPS[`motion-unlock-${layerKey}`] = `${label}: unlock all layer-stack values.`;
-                CONTROL_TOOLTIPS[`motion-reset-${layerKey}`] = `${label}: reset layer randomization limits.`;
+                CONTROL_TOOLTIPS[`motion-randomize-${layerKey}`] = `${label}: randomize unlocked values inside their min/max limits.`;
+                CONTROL_TOOLTIPS[`motion-randomize-text-${layerKey}`] = `${label}: randomize unlocked values inside their min/max limits.`;
+                CONTROL_TOOLTIPS[`motion-lock-${layerKey}`] = `${label}: lock all layer-stack values so Random cannot change them.`;
+                CONTROL_TOOLTIPS[`motion-unlock-${layerKey}`] = `${label}: unlock all layer-stack values for Random.`;
+                CONTROL_TOOLTIPS[`motion-reset-${layerKey}`] = `${label}: clear saved random min/max limits.`;
                 CONTROL_TOOLTIPS[`motion-delete-${layerKey}`] = `${label}: delete this layer.`;
             });
 

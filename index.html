@@ -288,19 +288,23 @@
                 </div>
                 <section>
                     <h3>Shortcuts</h3>
-                    <p>Up hides the UI. Down restores it. Left and Right perform slide flicker. Space attracts dots to the current slide. Esc stops flicker.</p>
+                    <p>Left and Right start the slide advance and flicker flow. Space attracts dots to the current slide while held. Up hides the UI, Down restores it, and Esc stops an active transition.</p>
                 </section>
                 <section>
                     <h3>Overview</h3>
-                    <p>TEN26 animates active grid layers between grid homes and slide targets on one shared stage. Layer Lab controls the dot layers, View Options controls preview scale and display feedback, Media supplies vector and raster sources, Timing controls slideshow motion, Flicker controls visual pulses, Blink controls shared dot visibility, Look controls canvas appearance and grid setup, and Save handles presets, settings, and full projects.</p>
+                    <p>TEN26 animates active dot layers between grid homes, SVG targets, raster targets, and special overlays on one shared stage. The main drawers are Layer Lab, View Options, Media, Timing, Mouse Interaction, Flicker, Blink, Look, Save, and Help.</p>
                 </section>
                 <section>
                     <h3>Header Controls</h3>
-                    <p>Left arrow or keyboard Left immediately goes to the previous slide. Right arrow or keyboard Right immediately goes to the next slide. The center hold button or Space attracts dots to the current slide while held. Keyboard Up hides the UI, and keyboard Down restores it. The fast-forward button runs automatic slide changes using the current slide source duration.</p>
+                    <p>The left and right header buttons start the same slide advance flow as the keyboard arrows. The center hold button and Space pull active dots into the current slide target. The fast-forward button runs automatic slide changes using SVG or media duration.</p>
                 </section>
                 <section>
                     <h3>Layer Lab</h3>
-                    <p>Layer Lab starts with All Layers, a batch editor that pushes motion, size, color, and target values into every active layer, including hidden layers. Force lets it overwrite locked values. Below it, each layer keeps the dense horizontal stack for visibility, copy, rename, delete, reorder, target type, colors, size, and motion.</p>
+                    <p>Layer Lab starts with All Layers, a batch editor that pushes motion, size, color, and target values into every active layer, including hidden layers. Force lets it overwrite locked values. Each layer keeps controls for visibility, copy above, copy below, rename, delete, reorder, target type, colors, size, and motion.</p>
+                </section>
+                <section class="creative-use">
+                    <h3>Creative Use</h3>
+                    <p>Work iteratively. Shape one layer, copy it above or below, then offset the copy with target type, spacing, pull, radius, orbit, size, or color. Use All Layers to unify values across the whole stack, then break only the layers that need character. Lock values you want protected, set random limits around the values that should move, and use Random to explore inside those limits instead of destroying the system. Save the strongest layer stack as a preset, then keep iterating from it.</p>
                 </section>
                 <section>
                     <h3>View Options</h3>
@@ -327,6 +331,10 @@
                     <p>Timing controls the two slide phases. Current Time sends dots to the current slide, Next Time sends them to the next slide, and each Flicker Start slider chooses when that phase begins flickering. After the next phase, dots release back to the grid using the layer values.</p>
                 </section>
                 <section>
+                    <h3>Mouse Interaction</h3>
+                    <p>Mouse Interaction is a main drawer. Left hold pulls a limited set of SVG target dots toward the pointer. Right hold repels dots inside the radius. Strength, target count, radius, softness, and scroll step tune how direct or loose the pointer feels.</p>
+                </section>
+                <section>
                     <h3>Grid</h3>
                     <p>Grid lives inside Look. It sets columns, rows, spacing, and X/Y offset for each active layer. Apply To All copies the selected layer grid setup to every active layer.</p>
                 </section>
@@ -344,11 +352,11 @@
                 </section>
                 <section>
                     <h3>Presets</h3>
-                    <p>Add Preset saves the current grid layer stack and random limits. The X removes the selected preset unless it is the last one. Export writes all presets to JSON. Import loads a saved preset file and replaces the current list.</p>
+                    <p>Presets store layer stacks, layer order, random limits, and layer locks. Apply changes layers only, keeping timing, media, masks, blink, mouse, and background intact. Export writes the preset list to JSON. Import replaces the visible preset list.</p>
                 </section>
                 <section>
                     <h3>Save Settings</h3>
-                    <p>Save Settings stores timing, media, masks, special overlays, background, mouse, blink, stage, and view options. It keeps grid layer values untouched; use Presets for layer stacks.</p>
+                    <p>Save Settings stores timing, media, masks, special overlays, background, mouse, blink, stage, and view options. Apply keeps layer values untouched; use Presets for the layer stack itself.</p>
                 </section>
                 <section>
                     <h3>Project</h3>

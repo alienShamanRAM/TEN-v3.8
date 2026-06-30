@@ -1311,6 +1311,11 @@ input:disabled {
     font-size: 11px;
     line-height: 1.45;
 }
+.help-content .creative-use,
+.help-content .creative-use h3,
+.help-content .creative-use p {
+    color: rgba(255,255,255,0.94);
+}
 .help-signature {
     margin-top: 12px;
     text-align: right;

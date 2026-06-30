@@ -848,6 +848,15 @@ function getActiveLayerStateFromControls() {
                 return Boolean(getBundledStartupProjectState());
             }
 
+            function getExplicitStartupPresetName() {
+                const configuredName = String(window.TEN26_STARTUP_PRESET_NAME || getDefaultAssetBundle().startupPresetName || '').trim();
+                return configuredName ? normalizePresetName(configuredName, '') : '';
+            }
+
+            function shouldApplyStartupLayerPreset() {
+                return Boolean(getExplicitStartupPresetName()) || !hasBundledStartupProjectState();
+            }
+
             function getBundledStartupPresets() {
                 if (bundledStartupPresets === null) {
                     bundledStartupPresets = normalizePresetCollection(window.TEN26_STARTUP_PRESETS || []);
@@ -2103,6 +2112,12 @@ function getActiveLayerStateFromControls() {
             }
 
             function getStartupPresetState() {
-                const preset = presets.find(entry => builtInPresetNames.has(entry?.name)) || buildDefaultPresets()[0] || presets[0];
+                const startupName = getExplicitStartupPresetName().toLowerCase();
+                const explicitPreset = startupName
+                    ? presets.find(entry => normalizePresetName(entry?.name, '').toLowerCase() === startupName)
+                    : null;
+                const preset = explicitPreset || presets.find(entry => builtInPresetNames.has(entry?.name)) || buildDefaultPresets()[0] || presets[0];
+                const presetIndex = presets.indexOf(preset);
+                if (presetIndex >= 0 && presetSelect) updatePresetDropdown(presetIndex);
                 return cloneSerializable(preset?.state || defaultState());
             }
